@@ -16,6 +16,11 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": ["@web-app/source"]
+    "customConditions": ["@web-app/source"],
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@web-app/contracts": ["packages/contracts/src/index.ts"]
+    }
   }
 }

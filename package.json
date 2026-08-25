@@ -10,16 +10,20 @@
   "private": true,
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@nx/js": "23.1.1",
+    "@nx/js": "^22.6.5",
     "@swc/helpers": "~0.5.18",
     "eslint": "^10.8.1",
-    "nx": "23.1.1",
+    "nx": "^22.6.5",
     "prettier": "~3.6.2",
     "tslib": "^2.3.0",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.67.0"
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.11"
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
 }
