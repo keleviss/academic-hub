@@ -9,7 +9,7 @@
       "executor": "nx:run-commands",
       "outputs": [],
       "options": {
-        "command": "tsc -p apps/api/tsconfig.app.json --noEmit"
+        "command": "prisma generate --config prisma.config.ts && tsc -p apps/api/tsconfig.app.json --noEmit"
       }
     },
     "lint": {
@@ -28,6 +28,37 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "vitest run --config apps/api/vitest.config.ts"
+      }
+    },
+    "prisma-generate": {
+      "executor": "nx:run-commands",
+      "outputs": [],
+      "options": {
+        "command": "prisma generate --config prisma.config.ts"
+      }
+    },
+    "prisma-validate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma validate --config prisma.config.ts"
+      }
+    },
+    "prisma-format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma format --config prisma.config.ts"
+      }
+    },
+    "prisma-migrate-dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate dev --config prisma.config.ts"
+      }
+    },
+    "prisma-seed": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma db seed --config prisma.config.ts"
       }
     }
   }

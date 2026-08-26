@@ -19,6 +19,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.3.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@types/supertest": "^7.2.1",
@@ -28,6 +29,7 @@
     "jsdom": "^30.0.1",
     "nx": "^22.6.5",
     "prettier": "~3.6.2",
+    "prisma": "^7.10.0",
     "supertest": "^7.2.2",
     "tslib": "^2.3.0",
     "tsx": "^4.23.12",
@@ -39,6 +41,8 @@
     "packages/*"
   ],
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.102.6",
     "@vitejs/plugin-react": "^6.1.0",
@@ -46,6 +50,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router": "^8.3.0",

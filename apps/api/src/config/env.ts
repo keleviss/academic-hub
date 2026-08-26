@@ -7,6 +7,11 @@ const EnvSchema = z.object({
   API_SERVICE_NAME: z.string().min(1).default('api'),
   API_VERSION: z.string().min(1).optional(),
   CORS_ORIGIN: z.string().min(1).default('http://localhost:4200'),
+  DATABASE_URL: z
+    .url()
+    .default(
+      'postgresql://uniwa:uniwa_dev_password@localhost:5432/uniwa_thesis',
+    ),
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
     .default('development'),

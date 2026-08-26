@@ -1,0 +1,675 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  admin
+  professor
+  student
+}
+
+enum EnrollmentStatus {
+  active
+  inactive
+  completed
+}
+
+enum CourseInstructorRole {
+  owner
+  assistant
+}
+
+enum DocumentStatus {
+  active
+  replaced
+  deleted
+}
+
+enum DocumentVisibility {
+  visible_to_students
+  hidden_from_students
+}
+
+enum ForumCategoryKind {
+  general
+  document_discussion
+  archived_document_discussion
+}
+
+enum ForumThreadStatus {
+  open
+  instructor_answered
+  verified
+  resolved
+  archived
+}
+
+enum DifficultyLevel {
+  low
+  medium
+  high
+}
+
+enum CompletionRule {
+  manual
+  self_check
+  view_resource
+}
+
+enum RoadmapProgressStatus {
+  not_started
+  in_progress
+  completed
+  needs_review
+}
+
+enum RoadmapResourceType {
+  document_page
+  document_section
+  external_url
+  text_note
+}
+
+enum AnnotationType {
+  highlight
+  note
+  question
+  important
+  confusing
+}
+
+enum AnnotationVisibility {
+  private
+  public
+  instructor_only
+}
+
+enum ThreadLinkType {
+  duplicate
+  related
+}
+
+enum SelfCheckType {
+  single_choice
+  multiple_choice
+  completion_ack
+}
+
+enum SelfCheckAttemptStatus {
+  submitted
+  passed
+  failed
+}
+
+enum AnalyticsEventType {
+  document_opened        @map("document.opened")
+  document_page_viewed   @map("document.page_viewed")
+  document_replaced      @map("document.replaced")
+  document_deleted       @map("document.deleted")
+  annotation_created     @map("annotation.created")
+  forum_thread_created   @map("forum.thread.created")
+  forum_thread_resolved  @map("forum.thread.resolved")
+  roadmap_node_started   @map("roadmap.node_started")
+  roadmap_node_completed @map("roadmap.node_completed")
+  self_check_completed   @map("self_check.completed")
+  intervention_created   @map("intervention.created")
+}
+
+enum InterventionType {
+  clarification
+  additional_resource
+  lecture_adjustment
+  answer_thread
+  revise_material
+}
+
+enum AuditAction {
+  user_created            @map("user.created")
+  course_created          @map("course.created")
+  enrollment_changed      @map("enrollment.changed")
+  document_uploaded       @map("document.uploaded")
+  document_replaced       @map("document.replaced")
+  document_deleted        @map("document.deleted")
+  thread_category_changed @map("thread.category_changed")
+  auth_login              @map("auth.login")
+  auth_logout             @map("auth.logout")
+  auth_denied             @map("auth.denied")
+  role_changed            @map("role.changed")
+}
+
+model User {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  email                 String                 @unique
+  passwordHash          String                 @map("password_hash")
+  fullName              String                 @map("full_name")
+  role                  UserRole
+  isActive              Boolean                @default(true) @map("is_active")
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sessions              Session[]
+  enrollments           Enrollment[]           @relation("StudentEnrollments")
+  instructedCourses     CourseInstructor[]     @relation("InstructorAssignments")
+  createdDocuments      Document[]             @relation("DocumentCreator")
+  updatedDocuments      Document[]             @relation("DocumentUpdater")
+  createdConcepts       Concept[]              @relation("ConceptCreator")
+  createdRoadmapNodes   RoadmapNode[]          @relation("RoadmapNodeCreator")
+  authoredAnnotations   Annotation[]           @relation("AnnotationAuthor")
+  authoredForumThreads  ForumThread[]          @relation("ForumThreadAuthor")
+  forumPosts            ForumPost[]            @relation("ForumPostAuthor")
+  createdThreadLinks    ThreadLink[]           @relation("ThreadLinkCreator")
+  roadmapProgress       RoadmapProgress[]      @relation("StudentRoadmapProgress")
+  createdSelfChecks     SelfCheck[]            @relation("SelfCheckCreator")
+  selfCheckAttempts     SelfCheckAttempt[]     @relation("StudentSelfCheckAttempts")
+  analyticsEvents       AnalyticsEvent[]       @relation("AnalyticsEventUser")
+  teachingInterventions TeachingIntervention[] @relation("InterventionCreator")
+  auditLogs             AuditLog[]             @relation("AuditActor")
+
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+model Session {
+  id            String    @id
+  userId        String    @map("user_id") @db.Uuid
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(6)
+  ipHash        String?   @map("ip_hash")
+  userAgentHash String?   @map("user_agent_hash")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Course {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  code                  String                 @unique
+  title                 String
+  description           String?
+  isActive              Boolean                @default(true) @map("is_active")
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  enrollments           Enrollment[]
+  instructors           CourseInstructor[]
+  documents             Document[]
+  concepts              Concept[]
+  roadmapNodes          RoadmapNode[]
+  roadmapEdges          RoadmapEdge[]
+  forumCategories       ForumCategory[]
+  annotations           Annotation[]
+  forumThreads          ForumThread[]
+  selfChecks            SelfCheck[]
+  analyticsEvents       AnalyticsEvent[]
+  teachingInterventions TeachingIntervention[]
+  auditLogs             AuditLog[]
+
+  @@index([isActive])
+  @@map("courses")
+}
+
+model Enrollment {
+  id        String           @id @default(uuid()) @db.Uuid
+  courseId  String           @map("course_id") @db.Uuid
+  course    Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId String           @map("student_id") @db.Uuid
+  student   User             @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+  status    EnrollmentStatus @default(active)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([courseId, studentId])
+  @@index([studentId])
+  @@map("enrollments")
+}
+
+model CourseInstructor {
+  id             String               @id @default(uuid()) @db.Uuid
+  courseId       String               @map("course_id") @db.Uuid
+  course         Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  instructorId   String               @map("instructor_id") @db.Uuid
+  instructor     User                 @relation("InstructorAssignments", fields: [instructorId], references: [id], onDelete: Cascade)
+  instructorRole CourseInstructorRole @default(owner) @map("instructor_role")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([courseId, instructorId])
+  @@index([instructorId])
+  @@map("course_instructors")
+}
+
+model Document {
+  id                String                @id @default(uuid()) @db.Uuid
+  courseId          String                @map("course_id") @db.Uuid
+  course            Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title             String
+  description       String?
+  status            DocumentStatus        @default(active)
+  visibility        DocumentVisibility    @default(hidden_from_students)
+  objectKey         String?               @unique @map("object_key")
+  originalFilename  String?               @map("original_filename")
+  mimeType          String?               @map("mime_type")
+  fileSizeBytes     BigInt?               @map("file_size_bytes")
+  checksumSha256    String?               @map("checksum_sha256")
+  pageCount         Int?                  @map("page_count")
+  replacedAt        DateTime?             @map("replaced_at") @db.Timestamptz(6)
+  deletedAt         DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  createdById       String                @map("created_by_id") @db.Uuid
+  createdBy         User                  @relation("DocumentCreator", fields: [createdById], references: [id])
+  updatedById       String?               @map("updated_by_id") @db.Uuid
+  updatedBy         User?                 @relation("DocumentUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roadmapResources  RoadmapNodeResource[]
+  annotationTargets AnnotationTarget[]
+  annotations       Annotation[]
+  forumThreads      ForumThread[]
+  analyticsEvents   AnalyticsEvent[]
+
+  @@index([courseId, status])
+  @@index([courseId, visibility])
+  @@index([createdById])
+  @@map("documents")
+}
+
+model Concept {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  courseId              String                 @map("course_id") @db.Uuid
+  course                Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  slug                  String
+  title                 String
+  description           String?
+  learningObjective     String?                @map("learning_objective")
+  orderIndex            Int                    @default(0) @map("order_index")
+  createdById           String                 @map("created_by_id") @db.Uuid
+  createdBy             User                   @relation("ConceptCreator", fields: [createdById], references: [id])
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  roadmapNodes          RoadmapNode[]
+  annotations           Annotation[]
+  forumThreads          ForumThread[]
+  selfChecks            SelfCheck[]
+  analyticsEvents       AnalyticsEvent[]
+  teachingInterventions TeachingIntervention[]
+
+  @@unique([courseId, slug])
+  @@index([courseId, orderIndex])
+  @@map("concepts")
+}
+
+model RoadmapNode {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  courseId              String                 @map("course_id") @db.Uuid
+  course                Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  conceptId             String?                @map("concept_id") @db.Uuid
+  concept               Concept?               @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  title                 String
+  description           String?
+  learningObjective     String?                @map("learning_objective")
+  estimatedMinutes      Int?                   @map("estimated_minutes")
+  difficulty            DifficultyLevel?
+  completionRule        CompletionRule         @default(manual) @map("completion_rule")
+  orderIndex            Int                    @default(0) @map("order_index")
+  createdById           String                 @map("created_by_id") @db.Uuid
+  createdBy             User                   @relation("RoadmapNodeCreator", fields: [createdById], references: [id])
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  outgoingEdges         RoadmapEdge[]          @relation("RoadmapEdgeFrom")
+  incomingEdges         RoadmapEdge[]          @relation("RoadmapEdgeTo")
+  resources             RoadmapNodeResource[]
+  progress              RoadmapProgress[]
+  annotations           Annotation[]
+  forumThreads          ForumThread[]
+  selfChecks            SelfCheck[]
+  analyticsEvents       AnalyticsEvent[]
+  teachingInterventions TeachingIntervention[]
+
+  @@index([courseId, orderIndex])
+  @@index([conceptId])
+  @@map("roadmap_nodes")
+}
+
+model RoadmapEdge {
+  id         String      @id @default(uuid()) @db.Uuid
+  courseId   String      @map("course_id") @db.Uuid
+  course     Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  fromNodeId String      @map("from_node_id") @db.Uuid
+  fromNode   RoadmapNode @relation("RoadmapEdgeFrom", fields: [fromNodeId], references: [id], onDelete: Cascade)
+  toNodeId   String      @map("to_node_id") @db.Uuid
+  toNode     RoadmapNode @relation("RoadmapEdgeTo", fields: [toNodeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([fromNodeId, toNodeId])
+  @@index([toNodeId])
+  @@index([courseId])
+  @@map("roadmap_edges")
+}
+
+model RoadmapNodeResource {
+  id            String              @id @default(uuid()) @db.Uuid
+  roadmapNodeId String              @map("roadmap_node_id") @db.Uuid
+  roadmapNode   RoadmapNode         @relation(fields: [roadmapNodeId], references: [id], onDelete: Cascade)
+  resourceType  RoadmapResourceType @map("resource_type")
+  documentId    String?             @map("document_id") @db.Uuid
+  document      Document?           @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  pageStart     Int?                @map("page_start")
+  pageEnd       Int?                @map("page_end")
+  sectionLabel  String?             @map("section_label")
+  externalUrl   String?             @map("external_url")
+  title         String?
+  orderIndex    Int                 @default(0) @map("order_index")
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([roadmapNodeId, orderIndex])
+  @@index([documentId])
+  @@map("roadmap_node_resources")
+}
+
+model RoadmapProgress {
+  id                String                @id @default(uuid()) @db.Uuid
+  roadmapNodeId     String                @map("roadmap_node_id") @db.Uuid
+  roadmapNode       RoadmapNode           @relation(fields: [roadmapNodeId], references: [id], onDelete: Cascade)
+  studentId         String                @map("student_id") @db.Uuid
+  student           User                  @relation("StudentRoadmapProgress", fields: [studentId], references: [id], onDelete: Cascade)
+  status            RoadmapProgressStatus @default(not_started)
+  startedAt         DateTime?             @map("started_at") @db.Timestamptz(6)
+  completedAt       DateTime?             @map("completed_at") @db.Timestamptz(6)
+  needsReviewReason String?               @map("needs_review_reason")
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([roadmapNodeId, studentId])
+  @@index([studentId, status])
+  @@map("roadmap_progress")
+}
+
+model ForumCategory {
+  id          String            @id @default(uuid()) @db.Uuid
+  courseId    String            @map("course_id") @db.Uuid
+  course      Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name        String
+  kind        ForumCategoryKind
+  description String?
+  orderIndex  Int               @default(0) @map("order_index")
+  isVisible   Boolean           @default(true) @map("is_visible")
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  threads     ForumThread[]
+
+  @@unique([courseId, name])
+  @@index([courseId, kind])
+  @@map("forum_categories")
+}
+
+model AnnotationTarget {
+  id                       String                 @id @default(uuid()) @db.Uuid
+  documentId               String                 @map("document_id") @db.Uuid
+  document                 Document               @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  pageNumber               Int                    @map("page_number")
+  selectedText             String?                @map("selected_text")
+  textQuoteExact           String?                @map("text_quote_exact")
+  textQuotePrefix          String?                @map("text_quote_prefix")
+  textQuoteSuffix          String?                @map("text_quote_suffix")
+  normalizedRects          Json                   @default("[]") @map("normalized_rects")
+  snapshotImageKey         String?                @map("snapshot_image_key")
+  selectorMetadata         Json?                  @map("selector_metadata")
+  documentTitleSnapshot    String                 @map("document_title_snapshot")
+  documentFilenameSnapshot String?                @map("document_filename_snapshot")
+  documentChecksumSnapshot String?                @map("document_checksum_snapshot")
+  createdAt                DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  annotations              Annotation[]
+  forumThreads             ForumThread[]
+  analyticsEvents          AnalyticsEvent[]
+  teachingInterventions    TeachingIntervention[]
+
+  @@index([documentId, pageNumber])
+  @@map("annotation_targets")
+}
+
+model Annotation {
+  id              String               @id @default(uuid()) @db.Uuid
+  courseId        String               @map("course_id") @db.Uuid
+  course          Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  documentId      String               @map("document_id") @db.Uuid
+  document        Document             @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  targetId        String               @map("target_id") @db.Uuid
+  target          AnnotationTarget     @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  authorId        String               @map("author_id") @db.Uuid
+  author          User                 @relation("AnnotationAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  conceptId       String?              @map("concept_id") @db.Uuid
+  concept         Concept?             @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  roadmapNodeId   String?              @map("roadmap_node_id") @db.Uuid
+  roadmapNode     RoadmapNode?         @relation(fields: [roadmapNodeId], references: [id], onDelete: SetNull)
+  type            AnnotationType
+  visibility      AnnotationVisibility
+  body            String?
+  isDeleted       Boolean              @default(false) @map("is_deleted")
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  thread          ForumThread?         @relation("AnnotationThread")
+  analyticsEvents AnalyticsEvent[]
+
+  @@index([courseId, createdAt])
+  @@index([documentId])
+  @@index([targetId])
+  @@index([authorId])
+  @@index([conceptId])
+  @@index([roadmapNodeId])
+  @@index([type])
+  @@index([visibility])
+  @@map("annotations")
+}
+
+model ForumThread {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  courseId              String                 @map("course_id") @db.Uuid
+  course                Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  categoryId            String                 @map("category_id") @db.Uuid
+  category              ForumCategory          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  annotationId          String?                @unique @map("annotation_id") @db.Uuid
+  annotation            Annotation?            @relation("AnnotationThread", fields: [annotationId], references: [id], onDelete: SetNull)
+  targetId              String?                @map("target_id") @db.Uuid
+  target                AnnotationTarget?      @relation(fields: [targetId], references: [id], onDelete: SetNull)
+  documentId            String?                @map("document_id") @db.Uuid
+  document              Document?              @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  authorId              String                 @map("author_id") @db.Uuid
+  author                User                   @relation("ForumThreadAuthor", fields: [authorId], references: [id])
+  conceptId             String?                @map("concept_id") @db.Uuid
+  concept               Concept?               @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  roadmapNodeId         String?                @map("roadmap_node_id") @db.Uuid
+  roadmapNode           RoadmapNode?           @relation(fields: [roadmapNodeId], references: [id], onDelete: SetNull)
+  title                 String
+  status                ForumThreadStatus      @default(open)
+  visibility            AnnotationVisibility
+  pageNumberSnapshot    Int?                   @map("page_number_snapshot")
+  selectedTextSnapshot  String?                @map("selected_text_snapshot")
+  documentTitleSnapshot String?                @map("document_title_snapshot")
+  verifiedPostId        String?                @unique @map("verified_post_id") @db.Uuid
+  verifiedPost          ForumPost?             @relation("VerifiedPost", fields: [verifiedPostId], references: [id], onDelete: SetNull)
+  resolvedAt            DateTime?              @map("resolved_at") @db.Timestamptz(6)
+  archivedAt            DateTime?              @map("archived_at") @db.Timestamptz(6)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  posts                 ForumPost[]            @relation("ThreadPosts")
+  sourceThreadLinks     ThreadLink[]           @relation("SourceThreadLinks")
+  targetThreadLinks     ThreadLink[]           @relation("TargetThreadLinks")
+  analyticsEvents       AnalyticsEvent[]
+  teachingInterventions TeachingIntervention[]
+
+  @@index([courseId, categoryId, updatedAt])
+  @@index([courseId, status])
+  @@index([documentId])
+  @@index([targetId])
+  @@index([conceptId])
+  @@index([roadmapNodeId])
+  @@map("forum_threads")
+}
+
+model ForumPost {
+  id                String       @id @default(uuid()) @db.Uuid
+  threadId          String       @map("thread_id") @db.Uuid
+  thread            ForumThread  @relation("ThreadPosts", fields: [threadId], references: [id], onDelete: Cascade)
+  authorId          String       @map("author_id") @db.Uuid
+  author            User         @relation("ForumPostAuthor", fields: [authorId], references: [id])
+  parentPostId      String?      @map("parent_post_id") @db.Uuid
+  parentPost        ForumPost?   @relation("PostReplies", fields: [parentPostId], references: [id], onDelete: SetNull)
+  replies           ForumPost[]  @relation("PostReplies")
+  body              String
+  isVerified        Boolean      @default(false) @map("is_verified")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  isDeleted         Boolean      @default(false) @map("is_deleted")
+  verifiedForThread ForumThread? @relation("VerifiedPost")
+
+  @@index([threadId, createdAt])
+  @@index([authorId])
+  @@index([parentPostId])
+  @@map("forum_posts")
+}
+
+model ThreadLink {
+  id             String         @id @default(uuid()) @db.Uuid
+  sourceThreadId String         @map("source_thread_id") @db.Uuid
+  sourceThread   ForumThread    @relation("SourceThreadLinks", fields: [sourceThreadId], references: [id], onDelete: Cascade)
+  targetThreadId String         @map("target_thread_id") @db.Uuid
+  targetThread   ForumThread    @relation("TargetThreadLinks", fields: [targetThreadId], references: [id], onDelete: Cascade)
+  linkType       ThreadLinkType @map("link_type")
+  createdById    String         @map("created_by_id") @db.Uuid
+  createdBy      User           @relation("ThreadLinkCreator", fields: [createdById], references: [id])
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([sourceThreadId, targetThreadId, linkType])
+  @@index([targetThreadId])
+  @@map("thread_links")
+}
+
+model SelfCheck {
+  id              String             @id @default(uuid()) @db.Uuid
+  courseId        String             @map("course_id") @db.Uuid
+  course          Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  roadmapNodeId   String             @map("roadmap_node_id") @db.Uuid
+  roadmapNode     RoadmapNode        @relation(fields: [roadmapNodeId], references: [id], onDelete: Cascade)
+  conceptId       String?            @map("concept_id") @db.Uuid
+  concept         Concept?           @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  type            SelfCheckType
+  prompt          String
+  options         Json?
+  correctAnswer   Json?              @map("correct_answer")
+  passingScore    Int?               @map("passing_score")
+  orderIndex      Int                @default(0) @map("order_index")
+  createdById     String             @map("created_by_id") @db.Uuid
+  createdBy       User               @relation("SelfCheckCreator", fields: [createdById], references: [id])
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  attempts        SelfCheckAttempt[]
+  analyticsEvents AnalyticsEvent[]
+
+  @@index([roadmapNodeId, orderIndex])
+  @@index([conceptId])
+  @@map("self_checks")
+}
+
+model SelfCheckAttempt {
+  id          String                 @id @default(uuid()) @db.Uuid
+  selfCheckId String                 @map("self_check_id") @db.Uuid
+  selfCheck   SelfCheck              @relation(fields: [selfCheckId], references: [id], onDelete: Cascade)
+  studentId   String                 @map("student_id") @db.Uuid
+  student     User                   @relation("StudentSelfCheckAttempts", fields: [studentId], references: [id], onDelete: Cascade)
+  answer      Json?
+  score       Int?
+  status      SelfCheckAttemptStatus
+  submittedAt DateTime               @default(now()) @map("submitted_at") @db.Timestamptz(6)
+
+  @@index([selfCheckId, submittedAt])
+  @@index([studentId, submittedAt])
+  @@map("self_check_attempts")
+}
+
+model AnalyticsEvent {
+  id             String                @id @default(uuid()) @db.Uuid
+  eventType      AnalyticsEventType    @map("event_type")
+  courseId       String                @map("course_id") @db.Uuid
+  course         Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId         String?               @map("user_id") @db.Uuid
+  user           User?                 @relation("AnalyticsEventUser", fields: [userId], references: [id], onDelete: SetNull)
+  documentId     String?               @map("document_id") @db.Uuid
+  document       Document?             @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  conceptId      String?               @map("concept_id") @db.Uuid
+  concept        Concept?              @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  roadmapNodeId  String?               @map("roadmap_node_id") @db.Uuid
+  roadmapNode    RoadmapNode?          @relation(fields: [roadmapNodeId], references: [id], onDelete: SetNull)
+  annotationId   String?               @map("annotation_id") @db.Uuid
+  annotation     Annotation?           @relation(fields: [annotationId], references: [id], onDelete: SetNull)
+  threadId       String?               @map("thread_id") @db.Uuid
+  thread         ForumThread?          @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  selfCheckId    String?               @map("self_check_id") @db.Uuid
+  selfCheck      SelfCheck?            @relation(fields: [selfCheckId], references: [id], onDelete: SetNull)
+  interventionId String?               @map("intervention_id") @db.Uuid
+  intervention   TeachingIntervention? @relation(fields: [interventionId], references: [id], onDelete: SetNull)
+  targetId       String?               @map("target_id") @db.Uuid
+  target         AnnotationTarget?     @relation(fields: [targetId], references: [id], onDelete: SetNull)
+  metadata       Json                  @default("{}")
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([courseId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([conceptId, createdAt])
+  @@index([roadmapNodeId, createdAt])
+  @@index([documentId, createdAt])
+  @@index([threadId, createdAt])
+  @@map("analytics_events")
+}
+
+model TeachingIntervention {
+  id               String            @id @default(uuid()) @db.Uuid
+  courseId         String            @map("course_id") @db.Uuid
+  course           Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdById      String            @map("created_by_id") @db.Uuid
+  createdBy        User              @relation("InterventionCreator", fields: [createdById], references: [id])
+  type             InterventionType
+  title            String
+  description      String?
+  sourceAction     String            @map("source_action")
+  sourceEntityType String?           @map("source_entity_type")
+  sourceEntityId   String?           @map("source_entity_id") @db.Uuid
+  conceptId        String?           @map("concept_id") @db.Uuid
+  concept          Concept?          @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  roadmapNodeId    String?           @map("roadmap_node_id") @db.Uuid
+  roadmapNode      RoadmapNode?      @relation(fields: [roadmapNodeId], references: [id], onDelete: SetNull)
+  threadId         String?           @map("thread_id") @db.Uuid
+  thread           ForumThread?      @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  targetId         String?           @map("target_id") @db.Uuid
+  target           AnnotationTarget? @relation(fields: [targetId], references: [id], onDelete: SetNull)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  followUpAt       DateTime?         @map("follow_up_at") @db.Timestamptz(6)
+  analyticsEvents  AnalyticsEvent[]
+
+  @@index([courseId, createdAt])
+  @@index([conceptId])
+  @@index([roadmapNodeId])
+  @@index([threadId])
+  @@index([sourceAction])
+  @@map("teaching_interventions")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  actorId    String?     @map("actor_id") @db.Uuid
+  actor      User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  courseId   String?     @map("course_id") @db.Uuid
+  course     Course?     @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  action     AuditAction
+  entityType String      @map("entity_type")
+  entityId   String?     @map("entity_id") @db.Uuid
+  metadata   Json        @default("{}")
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([actorId, createdAt])
+  @@index([courseId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
