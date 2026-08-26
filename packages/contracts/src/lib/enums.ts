@@ -108,9 +108,7 @@ export const ForumCategoryKindSchema = z.enum(forumCategoryKindValues);
 export const ForumThreadStatusSchema = z.enum(forumThreadStatusValues);
 export const DifficultyLevelSchema = z.enum(difficultyLevelValues);
 export const CompletionRuleSchema = z.enum(completionRuleValues);
-export const RoadmapProgressStatusSchema = z.enum(
-  roadmapProgressStatusValues,
-);
+export const RoadmapProgressStatusSchema = z.enum(roadmapProgressStatusValues);
 export const RoadmapResourceTypeSchema = z.enum(roadmapResourceTypeValues);
 export const AnnotationTypeSchema = z.enum(annotationTypeValues);
 export const AnnotationVisibilitySchema = z.enum(annotationVisibilityValues);
@@ -132,9 +130,7 @@ export type ForumCategoryKind = z.infer<typeof ForumCategoryKindSchema>;
 export type ForumThreadStatus = z.infer<typeof ForumThreadStatusSchema>;
 export type DifficultyLevel = z.infer<typeof DifficultyLevelSchema>;
 export type CompletionRule = z.infer<typeof CompletionRuleSchema>;
-export type RoadmapProgressStatus = z.infer<
-  typeof RoadmapProgressStatusSchema
->;
+export type RoadmapProgressStatus = z.infer<typeof RoadmapProgressStatusSchema>;
 export type RoadmapResourceType = z.infer<typeof RoadmapResourceTypeSchema>;
 export type AnnotationType = z.infer<typeof AnnotationTypeSchema>;
 export type AnnotationVisibility = z.infer<typeof AnnotationVisibilitySchema>;
