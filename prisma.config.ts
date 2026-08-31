@@ -1,5 +1,8 @@
 import 'dotenv/config';
-import { defineConfig, env } from 'prisma/config';
+import { defineConfig } from 'prisma/config';
+
+const localDatabaseUrl =
+  'postgresql://uniwa:uniwa_dev_password@localhost:5432/uniwa_thesis';
 
 export default defineConfig({
   schema: 'apps/api/prisma/schema.prisma',
@@ -8,6 +11,6 @@ export default defineConfig({
     seed: 'tsx apps/api/prisma/seed.ts',
   },
   datasource: {
-    url: env('DATABASE_URL'),
+    url: process.env.DATABASE_URL ?? localDatabaseUrl,
   },
 });
