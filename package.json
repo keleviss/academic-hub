@@ -11,6 +11,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@nx/js": "^22.6.5",
+    "@playwright/test": "^1.62.1",
     "@swc/helpers": "~0.5.18",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",

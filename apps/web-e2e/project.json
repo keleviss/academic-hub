@@ -1,0 +1,28 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "web-e2e",
+  "projectType": "application",
+  "sourceRoot": "apps/web-e2e/tests",
+  "tags": ["scope:web", "type:e2e"],
+  "implicitDependencies": ["web"],
+  "targets": {
+    "e2e": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config apps/web-e2e/playwright.config.ts"
+      }
+    },
+    "e2e-list": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test --config apps/web-e2e/playwright.config.ts --list"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "eslint apps/web-e2e --ext .ts"
+      }
+    }
+  }
+}
