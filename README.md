@@ -66,7 +66,9 @@ npx nx serve api
 npx nx serve web
 ```
 
-The default web app URL is `http://localhost:4200`; the API listens on `http://localhost:3000`.
+The default web app URL is `http://localhost:4200`; the API listens on `http://localhost:3000`. Browser API calls use relative `/api/...` URLs by default, and Vite proxies them to `API_ORIGIN` from the workspace `.env` file. Leave `VITE_API_BASE_URL` blank locally unless you intentionally need a browser-visible API override.
+
+Backend runtime configuration is validated in `apps/api/src/config/env.ts`. Local development defaults cover PostgreSQL, MinIO/S3-compatible storage, session cookie settings, and CSRF settings. Production startup rejects placeholder or weak `SESSION_SECRET` and `CSRF_SECRET` values and requires `SESSION_COOKIE_SECURE=true`.
 
 ## Database And Object Storage
 

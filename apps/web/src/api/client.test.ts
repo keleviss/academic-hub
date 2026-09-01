@@ -4,6 +4,7 @@ import { ApiClientError, fetchHealth } from './client';
 
 describe('api client', () => {
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
 
@@ -33,7 +34,38 @@ describe('api client', () => {
       status: 'ok',
     });
 
-    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/api/health', {
+    expect(fetch).toHaveBeenCalledWith('/api/health', {
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+  });
+
+  it('uses VITE_API_BASE_URL as an explicit request URL override', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'http://api.test.local/');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            status: 'ok',
+            service: 'api-test',
+            timestamp: '2026-08-27T00:00:00.000Z',
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    await fetchHealth();
+
+    expect(fetch).toHaveBeenCalledWith('http://api.test.local/api/health', {
       credentials: 'include',
       headers: {
         Accept: 'application/json',
