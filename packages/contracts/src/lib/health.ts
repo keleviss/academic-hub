@@ -49,7 +49,5 @@ export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 export type DatabaseReadinessCheck = z.infer<
   typeof DatabaseReadinessCheckSchema
 >;
-export type StorageReadinessCheck = z.infer<
-  typeof StorageReadinessCheckSchema
->;
+export type StorageReadinessCheck = z.infer<typeof StorageReadinessCheckSchema>;
 export type ReadinessResponse = z.infer<typeof ReadinessResponseSchema>;

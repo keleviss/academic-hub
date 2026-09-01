@@ -43,9 +43,7 @@ export function createReadinessRouter(
         storageCheck(),
       ]);
       const status =
-        database.status === 'ok' && storage.status === 'ok'
-          ? 'ok'
-          : 'degraded';
+        database.status === 'ok' && storage.status === 'ok' ? 'ok' : 'degraded';
       const payload: ReadinessResponse = {
         checks: { database, storage },
         service: serviceName,

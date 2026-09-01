@@ -1,7 +1,10 @@
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 
-import { HealthResponseSchema, ReadinessResponseSchema } from '@web-app/contracts';
+import {
+  HealthResponseSchema,
+  ReadinessResponseSchema,
+} from '@web-app/contracts';
 
 import { createApp } from './app.js';
 
