@@ -4,18 +4,13 @@ import type {
   Request,
   Response,
 } from 'express';
+import type { ApiErrorResponse } from '@web-app/contracts';
 import { ZodError } from 'zod';
 
-export class HttpError extends Error {
-  constructor(
-    public readonly statusCode: number,
-    message: string,
-    public readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = 'HttpError';
-  }
-}
+import { HttpError } from '../lib/http-error.js';
+import { RequestValidationError } from '../lib/request-validation.js';
+
+export { HttpError } from '../lib/http-error.js';
 
 export function notFoundHandler(
   request: Request,
@@ -26,6 +21,8 @@ export function notFoundHandler(
     new HttpError(
       404,
       `Route ${request.method} ${request.originalUrl} not found`,
+      undefined,
+      'NOT_FOUND',
     ),
   );
 }
@@ -39,20 +36,10 @@ export const errorHandler: ErrorRequestHandler = (
   void _request;
   void next;
 
-  if (error instanceof ZodError) {
-    response.status(500).json({
+  if (error instanceof RequestValidationError) {
+    sendErrorResponse(response, error.statusCode, {
       error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Response validation failed',
-      },
-    });
-    return;
-  }
-
-  if (error instanceof HttpError) {
-    response.status(error.statusCode).json({
-      error: {
-        code: error.statusCode === 404 ? 'NOT_FOUND' : 'HTTP_ERROR',
+        code: error.code,
         message: error.message,
         details: error.details,
       },
@@ -60,10 +47,39 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  response.status(500).json({
+  if (error instanceof ZodError) {
+    sendErrorResponse(response, 500, {
+      error: {
+        code: 'RESPONSE_VALIDATION_ERROR',
+        message: 'Response validation failed',
+      },
+    });
+    return;
+  }
+
+  if (error instanceof HttpError) {
+    sendErrorResponse(response, error.statusCode, {
+      error: {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      },
+    });
+    return;
+  }
+
+  sendErrorResponse(response, 500, {
     error: {
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Unexpected server error',
     },
   });
 };
+
+function sendErrorResponse(
+  response: Response,
+  statusCode: number,
+  payload: ApiErrorResponse,
+): void {
+  response.status(statusCode).json(payload);
+}

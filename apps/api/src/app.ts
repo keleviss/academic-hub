@@ -3,7 +3,7 @@ import cors from 'cors';
 import express, { type Express } from 'express';
 
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
-import { createHealthRouter } from './routes/health.js';
+import { createApiRouter } from './routes/api.js';
 
 export interface CreateAppOptions {
   corsOrigin?: boolean | string | string[];
@@ -25,8 +25,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(cookieParser());
 
   app.use(
-    '/api/health',
-    createHealthRouter({
+    '/api',
+    createApiRouter({
       serviceName: options.serviceName,
       version: options.version,
     }),
