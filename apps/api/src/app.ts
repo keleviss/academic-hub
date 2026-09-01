@@ -4,10 +4,13 @@ import express, { type Express } from 'express';
 
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createApiRouter } from './routes/api.js';
+import type { ReadinessRouteOptions } from './routes/readiness.js';
 
 export interface CreateAppOptions {
   corsOrigin?: boolean | string | string[];
+  databaseCheck?: ReadinessRouteOptions['databaseCheck'];
   serviceName?: string;
+  storageCheck?: ReadinessRouteOptions['storageCheck'];
   version?: string;
 }
 
@@ -27,7 +30,9 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(
     '/api',
     createApiRouter({
+      databaseCheck: options.databaseCheck,
       serviceName: options.serviceName,
+      storageCheck: options.storageCheck,
       version: options.version,
     }),
   );

@@ -84,6 +84,24 @@ describe('createStorageService', () => {
     });
   });
 
+  it('checks a missing bucket without creating it', async () => {
+    const client = new MockS3Client(() => {
+      throw createS3Error('NotFound', 404);
+    });
+    const service = createStorageService({
+      client,
+      config: baseStorageConfig,
+    });
+
+    await expect(service.checkBucketReadiness()).resolves.toEqual({
+      reason: 'bucket_missing',
+      status: 'degraded',
+    });
+
+    expect(client.commands).toHaveLength(1);
+    expect(client.commands[0]).toBeInstanceOf(HeadBucketCommand);
+  });
+
   it('does not create a missing bucket in production', async () => {
     const client = new MockS3Client(() => {
       throw createS3Error('NoSuchBucket', 404);

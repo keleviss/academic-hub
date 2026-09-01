@@ -62,6 +62,7 @@ export interface HeadStorageObjectResult {
 }
 
 export interface StorageService {
+  checkBucketReadiness(): Promise<StorageReadinessResult>;
   deleteObject(key: string): Promise<void>;
   ensureBucketReady(): Promise<StorageReadinessResult>;
   getObject(key: string): Promise<GetStorageObjectResult>;
@@ -84,7 +85,28 @@ export function createStorageService(
   const storageConfig = options.config ?? env;
   const client = options.client ?? createS3Client(storageConfig);
 
+  async function checkBucketReadiness(): Promise<StorageReadinessResult> {
+    try {
+      await client.send(
+        new HeadBucketCommand({
+          Bucket: storageConfig.S3_BUCKET,
+        }),
+      );
+
+      return { status: 'ok' };
+    } catch (error) {
+      return {
+        reason: isMissingBucketError(error)
+          ? 'bucket_missing'
+          : classifyStorageFailure(error),
+        status: 'degraded',
+      };
+    }
+  }
+
   return {
+    checkBucketReadiness,
+
     async deleteObject(key: string): Promise<void> {
       await client.send(
         new DeleteObjectCommand({
@@ -95,43 +117,28 @@ export function createStorageService(
     },
 
     async ensureBucketReady(): Promise<StorageReadinessResult> {
+      const readiness = await checkBucketReadiness();
+      if (
+        readiness.status === 'ok' ||
+        readiness.reason !== 'bucket_missing' ||
+        !canCreateBucket(storageConfig)
+      ) {
+        return readiness;
+      }
+
       try {
         await client.send(
-          new HeadBucketCommand({
+          new CreateBucketCommand({
             Bucket: storageConfig.S3_BUCKET,
           }),
         );
 
         return { status: 'ok' };
-      } catch (error) {
-        if (!isMissingBucketError(error)) {
-          return {
-            reason: classifyStorageFailure(error),
-            status: 'degraded',
-          };
-        }
-
-        if (!canCreateBucket(storageConfig)) {
-          return {
-            reason: 'bucket_missing',
-            status: 'degraded',
-          };
-        }
-
-        try {
-          await client.send(
-            new CreateBucketCommand({
-              Bucket: storageConfig.S3_BUCKET,
-            }),
-          );
-
-          return { status: 'ok' };
-        } catch {
-          return {
-            reason: 'bucket_unavailable',
-            status: 'degraded',
-          };
-        }
+      } catch {
+        return {
+          reason: 'bucket_unavailable',
+          status: 'degraded',
+        };
       }
     },
 
