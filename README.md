@@ -33,6 +33,17 @@ cp .env.example .env
 
 The example credentials are local-only placeholders. Do not commit `.env` or real secrets.
 
+## Demo Accounts
+
+The Prisma seed creates local-only demo users for exercising the prototype. These accounts all use the shared development password `AcademicHubDemo2026!`; never reuse it outside local development.
+
+| Role      | Email                              |
+| --------- | ---------------------------------- |
+| Admin     | `admin@academic-hub.local`         |
+| Professor | `professor@academic-hub.local`     |
+| Student   | `maria.student@academic-hub.local` |
+| Student   | `nikos.student@academic-hub.local` |
+
 ## Common Commands
 
 Run commands from this `web-app` directory.

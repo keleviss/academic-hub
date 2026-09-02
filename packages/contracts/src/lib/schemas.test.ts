@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { CurrentSessionSchema } from './auth.js';
+import {
+  CsrfResponseSchema,
+  CurrentSessionSchema,
+  LoginRequestSchema,
+} from './auth.js';
 import { ApiErrorResponseSchema, PaginationQuerySchema } from './common.js';
 import { HealthResponseSchema, ReadinessResponseSchema } from './health.js';
 
@@ -19,6 +23,46 @@ describe('shared API schemas', () => {
     });
 
     expect(session.user?.role).toBe('student');
+  });
+
+  it('parses and normalizes login requests', () => {
+    expect(
+      LoginRequestSchema.parse({
+        email: ' Student@Example.EDU ',
+        password: 'AcademicHubDemo2026!',
+      }),
+    ).toEqual({
+      email: 'student@example.edu',
+      password: 'AcademicHubDemo2026!',
+    });
+  });
+
+  it('rejects invalid login requests', () => {
+    expect(() =>
+      LoginRequestSchema.parse({
+        email: 'not-an-email',
+        password: 'AcademicHubDemo2026!',
+      }),
+    ).toThrow();
+
+    expect(() =>
+      LoginRequestSchema.parse({
+        email: 'student@example.edu',
+        password: 'short',
+      }),
+    ).toThrow();
+  });
+
+  it('parses CSRF responses', () => {
+    expect(
+      CsrfResponseSchema.parse({
+        csrfToken: 'csrf-token',
+      }),
+    ).toEqual({
+      csrfToken: 'csrf-token',
+    });
+
+    expect(() => CsrfResponseSchema.parse({ csrfToken: '' })).toThrow();
   });
 
   it('parses common health and error responses', () => {

@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
+import { hashPassword } from '../src/auth/password.js';
 import { env } from '../src/config/env.js';
 
 const adapter = new PrismaPg({
@@ -57,22 +58,27 @@ const ids = {
   auditEnrollment: '19191919-1919-4191-8191-191919191913',
 } as const;
 
-const demoPasswordHash =
-  '$argon2id$v=19$m=65536,t=3,p=4$demo-salt$demo-password-hash-placeholder';
+const demoPassword = 'AcademicHubDemo2026!';
 
 async function seedUsers(): Promise<void> {
+  const adminPasswordHash = await hashPassword(demoPassword);
+  const professorPasswordHash = await hashPassword(demoPassword);
+  const studentMariaPasswordHash = await hashPassword(demoPassword);
+  const studentNikosPasswordHash = await hashPassword(demoPassword);
+
   await prisma.user.upsert({
     where: { id: ids.admin },
     update: {
       email: 'admin@academic-hub.local',
       fullName: 'Demo Admin',
+      passwordHash: adminPasswordHash,
       role: 'admin',
       isActive: true,
     },
     create: {
       id: ids.admin,
       email: 'admin@academic-hub.local',
-      passwordHash: demoPasswordHash,
+      passwordHash: adminPasswordHash,
       fullName: 'Demo Admin',
       role: 'admin',
     },
@@ -83,13 +89,14 @@ async function seedUsers(): Promise<void> {
     update: {
       email: 'professor@academic-hub.local',
       fullName: 'Dr. Eleni Papadopoulou',
+      passwordHash: professorPasswordHash,
       role: 'professor',
       isActive: true,
     },
     create: {
       id: ids.professor,
       email: 'professor@academic-hub.local',
-      passwordHash: demoPasswordHash,
+      passwordHash: professorPasswordHash,
       fullName: 'Dr. Eleni Papadopoulou',
       role: 'professor',
     },
@@ -100,13 +107,14 @@ async function seedUsers(): Promise<void> {
     update: {
       email: 'maria.student@academic-hub.local',
       fullName: 'Maria Antoniou',
+      passwordHash: studentMariaPasswordHash,
       role: 'student',
       isActive: true,
     },
     create: {
       id: ids.studentMaria,
       email: 'maria.student@academic-hub.local',
-      passwordHash: demoPasswordHash,
+      passwordHash: studentMariaPasswordHash,
       fullName: 'Maria Antoniou',
       role: 'student',
     },
@@ -117,13 +125,14 @@ async function seedUsers(): Promise<void> {
     update: {
       email: 'nikos.student@academic-hub.local',
       fullName: 'Nikos Georgiou',
+      passwordHash: studentNikosPasswordHash,
       role: 'student',
       isActive: true,
     },
     create: {
       id: ids.studentNikos,
       email: 'nikos.student@academic-hub.local',
-      passwordHash: demoPasswordHash,
+      passwordHash: studentNikosPasswordHash,
       fullName: 'Nikos Georgiou',
       role: 'student',
     },
