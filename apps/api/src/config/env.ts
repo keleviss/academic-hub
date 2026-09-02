@@ -80,6 +80,14 @@ const EnvSchema = z
         path: ['SESSION_COOKIE_SECURE'],
       });
     }
+
+    if (env.CORS_ORIGIN === '*') {
+      context.addIssue({
+        code: 'custom',
+        message: 'CORS_ORIGIN must be an explicit trusted origin in production',
+        path: ['CORS_ORIGIN'],
+      });
+    }
   });
 
 export type Env = z.infer<typeof EnvSchema>;

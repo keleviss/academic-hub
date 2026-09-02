@@ -8,6 +8,7 @@ describe('parseEnv', () => {
       API_ORIGIN: 'http://localhost:3000',
       API_SERVICE_NAME: 'api',
       CORS_ORIGIN: 'http://localhost:4200',
+      CSRF_COOKIE_NAME: 'uniwa_csrf',
       CSRF_HEADER_NAME: 'x-csrf-token',
       CSRF_SECRET: 'local-development-csrf-secret-change-me',
       DATABASE_URL:
@@ -62,6 +63,18 @@ describe('parseEnv', () => {
         CSRF_SECRET: 'production-csrf-secret-with-enough-length',
         NODE_ENV: 'production',
         SESSION_COOKIE_SECURE: 'false',
+        SESSION_SECRET: 'production-session-secret-with-enough-length',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects wildcard credentialed CORS in production', () => {
+    expect(() =>
+      parseEnv({
+        CORS_ORIGIN: '*',
+        CSRF_SECRET: 'production-csrf-secret-with-enough-length',
+        NODE_ENV: 'production',
+        SESSION_COOKIE_SECURE: 'true',
         SESSION_SECRET: 'production-session-secret-with-enough-length',
       }),
     ).toThrow();
