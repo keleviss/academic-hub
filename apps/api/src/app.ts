@@ -4,12 +4,16 @@ import express, { type Express } from 'express';
 
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createApiRouter } from './routes/api.js';
+import type { AuthRouteOptions } from './routes/auth.js';
 import type { ReadinessRouteOptions } from './routes/readiness.js';
 
 export interface CreateAppOptions {
+  auditLogger?: AuthRouteOptions['auditLogger'];
+  authPrisma?: AuthRouteOptions['prisma'];
   corsOrigin?: boolean | string | string[];
   databaseCheck?: ReadinessRouteOptions['databaseCheck'];
   serviceName?: string;
+  sessionService?: AuthRouteOptions['sessionService'];
   storageCheck?: ReadinessRouteOptions['storageCheck'];
   version?: string;
 }
@@ -30,8 +34,11 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(
     '/api',
     createApiRouter({
+      auditLogger: options.auditLogger,
       databaseCheck: options.databaseCheck,
+      prisma: options.authPrisma,
       serviceName: options.serviceName,
+      sessionService: options.sessionService,
       storageCheck: options.storageCheck,
       version: options.version,
     }),

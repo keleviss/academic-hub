@@ -36,6 +36,7 @@ const EnvSchema = z
     API_SERVICE_NAME: z.string().min(1).default('api'),
     API_VERSION: z.string().min(1).optional(),
     CORS_ORIGIN: CorsOriginSchema.default('http://localhost:4200'),
+    CSRF_COOKIE_NAME: z.string().min(1).default('uniwa_csrf'),
     CSRF_HEADER_NAME: z.string().min(1).default('x-csrf-token'),
     CSRF_SECRET: z.string().min(1).default(LOCAL_CSRF_SECRET),
     DATABASE_URL: z
