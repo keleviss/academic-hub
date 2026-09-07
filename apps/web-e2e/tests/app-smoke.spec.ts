@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/session', (route) =>
+    route.fulfill({ json: { authenticated: false, user: null } }),
+  );
+});
+
 test('renders the web app shell', async ({ page }) => {
   await page.goto('/');
 
@@ -21,7 +27,26 @@ test('navigates to the login route from the main nav', async ({ page }) => {
   await expect(page).toHaveURL('/login');
   await expect(
     page.getByRole('heading', {
-      name: 'Η αυθεντικοποίηση θα προστεθεί στο επόμενο βήμα.',
+      name: 'Καλώς ήρθες ξανά',
     }),
   ).toBeVisible();
+});
+
+test('login fields support keyboard navigation', async ({ page }) => {
+  await page.goto('/login');
+  const email = page.getByLabel('Email', { exact: true });
+  const password = page.getByLabel('Κωδικός', { exact: true });
+  await email.focus();
+  await page.keyboard.press('Tab');
+  await expect(password).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(
+    page.getByRole('button', { name: 'Εμφάνιση κωδικού' }),
+  ).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(password).toHaveAttribute('type', 'text');
+  await page.keyboard.press('Tab');
+  await expect(
+    page.getByRole('button', { name: 'Σύνδεση στο Academic Hub' }),
+  ).toBeFocused();
 });

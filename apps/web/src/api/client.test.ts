@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 
-import { ApiClientError, fetchHealth } from './client';
+import { fetchHealth } from './client';
 
 describe('api client', () => {
   afterEach(() => {
@@ -93,7 +93,7 @@ describe('api client', () => {
       ),
     );
 
-    await expect(fetchHealth()).rejects.toMatchObject<ApiClientError>({
+    await expect(fetchHealth()).rejects.toMatchObject({
       message: 'Service unavailable',
       status: 503,
     });

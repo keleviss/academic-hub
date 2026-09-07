@@ -44,6 +44,40 @@ The Prisma seed creates local-only demo users for exercising the prototype. Thes
 | Student   | `maria.student@academic-hub.local` |
 | Student   | `nikos.student@academic-hub.local` |
 
+## Frontend Authentication
+
+Open `/login` and use a demo account above. Login uses the existing API's
+HttpOnly session cookie; no credentials or tokens are persisted in browser
+storage. The frontend accepts the shared email/password contract, including
+the local demo email domains.
+
+`apps/web/src/auth/session.ts` owns the TanStack Query key `['auth', 'session']`.
+The app checks the session on load, window focus, and reconnect. A failed lookup
+shows a retry action; it is distinct from the normal guest response. Login and
+logout cancel stale queries, replace session state, and remove previous-user
+query and mutation caches. The API client obtains a fresh CSRF token before
+each auth POST, serializes those request pairs within a tab, and retries once
+only for `403 / CSRF_TOKEN_INVALID`. The configured backend header must match
+the client convention `x-csrf-token` (DEC-015).
+
+Successful login redirects to `/admin`, `/professor`, or `/student`. These
+minimal screens show identity and logout; wrong-role visits redirect to the
+current user's role, and guests go to `/login`. Authenticated visits to `/login`
+also redirect to the user's role. `/` remains the public home/status page.
+Backend authorization remains authoritative. Full dashboards/navigation belong
+to task 11; registration, SSO, reset, and remember-me are not implemented here.
+
+The responsive login follows the active Figma frames `47:5`, `47:48`, and
+`47:232` and Design Notes `29:4`, inspected on 2026-09-07. It uses a single
+column below 1024px, shared navy/teal tokens, and locally served Inter fonts.
+Recheck the evolving Figma page before each UI task as described in `AGENTS.md`.
+
+Unit/component tests cover transport, state transitions, redirects, failures,
+and stale responses. The existing Playwright suite covers navigation and
+keyboard use with an isolated guest-session fixture; full auth e2e belongs to
+task 12. To type-check the web tests and Vite configs as well as application
+code, run `npx tsc -p apps/web/tsconfig.json --noEmit --allowImportingTsExtensions`.
+
 ## Common Commands
 
 Run commands from this `web-app` directory.

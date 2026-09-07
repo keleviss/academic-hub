@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { ApiClientError, fetchHealth } from '../api/client';
+import { RolePage } from '../auth/RolePage';
 
 function HomePage(): React.JSX.Element {
   const healthQuery = useQuery({
@@ -68,21 +69,6 @@ function HomePage(): React.JSX.Element {
   );
 }
 
-function LoginPage(): React.JSX.Element {
-  return (
-    <section className="max-w-xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-medium text-emerald-700">Σύνδεση</p>
-      <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-        Η αυθεντικοποίηση θα προστεθεί στο επόμενο βήμα.
-      </h2>
-      <p className="mt-3 text-base leading-7 text-slate-700">
-        Αυτή η διαδρομή κρατά σταθερό σημείο για το μελλοντικό login flow χωρίς
-        να εισάγει προσωρινή ή ψεύτικη συμπεριφορά σύνδεσης.
-      </p>
-    </section>
-  );
-}
-
 function NotFoundPage(): React.JSX.Element {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -105,7 +91,9 @@ export function AppRouter(): React.JSX.Element {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/admin" element={<RolePage role="admin" />} />
+      <Route path="/professor" element={<RolePage role="professor" />} />
+      <Route path="/student" element={<RolePage role="student" />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

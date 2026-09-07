@@ -1,6 +1,12 @@
-import { NavLink } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
 
 import { AppRouter } from './router';
+import { lazy, Suspense } from 'react';
+
+const LoginPage = lazy(() =>
+  import('../auth/LoginPage').then((module) => ({ default: module.LoginPage })),
+);
+import { rolePath, useSession, useSessionSync } from '../auth/session';
 
 function getNavClassName({ isActive }: { isActive: boolean }): string {
   const baseClassName =
@@ -12,6 +18,23 @@ function getNavClassName({ isActive }: { isActive: boolean }): string {
 }
 
 export function App(): React.JSX.Element {
+  useSessionSync();
+  const session = useSession();
+  const location = useLocation();
+  if (location.pathname === '/login')
+    return (
+      <Suspense
+        fallback={
+          <div className="flex min-h-dvh items-center justify-center p-5">
+            <p className="session-feedback text-center" role="status">
+              Φόρτωση σύνδεσης…
+            </p>
+          </div>
+        }
+      >
+        <LoginPage />
+      </Suspense>
+    );
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
@@ -28,9 +51,18 @@ export function App(): React.JSX.Element {
             <NavLink to="/" end className={getNavClassName}>
               Αρχική
             </NavLink>
-            <NavLink to="/login" className={getNavClassName}>
-              Σύνδεση
-            </NavLink>
+            {session.data?.user ? (
+              <NavLink
+                to={rolePath(session.data.user.role)}
+                className={getNavClassName}
+              >
+                Ο λογαριασμός μου
+              </NavLink>
+            ) : (
+              <NavLink to="/login" className={getNavClassName}>
+                Σύνδεση
+              </NavLink>
+            )}
           </nav>
         </div>
       </header>
