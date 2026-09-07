@@ -48,6 +48,83 @@ The Prisma seed creates local-only demo users for exercising the prototype. Thes
 
 Run commands from this `web-app` directory.
 
+### Start and stop local development
+
+The shortcuts below are defined in the `scripts` object in `package.json`. Each
+script delegates to existing Nx projects, so the same targets remain available
+through the Nx CLI.
+
+| Command                                        | Purpose                                                                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                                  | Start PostgreSQL and MinIO, wait for healthchecks, generate the Prisma client, apply committed migrations, then serve API and frontend concurrently |
+| `npm run dev:api`                              | Serve only the API; assumes infrastructure and Prisma setup are ready                                                                               |
+| `npm run dev:web`                              | Serve only the frontend                                                                                                                             |
+| `npm run db:start`                             | Start PostgreSQL and MinIO and wait up to 120 seconds for readiness                                                                                 |
+| `npm run db:stop`                              | Stop/remove infrastructure containers and their network, preserving named data volumes                                                              |
+| `npm run db:status`                            | Show infrastructure container status                                                                                                                |
+| `npm run db:logs`                              | Follow PostgreSQL and MinIO logs; Ctrl+C exits the log viewer                                                                                       |
+| `npm run db:setup`                             | Start infrastructure, generate Prisma client, apply migrations, and seed demo data                                                                  |
+| `npm run db:migrate -- --name describe_change` | Create/apply a development migration after editing the Prisma schema                                                                                |
+| `npm run db:seed`                              | Explicitly run the demo seed against a prepared database                                                                                            |
+
+First-time setup, after installing dependencies and creating `.env`:
+
+```bash
+npm run db:setup
+npm run dev
+```
+
+For subsequent sessions, run `npm run dev`. Open `http://localhost:4200`.
+Check dependency readiness at `http://localhost:3000/api/readiness` or through
+the frontend proxy at `http://localhost:4200/api/readiness`.
+
+To stop the entire stack, press **Ctrl+C in the terminal running `dev`** to stop
+the API and frontend, then run:
+
+```bash
+npm run db:stop
+```
+
+The infrastructure runs in the background and stays up after Ctrl+C, including
+when application startup fails. `db:stop` only controls the infrastructure;
+individually started API/frontend terminals also need Ctrl+C. Database records
+and stored files survive this shutdown. Normal startup does not seed again;
+`db:setup` and `db:seed` can update existing demo records, so use them intentionally.
+
+The `dev` script uses `&&` to stop startup if a prerequisite fails. Prisma
+`migrate deploy` applies existing migration files without creating migrations or
+resetting the database. Nx `run-many` runs the two servers concurrently with
+prefixed terminal output. `NX_NATIVE_COMMAND_RUNNER=false` keeps Ctrl+C under
+the parent process so one interrupt stops both servers; the native Nx terminal
+runner otherwise stopped only one server in local verification. This environment
+assignment uses a POSIX shell (Linux/macOS/WSL); npm on Windows requires an
+equivalent shell or an environment-variable wrapper.
+
+The API target currently has no automatic restart on
+source edits; restart the command after backend changes. Vite handles frontend
+hot updates.
+
+### Using Yarn as a script runner
+
+These are standard package scripts, so a compatible Yarn installation can invoke
+them as `yarn dev`, `yarn db:start`, `yarn db:stop`, and so on. For example:
+
+```json
+{
+  "scripts": {
+    "db:start": "nx run database:start",
+    "db:stop": "nx run database:stop"
+  }
+}
+```
+
+This repository currently pins `npm@10.9.8` and commits `package-lock.json`.
+Use npm for dependency installation. Corepack-managed Yarn may reject this
+workspace because its `packageManager` is npm; the documented `npm run` commands
+work with the current setup. Switching dependency management to Yarn would also
+require choosing/pinning a Yarn version, generating a Yarn lockfile, and updating
+installation/CI instructions together.
+
 ```bash
 npm run format:check
 npm run lint
@@ -98,9 +175,35 @@ Prisma commands are exposed through the `api` project:
 npx nx run api:prisma-validate
 npx nx run api:prisma-format
 npx nx run api:prisma-generate
+npx nx run api:prisma-migrate-deploy
 npx nx run api:prisma-migrate-dev -- --name init
 npx nx run api:prisma-seed
 ```
+
+## Should the apps run in containers?
+
+For everyday development, the current split is a practical default: PostgreSQL
+and MinIO in Compose, with the API and Vite running locally under Nx. This keeps
+debugging, dependency installation, and frontend hot updates straightforward.
+
+An optional full Compose stack is useful for reproducible demos, onboarding, and
+deployment checks. It would have separate API, frontend, PostgreSQL, and MinIO
+services, plus a one-shot migration job. The shared `contracts` package belongs
+in application builds; it is not a running service. `web-e2e` is a test runner,
+not a permanent application container.
+
+For a deployment-style stack, build the Vite frontend and serve its static files
+with a web server such as Nginx, proxying `/api` to the API service. Build a runnable
+API image too: the current `api:build` target only generates Prisma and typechecks;
+it does not emit a deployable JavaScript bundle. Within Compose, use service names
+such as `postgres:5432` and `minio:9000` for backend connections. Browser requests
+must still use a browser-accessible origin or same-origin `/api` proxy. A container
+development mode would additionally need source watching/sync and a dependency
+volume strategy. Keep that as a separate profile or Compose override if added.
+
+References: [Nx run-many](https://nx.dev/docs/reference/nx-commands#nx-run-many),
+[Compose health waiting](https://docs.docker.com/reference/cli/docker/compose/up/),
+and [Compose production overrides](https://docs.docker.com/compose/how-tos/production/).
 
 ## End-To-End Tests
 

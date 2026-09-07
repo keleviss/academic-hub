@@ -4,6 +4,16 @@
   "license": "MIT",
   "packageManager": "npm@10.9.8",
   "scripts": {
+    "dev": "nx run database:start && nx run api:prisma-generate && nx run api:prisma-migrate-deploy && NX_NATIVE_COMMAND_RUNNER=false nx run-many --target=serve --projects=api,web --parallel=2 --outputStyle=stream",
+    "dev:api": "nx serve api",
+    "dev:web": "nx serve web",
+    "db:start": "nx run database:start",
+    "db:stop": "nx run database:stop",
+    "db:status": "nx run database:status",
+    "db:logs": "nx run database:logs",
+    "db:setup": "nx run database:start && nx run api:prisma-generate && nx run api:prisma-migrate-deploy && nx run api:prisma-seed",
+    "db:migrate": "nx run api:prisma-migrate-dev",
+    "db:seed": "nx run api:prisma-seed",
     "format:check": "prettier --check .",
     "lint": "eslint . --ext .js,.mjs,.cjs,.ts,.tsx"
   },

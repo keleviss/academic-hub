@@ -9,7 +9,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "docker compose -f infrastructure/database/docker-compose.yml up -d"
+        "command": "docker compose -f infrastructure/database/docker-compose.yml up -d --wait --wait-timeout 120"
       }
     },
     "stop": {
@@ -24,6 +24,13 @@
       "cache": false,
       "options": {
         "command": "docker compose -f infrastructure/database/docker-compose.yml ps"
+      }
+    },
+    "logs": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "docker compose -f infrastructure/database/docker-compose.yml logs --follow --tail 100"
       }
     },
     "config": {
