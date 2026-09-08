@@ -2,12 +2,30 @@ import type { UserRole } from '@web-app/contracts';
 
 import { roleLabels } from '../../auth/session';
 
-export interface WorkspaceRoute {
+export type WorkspaceNavIcon =
+  | 'activity'
+  | 'analytics'
+  | 'calendar'
+  | 'courses'
+  | 'home'
+  | 'messages'
+  | 'notes'
+  | 'settings'
+  | 'shield'
+  | 'users';
+
+export interface WorkspaceNavItem {
   path: string;
   label: string;
+  icon?: WorkspaceNavIcon;
+  keywords?: string[];
+  end?: boolean;
+  children?: WorkspaceNavItem[];
+}
+
+export interface WorkspaceRoute extends WorkspaceNavItem {
   element: React.JSX.Element;
   nav: boolean;
-  end?: boolean;
 }
 
 function WorkspacePanel({
@@ -81,10 +99,31 @@ export function WorkspaceHome({ role }: { role: UserRole }): React.JSX.Element {
   );
 }
 
+function AccountPanel({
+  title,
+  body,
+  items,
+}: {
+  title: string;
+  body: string;
+  items: string[];
+}): React.JSX.Element {
+  return (
+    <WorkspacePanel
+      eyebrow="Λογαριασμός"
+      title={title}
+      body={body}
+      items={items}
+    />
+  );
+}
+
 const studentRoutes: WorkspaceRoute[] = [
   {
     path: '',
     label: 'Επισκόπηση',
+    icon: 'home',
+    keywords: ['αρχική', 'dashboard', 'workspace'],
     element: <WorkspaceHome role="student" />,
     nav: true,
     end: true,
@@ -92,6 +131,25 @@ const studentRoutes: WorkspaceRoute[] = [
   {
     path: 'courses',
     label: 'Μαθήματα',
+    icon: 'courses',
+    keywords: ['courses', 'υλικό', 'roadmap', 'concepts'],
+    children: [
+      {
+        path: 'courses?course=algorithms',
+        label: 'Αλγόριθμοι και Πολυπλοκότητα',
+        keywords: ['algorithms', 'complexity'],
+      },
+      {
+        path: 'courses?course=electronics',
+        label: 'Ηλεκτρονική',
+        keywords: ['electronics'],
+      },
+      {
+        path: 'courses?course=thesis',
+        label: 'Διπλωματική εργασία',
+        keywords: ['thesis'],
+      },
+    ],
     element: (
       <WorkspacePanel
         eyebrow="Φοιτητής"
@@ -109,6 +167,8 @@ const studentRoutes: WorkspaceRoute[] = [
   {
     path: 'activity',
     label: 'Δραστηριότητα',
+    icon: 'activity',
+    keywords: ['study', 'notes', 'questions', 'highlights'],
     element: (
       <WorkspacePanel
         eyebrow="Φοιτητής"
@@ -129,6 +189,8 @@ const professorRoutes: WorkspaceRoute[] = [
   {
     path: '',
     label: 'Επισκόπηση',
+    icon: 'home',
+    keywords: ['αρχική', 'dashboard', 'workspace'],
     element: <WorkspaceHome role="professor" />,
     nav: true,
     end: true,
@@ -136,6 +198,25 @@ const professorRoutes: WorkspaceRoute[] = [
   {
     path: 'courses',
     label: 'Μαθήματα',
+    icon: 'courses',
+    keywords: ['courses', 'υλικό', 'roadmap', 'concepts'],
+    children: [
+      {
+        path: 'courses?course=algorithms',
+        label: 'Αλγόριθμοι και Πολυπλοκότητα',
+        keywords: ['algorithms', 'complexity'],
+      },
+      {
+        path: 'courses?course=electronics',
+        label: 'Ηλεκτρονική',
+        keywords: ['electronics'],
+      },
+      {
+        path: 'courses?course=thesis',
+        label: 'Διπλωματική εργασία',
+        keywords: ['thesis'],
+      },
+    ],
     element: (
       <WorkspacePanel
         eyebrow="Διδάσκων"
@@ -153,6 +234,8 @@ const professorRoutes: WorkspaceRoute[] = [
   {
     path: 'analytics',
     label: 'Analytics',
+    icon: 'analytics',
+    keywords: ['teaching action queue', 'signals', 'heatmaps'],
     element: (
       <WorkspacePanel
         eyebrow="Διδάσκων"
@@ -173,6 +256,8 @@ const adminRoutes: WorkspaceRoute[] = [
   {
     path: '',
     label: 'Επισκόπηση',
+    icon: 'home',
+    keywords: ['αρχική', 'dashboard', 'workspace'],
     element: <WorkspaceHome role="admin" />,
     nav: true,
     end: true,
@@ -180,6 +265,8 @@ const adminRoutes: WorkspaceRoute[] = [
   {
     path: 'users',
     label: 'Χρήστες',
+    icon: 'users',
+    keywords: ['users', 'roles', 'accounts'],
     element: (
       <WorkspacePanel
         eyebrow="Διαχειριστής"
@@ -193,6 +280,25 @@ const adminRoutes: WorkspaceRoute[] = [
   {
     path: 'courses',
     label: 'Μαθήματα',
+    icon: 'courses',
+    keywords: ['courses', 'enrollments', 'assignments'],
+    children: [
+      {
+        path: 'courses?scope=active',
+        label: 'Ενεργά μαθήματα',
+        keywords: ['active courses'],
+      },
+      {
+        path: 'courses?scope=enrollments',
+        label: 'Εγγραφές φοιτητών',
+        keywords: ['enrollments'],
+      },
+      {
+        path: 'courses?scope=audit',
+        label: 'Audit μαθημάτων',
+        keywords: ['audit'],
+      },
+    ],
     element: (
       <WorkspacePanel
         eyebrow="Διαχειριστής"
@@ -209,10 +315,109 @@ const adminRoutes: WorkspaceRoute[] = [
   },
 ];
 
+const commonToolRoutes: WorkspaceRoute[] = [
+  {
+    path: 'calendar',
+    label: 'Ημερολόγιο',
+    icon: 'calendar',
+    keywords: ['calendar', 'deadlines', 'events'],
+    element: (
+      <WorkspacePanel
+        eyebrow="Workspace"
+        title="Ημερολόγιο"
+        body="Προσωρινή protected σελίδα για προθεσμίες, συναντήσεις και μελλοντικό study planning."
+        items={[
+          'Ακαδημαϊκές προθεσμίες',
+          'Προγραμματισμένες παρεμβάσεις',
+          'Μελλοντική σύνδεση με study plan',
+        ]}
+      />
+    ),
+    nav: true,
+  },
+  {
+    path: 'messages',
+    label: 'Μηνύματα',
+    icon: 'messages',
+    keywords: ['messages', 'inbox', 'threads', 'questions'],
+    element: (
+      <WorkspacePanel
+        eyebrow="Workspace"
+        title="Μηνύματα"
+        body="Προσωρινή protected σελίδα για contextual συζητήσεις, απαντήσεις και ειδοποιήσεις μαθημάτων."
+        items={[
+          'Contextual Q&A threads',
+          'Απαντήσεις διδασκόντων',
+          'Μελλοντικές ειδοποιήσεις συστήματος',
+        ]}
+      />
+    ),
+    nav: true,
+  },
+  {
+    path: 'notes',
+    label: 'Σημειώσεις',
+    icon: 'notes',
+    keywords: ['notes', 'annotations', 'highlights'],
+    element: (
+      <WorkspacePanel
+        eyebrow="Workspace"
+        title="Σημειώσεις"
+        body="Προσωρινή protected σελίδα για προσωπικά notes, highlights και anchored annotations."
+        items={[
+          'Προσωπικές σημειώσεις',
+          'Highlights πάνω στο υλικό',
+          'Σύνδεση με έννοιες και απορίες',
+        ]}
+      />
+    ),
+    nav: true,
+  },
+];
+
+const commonAccountRoutes: WorkspaceRoute[] = [
+  {
+    path: 'profile',
+    label: 'Προφίλ',
+    icon: 'users',
+    keywords: ['account', 'profile', 'λογαριασμός'],
+    element: (
+      <AccountPanel
+        title="Προφίλ χρήστη"
+        body="Προσωρινή protected σελίδα για τα βασικά στοιχεία του συνδεδεμένου χρήστη."
+        items={[
+          'Ονοματεπώνυμο και ακαδημαϊκό email',
+          'Ρόλος πρόσβασης στο workspace',
+          'Μελλοντικές προσωπικές προτιμήσεις',
+        ]}
+      />
+    ),
+    nav: false,
+  },
+  {
+    path: 'settings',
+    label: 'Ρυθμίσεις',
+    icon: 'settings',
+    keywords: ['settings', 'preferences', 'ρυθμίσεις'],
+    element: (
+      <AccountPanel
+        title="Ρυθμίσεις λογαριασμού"
+        body="Προσωρινή protected σελίδα για μελλοντικές ρυθμίσεις ειδοποιήσεων, γλώσσας και προσβασιμότητας."
+        items={[
+          'Προτιμήσεις ειδοποιήσεων',
+          'Γλώσσα και εμφάνιση',
+          'Ρυθμίσεις ιδιωτικότητας μαθησιακών δεδομένων',
+        ]}
+      />
+    ),
+    nav: false,
+  },
+];
+
 // The workspace shell imports this registry to build each role's private routes.
 // eslint-disable-next-line react-refresh/only-export-components
 export const workspaceRoutesByRole: Record<UserRole, WorkspaceRoute[]> = {
-  admin: adminRoutes,
-  professor: professorRoutes,
-  student: studentRoutes,
+  admin: [...adminRoutes, ...commonToolRoutes, ...commonAccountRoutes],
+  professor: [...professorRoutes, ...commonToolRoutes, ...commonAccountRoutes],
+  student: [...studentRoutes, ...commonToolRoutes, ...commonAccountRoutes],
 };

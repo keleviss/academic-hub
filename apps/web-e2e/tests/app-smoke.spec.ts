@@ -61,3 +61,33 @@ test('does not expose role URLs in the public login route', async ({
   await expect(page.getByRole('link', { name: /professor/i })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /student/i })).toHaveCount(0);
 });
+
+test('opens the logged sidebar drawer on mobile', async ({ page }) => {
+  await page.unroute('**/api/auth/session');
+  await page.route('**/api/auth/session', (route) =>
+    route.fulfill({
+      json: {
+        authenticated: true,
+        user: {
+          id: '11111111-1111-4111-8111-111111111111',
+          email: 'student@example.com',
+          fullName: 'Δοκιμαστικός Χρήστης',
+          role: 'student',
+          isActive: true,
+        },
+      },
+    }),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.goto('/app');
+
+  await expect(page.getByText('Φοιτητικό workspace')).toBeVisible();
+  await page.getByRole('button', { name: 'Άνοιγμα sidebar' }).click();
+  await expect(
+    page.getByRole('navigation', { name: 'Πλοήγηση workspace' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /Αλγόριθμοι και Πολυπλοκότητα/ }),
+  ).toBeVisible();
+});

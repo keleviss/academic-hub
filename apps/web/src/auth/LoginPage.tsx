@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { LoginRequestSchema, type LoginRequest } from '@web-app/contracts';
 
 import { ApiClientError } from '../api/client';
+import { AppSidebar } from '../components/AppSidebar';
 import { ErrorNotice, SessionFeedback } from '../components/feedback';
 import { appPath, useLoginMutation, useSession } from './session';
 
@@ -130,21 +131,7 @@ export function LoginPage() {
   }
   return (
     <div className="auth-layout">
-      <aside className="auth-institution" aria-label="Academic Hub">
-        <div className="auth-brand">
-          <span>UNIWA</span>
-          <p>Academic Hub</p>
-        </div>
-        <div className="auth-introduction">
-          <span className="status-pill">Ακαδημαϊκό περιβάλλον</span>
-          <h2>Ο χώρος σου για μελέτη και αλληλεπίδραση.</h2>
-          <p>
-            Το εκπαιδευτικό υλικό, οι απορίες και η μαθησιακή σου πορεία σε ένα
-            κοινό περιβάλλον.
-          </p>
-        </div>
-        <p className="institution-footer">Πανεπιστήμιο Δυτικής Αττικής</p>
-      </aside>
+      <AppSidebar state="guest" />
       <header className="auth-mobile-header">
         <div className="auth-brand">
           <span>UNIWA</span>

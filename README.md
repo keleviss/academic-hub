@@ -64,12 +64,17 @@ the client convention `x-csrf-token` (DEC-015).
 Successful login redirects every role to the neutral protected route `/app`.
 The logged layout reads the server session role and renders the matching
 student, professor, or admin workspace content without exposing role names in
-the URL. Nested paths use common feature names such as `/app/courses`,
-`/app/activity`, `/app/analytics`, and `/app/users`; unsupported role feature
-paths redirect back to `/app`. Guests who visit `/app/*` go to `/`, and
-authenticated visits to `/` or `/login` go to `/app`. Backend authorization
-remains authoritative. Full dashboards/navigation belong to task 11;
-registration, SSO, reset, and remember-me are not implemented here.
+the URL. A shared `AppSidebar` renders the login institutional panel in guest
+state and the dark logged workspace rail in authenticated state. Desktop
+workspaces use a persistent sidebar; mobile uses a top bar with a hamburger
+drawer that opens the same role-aware sidebar. Nested paths use common feature
+names such as `/app/courses`, `/app/activity`, `/app/analytics`, `/app/users`,
+`/app/calendar`, `/app/messages`, and `/app/notes`; unsupported role feature
+paths redirect back to `/app`. `/app/profile` and `/app/settings` are common
+protected placeholders reached from the sidebar profile menu. Guests who visit
+`/app/*` go to `/`, and authenticated visits to `/` or `/login` go to `/app`.
+Backend authorization remains authoritative. Registration, SSO, reset, and
+remember-me are not implemented here.
 
 The responsive login follows the active Figma frames `47:5`, `47:48`, and
 `47:232` and Design Notes `29:4`, inspected on 2026-09-07. It uses a single

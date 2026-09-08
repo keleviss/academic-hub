@@ -66,6 +66,13 @@ async function fillLogin() {
   return user;
 }
 
+async function openProfileMenu() {
+  await userEvent.click(
+    await screen.findByRole('button', { name: /Μενού χρήστη/ }),
+  );
+  return screen.findByRole('menu');
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(fetchCurrentSession).mockResolvedValue(guest);
@@ -86,6 +93,9 @@ describe('public login route', () => {
     expect(
       await screen.findByRole('form', { name: 'Σύνδεση στο Academic Hub' }),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText('Academic Hub')).toHaveTextContent(
+      'Ο χώρος σου για μελέτη και αλληλεπίδραση.',
+    );
     expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/');
     expect(
       screen.queryByRole('navigation', { name: 'Κύρια πλοήγηση' }),
@@ -145,8 +155,8 @@ describe('public login route', () => {
         screen.getByRole('button', { name: 'Σύνδεση στο Academic Hub' }),
       );
 
-      expect(await screen.findByLabelText('Διαδρομή')).toHaveTextContent(
-        '/app',
+      await waitFor(() =>
+        expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app'),
       );
       expect(client.getQueryData(sessionKey)).toEqual(signedIn(role));
       expect(client.getMutationCache().getAll()).toHaveLength(0);
@@ -261,6 +271,81 @@ describe('session, routing and role workspaces', () => {
     expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app');
   });
 
+  it('renders the role-specific sidebar without role-prefixed links', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('student'));
+
+    renderApp('/app');
+
+    expect(await screen.findByText('Φοιτητικό workspace')).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', { name: 'Πλοήγηση workspace' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Μαθήματα/ })).toHaveAttribute(
+      'href',
+      '/app/courses',
+    );
+    expect(
+      screen.getByRole('link', { name: /Αλγόριθμοι και Πολυπλοκότητα/ }),
+    ).toHaveAttribute('href', '/app/courses?course=algorithms');
+    expect(
+      screen.queryByRole('link', { name: /Χρήστες/ }),
+    ).not.toBeInTheDocument();
+
+    const hrefs = screen
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href') ?? '');
+    expect(
+      hrefs.every((href) => !/^\/(admin|professor|student)/.test(href)),
+    ).toBe(true);
+  });
+
+  it('filters sidebar navigation to the current role pages', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('professor'));
+
+    renderApp('/app');
+
+    await screen.findByText('Teaching Intelligence workspace');
+    await userEvent.type(
+      screen.getByLabelText('Αναζήτηση διαθέσιμων σελίδων'),
+      'analytics',
+    );
+
+    expect(screen.getByRole('link', { name: 'Analytics' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /Μαθήματα/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /Χρήστες/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('preserves active state for sidebar subitems', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('student'));
+
+    renderApp('/app/courses?course=algorithms');
+
+    expect(await screen.findByText('Τα μαθήματά μου')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Αλγόριθμοι και Πολυπλοκότητα/ }),
+    ).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: /Μαθήματα/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it.each([
+    ['/app/profile', 'Προφίλ χρήστη'],
+    ['/app/settings', 'Ρυθμίσεις λογαριασμού'],
+  ])('renders common account route %s', async (path, heading) => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('admin'));
+
+    renderApp(path);
+
+    expect(await screen.findByText(heading)).toBeInTheDocument();
+    expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent(path);
+  });
+
   it.each(['/', '/login'])(
     'redirects an authenticated student from %s to /app',
     async (path) => {
@@ -339,7 +424,8 @@ describe('session, routing and role workspaces', () => {
       })
       .execute('private');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Αποσύνδεση' }));
+    await openProfileMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Αποσύνδεση' }));
 
     expect(await screen.findByRole('form')).toBeInTheDocument();
     expect(logout).toHaveBeenCalledTimes(1);
@@ -354,16 +440,15 @@ describe('session, routing and role workspaces', () => {
     vi.mocked(logout).mockRejectedValueOnce(new Error('offline'));
     renderApp('/app');
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Αποσύνδεση' }),
-    );
+    await openProfileMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Αποσύνδεση' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Η αποσύνδεση δεν ολοκληρώθηκε.',
     );
     expect(screen.getByText('Φοιτητικό workspace')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Αποσύνδεση' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Αποσύνδεση' }));
 
     expect(await screen.findByRole('form')).toBeInTheDocument();
   });
@@ -383,7 +468,8 @@ describe('session, routing and role workspaces', () => {
     await waitFor(() => expect(fetchCurrentSession).toHaveBeenCalledTimes(2));
     const signal = vi.mocked(fetchCurrentSession).mock.calls[1][0];
 
-    await userEvent.click(screen.getByRole('button', { name: 'Αποσύνδεση' }));
+    await openProfileMenu();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Αποσύνδεση' }));
     await screen.findByRole('form');
 
     expect(signal?.aborted).toBe(true);
