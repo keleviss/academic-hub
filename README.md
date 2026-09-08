@@ -46,7 +46,8 @@ The Prisma seed creates local-only demo users for exercising the prototype. Thes
 
 ## Frontend Authentication
 
-Open `/login` and use a demo account above. Login uses the existing API's
+Open `/` and use a demo account above. `/login` remains a legacy redirect to
+the canonical login route. Login uses the existing API's
 HttpOnly session cookie; no credentials or tokens are persisted in browser
 storage. The frontend accepts the shared email/password contract, including
 the local demo email domains.
@@ -60,12 +61,15 @@ each auth POST, serializes those request pairs within a tab, and retries once
 only for `403 / CSRF_TOKEN_INVALID`. The configured backend header must match
 the client convention `x-csrf-token` (DEC-015).
 
-Successful login redirects to `/admin`, `/professor`, or `/student`. These
-minimal screens show identity and logout; wrong-role visits redirect to the
-current user's role, and guests go to `/login`. Authenticated visits to `/login`
-also redirect to the user's role. `/` remains the public home/status page.
-Backend authorization remains authoritative. Full dashboards/navigation belong
-to task 11; registration, SSO, reset, and remember-me are not implemented here.
+Successful login redirects every role to the neutral protected route `/app`.
+The logged layout reads the server session role and renders the matching
+student, professor, or admin workspace content without exposing role names in
+the URL. Nested paths use common feature names such as `/app/courses`,
+`/app/activity`, `/app/analytics`, and `/app/users`; unsupported role feature
+paths redirect back to `/app`. Guests who visit `/app/*` go to `/`, and
+authenticated visits to `/` or `/login` go to `/app`. Backend authorization
+remains authoritative. Full dashboards/navigation belong to task 11;
+registration, SSO, reset, and remember-me are not implemented here.
 
 The responsive login follows the active Figma frames `47:5`, `47:48`, and
 `47:232` and Design Notes `29:4`, inspected on 2026-09-07. It uses a single

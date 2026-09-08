@@ -241,6 +241,35 @@ button:disabled {
 .identity-card dd {
   font-weight: 500;
 }
+.workspace-panel {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 42rem;
+  padding: 1.5rem;
+  background: white;
+  border: 1px solid var(--color-hub-border);
+  border-radius: var(--radius-hub-card);
+  overflow-wrap: anywhere;
+}
+.workspace-panel h2 {
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--color-hub-navy);
+}
+.workspace-panel > p:not(.auth-kicker) {
+  color: var(--color-hub-muted);
+  line-height: 1.7;
+}
+.workspace-panel ul {
+  display: grid;
+  gap: 0.75rem;
+  color: #334155;
+}
+.workspace-panel li {
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--color-hub-teal);
+}
 
 @media (min-width: 1024px) {
   .auth-layout {

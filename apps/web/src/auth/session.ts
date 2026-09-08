@@ -21,9 +21,7 @@ export const roleLabels: Record<UserRole, string> = {
   student: 'Φοιτητής',
 };
 
-export function rolePath(role: UserRole): string {
-  return `/${role}`;
-}
+export const appPath = '/app';
 
 export function useSession() {
   const changingSession = useIsMutating({ mutationKey: transitionKey }) > 0;

@@ -11,20 +11,21 @@ test('renders the web app shell', async ({ page }) => {
 
   await expect(
     page.getByRole('heading', {
-      name: 'Πρωτότυπο μαθησιακής πλατφόρμας',
+      name: 'Καλώς ήρθες ξανά',
     }),
   ).toBeVisible();
 
-  await expect(page.getByRole('link', { name: 'Αρχική' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Σύνδεση' })).toBeVisible();
+  await expect(
+    page.getByRole('navigation', { name: 'Κύρια πλοήγηση' }),
+  ).not.toBeVisible();
 });
 
-test('navigates to the login route from the main nav', async ({ page }) => {
-  await page.goto('/');
+test('redirects the legacy login route to the canonical index route', async ({
+  page,
+}) => {
+  await page.goto('/login');
 
-  await page.getByRole('link', { name: 'Σύνδεση' }).click();
-
-  await expect(page).toHaveURL('/login');
+  await expect(page).toHaveURL('/');
   await expect(
     page.getByRole('heading', {
       name: 'Καλώς ήρθες ξανά',
@@ -33,7 +34,7 @@ test('navigates to the login route from the main nav', async ({ page }) => {
 });
 
 test('login fields support keyboard navigation', async ({ page }) => {
-  await page.goto('/login');
+  await page.goto('/');
   const email = page.getByLabel('Email', { exact: true });
   const password = page.getByLabel('Κωδικός', { exact: true });
   await email.focus();
@@ -49,4 +50,14 @@ test('login fields support keyboard navigation', async ({ page }) => {
   await expect(
     page.getByRole('button', { name: 'Σύνδεση στο Academic Hub' }),
   ).toBeFocused();
+});
+
+test('does not expose role URLs in the public login route', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  await expect(page.getByRole('link', { name: /admin/i })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /professor/i })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /student/i })).toHaveCount(0);
 });

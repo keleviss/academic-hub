@@ -6,7 +6,7 @@ import { LoginRequestSchema, type LoginRequest } from '@web-app/contracts';
 
 import { ApiClientError } from '../api/client';
 import { ErrorNotice, SessionFeedback } from '../components/feedback';
-import { rolePath, useLoginMutation, useSession } from './session';
+import { appPath, useLoginMutation, useSession } from './session';
 
 function loginMessage(error: unknown): string {
   if (error instanceof ApiClientError && error.code === 'INVALID_CREDENTIALS') {
@@ -37,7 +37,7 @@ function LoginForm() {
     setError(null);
     try {
       const session = await mutation.mutateAsync(values);
-      navigate(rolePath(session.user!.role), { replace: true });
+      if (session.user) navigate(appPath, { replace: true });
     } catch (cause) {
       setError(loginMessage(cause));
     } finally {
@@ -126,7 +126,7 @@ function LoginForm() {
 export function LoginPage() {
   const session = useSession();
   if (!session.isError && session.data?.authenticated && session.data.user) {
-    return <Navigate to={rolePath(session.data.user.role)} replace />;
+    return <Navigate to={appPath} replace />;
   }
   return (
     <div className="auth-layout">
