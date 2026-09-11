@@ -3,6 +3,7 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CourseDetailResponseSchema,
+  CourseInstructorsResponseSchema,
   CourseListResponseSchema,
   CourseMutationResponseSchema,
 } from '@web-app/contracts';
@@ -154,6 +155,9 @@ function createTestApp(
       },
     ),
   };
+  const courseInstructor = {
+    findMany: vi.fn(async () => detailCourse.instructors),
+  };
 
   const sessionService: SessionService = {
     createSession: vi.fn(),
@@ -177,11 +181,14 @@ function createTestApp(
 
   const app = createApp({
     auditLogger,
-    coursesPrisma: { course } as unknown as Pick<PrismaClient, 'course'>,
+    coursesPrisma: { course, courseInstructor } as unknown as Pick<
+      PrismaClient,
+      'course' | 'courseInstructor'
+    >,
     sessionService,
   });
 
-  return { app, auditLogger, course };
+  return { app, auditLogger, course, courseInstructor };
 }
 
 function authCookie(): string {
@@ -271,6 +278,33 @@ describe('admin course routes', () => {
       enrollments: [{ studentId, email: 'student@example.edu' }],
       documents: [{ id: documentId, title: 'Syllabus' }],
     });
+  });
+
+  it('lists assigned course instructors for admins', async () => {
+    const { app, courseInstructor } = createTestApp();
+
+    const response = await request(app)
+      .get(`/api/admin/courses/${courseId}/instructors`)
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    const body = CourseInstructorsResponseSchema.parse(response.body);
+    expect(body.data).toEqual([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        userId: instructorId,
+        fullName: 'Ada Lovelace',
+        email: 'ada@example.edu',
+        role: 'owner',
+        assignedAt: now.toISOString(),
+      },
+    ]);
+    expect(courseInstructor.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { createdAt: 'asc' },
+        where: { courseId },
+      }),
+    );
   });
 
   it('creates a course and writes a course.created audit event', async () => {
@@ -378,6 +412,11 @@ describe('admin course routes', () => {
       .get('/api/admin/courses/not-a-uuid')
       .set('Cookie', authCookie())
       .expect(400);
+
+    await request(app)
+      .get('/api/admin/courses/not-a-uuid/instructors')
+      .set('Cookie', authCookie())
+      .expect(400);
   });
 
   it('returns validation errors for invalid create and empty update bodies', async () => {
@@ -424,5 +463,17 @@ describe('admin course routes', () => {
       .expect(404);
 
     expect(response.body.error.code).toBe('COURSE_NOT_FOUND');
+  });
+
+  it('returns 404 when listing instructors for a missing course', async () => {
+    const { app, courseInstructor } = createTestApp();
+
+    const response = await request(app)
+      .get('/api/admin/courses/99999999-9999-4999-8999-999999999999/instructors')
+      .set('Cookie', authCookie())
+      .expect(404);
+
+    expect(response.body.error.code).toBe('COURSE_NOT_FOUND');
+    expect(courseInstructor.findMany).not.toHaveBeenCalled();
   });
 });
