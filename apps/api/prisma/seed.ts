@@ -60,83 +60,227 @@ const ids = {
 
 const demoPassword = 'AcademicHubDemo2026!';
 
-async function seedUsers(): Promise<void> {
-  const adminPasswordHash = await hashPassword(demoPassword);
-  const professorPasswordHash = await hashPassword(demoPassword);
-  const studentMariaPasswordHash = await hashPassword(demoPassword);
-  const studentNikosPasswordHash = await hashPassword(demoPassword);
+const extraProfessorUsers = [
+  {
+    id: '20202020-2020-4020-8020-202020202021',
+    email: 'markos.professor@academic-hub.local',
+    fullName: 'Dr. Markos Ioannidis',
+    isActive: true,
+  },
+  {
+    id: '20202020-2020-4020-8020-202020202022',
+    email: 'sofia.professor@academic-hub.local',
+    fullName: 'Dr. Sofia Nikolaidou',
+    isActive: true,
+  },
+  {
+    id: '20202020-2020-4020-8020-202020202023',
+    email: 'dimitris.professor@academic-hub.local',
+    fullName: 'Dr. Dimitris Karamitros',
+    isActive: true,
+  },
+  {
+    id: '20202020-2020-4020-8020-202020202024',
+    email: 'ioanna.professor@academic-hub.local',
+    fullName: 'Dr. Ioanna Spyrou',
+    isActive: true,
+  },
+  {
+    id: '20202020-2020-4020-8020-202020202025',
+    email: 'andreas.inactive-professor@academic-hub.local',
+    fullName: 'Dr. Andreas Vasileiou',
+    isActive: false,
+  },
+] as const;
+
+const extraStudentUsers = [
+  {
+    id: '30303030-3030-4030-8030-303030303031',
+    email: 'eleni.student@academic-hub.local',
+    fullName: 'Eleni Papageorgiou',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303032',
+    email: 'petros.student@academic-hub.local',
+    fullName: 'Petros Dimitriou',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303033',
+    email: 'sofia.student@academic-hub.local',
+    fullName: 'Sofia Karagianni',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303034',
+    email: 'giorgos.student@academic-hub.local',
+    fullName: 'Giorgos Stavrou',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303035',
+    email: 'christina.student@academic-hub.local',
+    fullName: 'Christina Oikonomou',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303036',
+    email: 'dimitra.student@academic-hub.local',
+    fullName: 'Dimitra Alexiou',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303037',
+    email: 'kostas.student@academic-hub.local',
+    fullName: 'Kostas Theodorou',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303038',
+    email: 'alex.inactive-student@academic-hub.local',
+    fullName: 'Alex Kouris',
+    isActive: false,
+  },
+] as const;
+
+const extraCourses = [
+  {
+    id: '40404040-4040-4040-8040-404040404041',
+    code: 'CS-ALG-201',
+    title: 'Algorithms and Complexity',
+    description:
+      'Algorithm design, asymptotic analysis, and complexity trade-offs.',
+    semester: 3,
+    ectsCredits: 6,
+    isActive: true,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404042',
+    code: 'CS-DB-301',
+    title: 'Database Systems',
+    description:
+      'Relational modeling, SQL, transactions, indexing, and query planning.',
+    semester: 4,
+    ectsCredits: 6,
+    isActive: true,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404043',
+    code: 'CS-HCI-410',
+    title: 'Human-Centered Learning Systems',
+    description:
+      'Designing accessible and feedback-rich educational software.',
+    semester: 7,
+    ectsCredits: 5,
+    isActive: false,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404044',
+    code: 'CS-DIST-501',
+    title: 'Distributed Web Platforms',
+    description:
+      'Service boundaries, asynchronous workflows, and resilient web systems.',
+    semester: 6,
+    ectsCredits: 6,
+    isActive: true,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404045',
+    code: 'CS-RM-601',
+    title: 'Research Methods in Computing',
+    description:
+      'Research design, evaluation methods, ethics, and academic writing.',
+    semester: 8,
+    ectsCredits: 4,
+    isActive: true,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404046',
+    code: 'CS-ELECT-350',
+    title: 'Emerging Topics in Academic Technology',
+    description:
+      'Seminar-style course reserved for testing unassigned course states.',
+    semester: 5,
+    ectsCredits: 3,
+    isActive: true,
+  },
+] as const;
+
+type SeedUserInput = {
+  email: string;
+  fullName: string;
+  id: string;
+  isActive?: boolean;
+  role: 'admin' | 'professor' | 'student';
+};
+
+async function upsertSeedUser(user: SeedUserInput): Promise<void> {
+  const passwordHash = await hashPassword(demoPassword);
 
   await prisma.user.upsert({
-    where: { id: ids.admin },
+    where: { id: user.id },
     update: {
-      email: 'admin@academic-hub.local',
-      fullName: 'Demo Admin',
-      passwordHash: adminPasswordHash,
-      role: 'admin',
-      isActive: true,
+      email: user.email,
+      fullName: user.fullName,
+      passwordHash,
+      role: user.role,
+      isActive: user.isActive ?? true,
     },
     create: {
+      id: user.id,
+      email: user.email,
+      passwordHash,
+      fullName: user.fullName,
+      role: user.role,
+      isActive: user.isActive ?? true,
+    },
+  });
+}
+
+async function seedUsers(): Promise<void> {
+  for (const user of [
+    {
       id: ids.admin,
       email: 'admin@academic-hub.local',
-      passwordHash: adminPasswordHash,
       fullName: 'Demo Admin',
-      role: 'admin',
+      role: 'admin' as const,
     },
-  });
-
-  await prisma.user.upsert({
-    where: { id: ids.professor },
-    update: {
-      email: 'professor@academic-hub.local',
-      fullName: 'Dr. Eleni Papadopoulou',
-      passwordHash: professorPasswordHash,
-      role: 'professor',
-      isActive: true,
-    },
-    create: {
+    {
       id: ids.professor,
       email: 'professor@academic-hub.local',
-      passwordHash: professorPasswordHash,
       fullName: 'Dr. Eleni Papadopoulou',
-      role: 'professor',
+      role: 'professor' as const,
     },
-  });
-
-  await prisma.user.upsert({
-    where: { id: ids.studentMaria },
-    update: {
-      email: 'maria.student@academic-hub.local',
-      fullName: 'Maria Antoniou',
-      passwordHash: studentMariaPasswordHash,
-      role: 'student',
-      isActive: true,
-    },
-    create: {
+    {
       id: ids.studentMaria,
       email: 'maria.student@academic-hub.local',
-      passwordHash: studentMariaPasswordHash,
       fullName: 'Maria Antoniou',
-      role: 'student',
+      role: 'student' as const,
     },
-  });
-
-  await prisma.user.upsert({
-    where: { id: ids.studentNikos },
-    update: {
-      email: 'nikos.student@academic-hub.local',
-      fullName: 'Nikos Georgiou',
-      passwordHash: studentNikosPasswordHash,
-      role: 'student',
-      isActive: true,
-    },
-    create: {
+    {
       id: ids.studentNikos,
       email: 'nikos.student@academic-hub.local',
-      passwordHash: studentNikosPasswordHash,
       fullName: 'Nikos Georgiou',
-      role: 'student',
+      role: 'student' as const,
     },
-  });
+  ] satisfies SeedUserInput[]) {
+    await upsertSeedUser(user);
+  }
+
+  for (const professor of extraProfessorUsers) {
+    await upsertSeedUser({
+      ...professor,
+      role: 'professor',
+    });
+  }
+
+  for (const student of extraStudentUsers) {
+    await upsertSeedUser({
+      ...student,
+      role: 'student',
+    });
+  }
 }
 
 async function seedCourse(): Promise<void> {
@@ -162,6 +306,14 @@ async function seedCourse(): Promise<void> {
     },
   });
 
+  for (const course of extraCourses) {
+    await prisma.course.upsert({
+      where: { id: course.id },
+      update: course,
+      create: course,
+    });
+  }
+
   await prisma.courseInstructor.upsert({
     where: { id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a5a' },
     update: {
@@ -175,20 +327,133 @@ async function seedCourse(): Promise<void> {
     },
   });
 
-  for (const [id, studentId] of [
-    ['6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a61', ids.studentMaria],
-    ['6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a62', ids.studentNikos],
-  ] as const) {
-    await prisma.enrollment.upsert({
-      where: { id },
+  await prisma.courseInstructor.upsert({
+    where: { id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a5b' },
+    update: {
+      instructorRole: 'assistant',
+    },
+    create: {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a5b',
+      courseId: ids.course,
+      instructorId: extraProfessorUsers[0].id,
+      instructorRole: 'assistant',
+    },
+  });
+
+  for (const assignment of [
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a61',
+      courseId: extraCourses[0].id,
+      instructorId: ids.professor,
+      instructorRole: 'owner' as const,
+    },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a62',
+      courseId: extraCourses[0].id,
+      instructorId: extraProfessorUsers[1].id,
+      instructorRole: 'assistant' as const,
+    },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a63',
+      courseId: extraCourses[1].id,
+      instructorId: extraProfessorUsers[2].id,
+      instructorRole: 'owner' as const,
+    },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a64',
+      courseId: extraCourses[2].id,
+      instructorId: extraProfessorUsers[3].id,
+      instructorRole: 'owner' as const,
+    },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a65',
+      courseId: extraCourses[3].id,
+      instructorId: extraProfessorUsers[0].id,
+      instructorRole: 'owner' as const,
+    },
+  ]) {
+    await prisma.courseInstructor.upsert({
+      where: { id: assignment.id },
       update: {
-        status: 'active',
+        instructorRole: assignment.instructorRole,
+      },
+      create: assignment,
+    });
+  }
+
+  for (const enrollment of [
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a61',
+      studentId: ids.studentMaria,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a62',
+      studentId: ids.studentNikos,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a63',
+      studentId: extraStudentUsers[0].id,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a64',
+      studentId: extraStudentUsers[1].id,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a65',
+      studentId: extraStudentUsers[2].id,
+      status: 'completed' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a66',
+      studentId: extraStudentUsers[3].id,
+      status: 'inactive' as const,
+      courseId: ids.course,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a67',
+      courseId: extraCourses[0].id,
+      studentId: ids.studentMaria,
+      status: 'completed' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a68',
+      courseId: extraCourses[0].id,
+      studentId: extraStudentUsers[4].id,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a69',
+      courseId: extraCourses[1].id,
+      studentId: ids.studentNikos,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a70',
+      courseId: extraCourses[1].id,
+      studentId: extraStudentUsers[5].id,
+      status: 'inactive' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a71',
+      courseId: extraCourses[3].id,
+      studentId: extraStudentUsers[6].id,
+      status: 'active' as const,
+    },
+  ]) {
+    await prisma.enrollment.upsert({
+      where: { id: enrollment.id },
+      update: {
+        status: enrollment.status,
       },
       create: {
-        id,
-        courseId: ids.course,
-        studentId,
-        status: 'active',
+        id: enrollment.id,
+        courseId: enrollment.courseId ?? ids.course,
+        studentId: enrollment.studentId,
+        status: enrollment.status,
       },
     });
   }
