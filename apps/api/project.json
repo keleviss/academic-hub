@@ -55,6 +55,13 @@
         "command": "prisma migrate dev --config prisma.config.ts"
       }
     },
+    "prisma-migrate-deploy": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "prisma migrate deploy --config prisma.config.ts"
+      }
+    },
     "prisma-seed": {
       "executor": "nx:run-commands",
       "options": {

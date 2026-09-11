@@ -5,15 +5,14 @@ import { MemoryRouter } from 'react-router';
 export function renderWithProviders(
   ui: React.ReactElement,
   initialEntries: string[] = ['/'],
-): RenderResult {
-  const queryClient = new QueryClient({
+  queryClient = new QueryClient({
     defaultOptions: {
       queries: {
         retry: false,
       },
     },
-  });
-
+  }),
+): RenderResult {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>

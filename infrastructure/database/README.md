@@ -19,12 +19,18 @@ docker compose version
 Run commands from the `web-app` directory.
 
 ```bash
-npx nx run database:status
+npm run db:status
 npx nx run database:config
-npx nx run database:start
-npx nx run database:status
-npx nx run database:stop
+npm run db:start
+npm run db:logs
+npm run db:stop
 ```
+
+`db:start` waits for both healthchecks with a 120-second timeout. `db:logs` follows
+logs until Ctrl+C. `db:stop` removes containers and the network while preserving
+the PostgreSQL and MinIO named volumes. These scripts delegate to the `database`
+Nx project. To start infrastructure, migrations, API, and frontend together, use
+`npm run dev`; see the [workspace guide](../../README.md#start-and-stop-local-development).
 
 You can also validate the Compose file directly:
 
@@ -44,4 +50,4 @@ docker compose -f infrastructure/database/docker-compose.yml config
 
 - Docker named volumes keep local data outside the repository.
 - Do not commit `.env` files or generated database/object-storage data.
-- Prisma schema and seed data belong to the later database schema task.
+- Prisma schema, migrations, and seed data live in `apps/api/prisma`; `npm run db:setup` prepares the database and demo data explicitly.

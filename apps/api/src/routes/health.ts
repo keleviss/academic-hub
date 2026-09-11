@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { HealthResponseSchema, type HealthResponse } from '@web-app/contracts';
 
+import { asyncHandler } from '../lib/async-handler.js';
+import { sendJson } from '../lib/send-json.js';
+
 export interface HealthRouteOptions {
   now?: () => Date;
   serviceName?: string;
@@ -12,10 +15,11 @@ export function createHealthRouter(options: HealthRouteOptions = {}): Router {
   const now = options.now ?? (() => new Date());
   const serviceName = options.serviceName ?? 'api';
 
-  router.get('/', (_request, response, next) => {
-    void _request;
+  router.get(
+    '/',
+    asyncHandler((_request, response) => {
+      void _request;
 
-    try {
       const payload: HealthResponse = {
         status: 'ok',
         service: serviceName,
@@ -23,11 +27,9 @@ export function createHealthRouter(options: HealthRouteOptions = {}): Router {
         version: options.version,
       };
 
-      response.status(200).json(HealthResponseSchema.parse(payload));
-    } catch (error) {
-      next(error);
-    }
-  });
+      sendJson(response, 200, HealthResponseSchema, payload);
+    }),
+  );
 
   return router;
 }
