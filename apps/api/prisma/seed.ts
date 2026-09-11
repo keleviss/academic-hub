@@ -147,6 +147,8 @@ async function seedCourse(): Promise<void> {
       title: 'Interactive Academic Content',
       description:
         'Demo course for the content-centered and feedback-driven LMS prototype.',
+      semester: 1,
+      ectsCredits: 6,
       isActive: true,
     },
     create: {
@@ -155,6 +157,8 @@ async function seedCourse(): Promise<void> {
       title: 'Interactive Academic Content',
       description:
         'Demo course for the content-centered and feedback-driven LMS prototype.',
+      semester: 1,
+      ectsCredits: 6,
     },
   });
 
