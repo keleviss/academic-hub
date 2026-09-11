@@ -4,9 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   CourseDetailResponseSchema,
   CourseListResponseSchema,
+  CourseMutationResponseSchema,
 } from '@web-app/contracts';
 
 import { createApp } from '../app.js';
+import type { AuditLogger } from '../auth/audit-log.js';
 import type { SessionService } from '../auth/session.js';
 import { env } from '../config/env.js';
 
@@ -85,7 +87,23 @@ const detailCourse = {
   ],
 };
 
-function createTestApp(role: UserRole | null = 'admin') {
+function courseWriteError(code: string): Error & {
+  code: string;
+  meta: { target: string[] };
+} {
+  return Object.assign(new Error('Course write failed'), {
+    code,
+    meta: { target: ['code'] },
+  });
+}
+
+function createTestApp(
+  role: UserRole | null = 'admin',
+  options: { duplicateOnCreate?: boolean; duplicateOnUpdate?: boolean } = {},
+) {
+  const auditLogger: AuditLogger = {
+    logAuditEvent: vi.fn().mockResolvedValue(undefined),
+  };
   const course = {
     count: vi.fn(async (args?: { where?: unknown }) => {
       const where = args?.where as
@@ -97,9 +115,43 @@ function createTestApp(role: UserRole | null = 'admin') {
       if (where && Object.keys(where).length > 0) return 1;
       return 3;
     }),
+    create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+      if (options.duplicateOnCreate) throw courseWriteError('P2002');
+
+      return {
+        ...detailCourse,
+        ...data,
+        id: '88888888-8888-4888-8888-888888888888',
+        _count: {
+          documents: 0,
+          enrollments: 0,
+          instructors: 0,
+        },
+        documents: [],
+        enrollments: [],
+        instructors: [],
+      };
+    }),
     findMany: vi.fn(async () => [listCourse]),
     findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
       where.id === courseId ? detailCourse : null,
+    ),
+    update: vi.fn(
+      async ({
+        data,
+        where,
+      }: {
+        data: Record<string, unknown>;
+        where: { id: string };
+      }) => {
+        if (options.duplicateOnUpdate) throw courseWriteError('P2002');
+        if (where.id !== courseId) throw courseWriteError('P2025');
+
+        return {
+          ...detailCourse,
+          ...data,
+        };
+      },
     ),
   };
 
@@ -124,11 +176,12 @@ function createTestApp(role: UserRole | null = 'admin') {
   };
 
   const app = createApp({
+    auditLogger,
     coursesPrisma: { course } as unknown as Pick<PrismaClient, 'course'>,
     sessionService,
   });
 
-  return { app, course };
+  return { app, auditLogger, course };
 }
 
 function authCookie(): string {
@@ -220,6 +273,88 @@ describe('admin course routes', () => {
     });
   });
 
+  it('creates a course and writes a course.created audit event', async () => {
+    const { app, auditLogger, course } = createTestApp();
+
+    const response = await request(app)
+      .post('/api/admin/courses')
+      .set('Cookie', authCookie())
+      .send({
+        code: 'CS201',
+        title: 'Algorithms',
+        description: 'Algorithm design',
+        semester: 4,
+        ectsCredits: 6,
+      })
+      .expect(201);
+
+    const body = CourseMutationResponseSchema.parse(response.body);
+    expect(body.data).toMatchObject({
+      code: 'CS201',
+      title: 'Algorithms',
+      description: 'Algorithm design',
+    });
+    expect(course.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          code: 'CS201',
+          description: 'Algorithm design',
+        }),
+      }),
+    );
+    expect(auditLogger.logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'course.created',
+        entityId: body.data.id,
+        entityType: 'course',
+      }),
+    );
+  });
+
+  it('updates a course and writes a course.updated audit event', async () => {
+    const { app, auditLogger, course } = createTestApp();
+
+    const response = await request(app)
+      .patch(`/api/admin/courses/${courseId}`)
+      .set('Cookie', authCookie())
+      .send({ title: 'Advanced Data Structures' })
+      .expect(200);
+
+    const body = CourseMutationResponseSchema.parse(response.body);
+    expect(body.data.title).toBe('Advanced Data Structures');
+    expect(course.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { title: 'Advanced Data Structures' },
+        where: { id: courseId },
+      }),
+    );
+    expect(auditLogger.logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'course.updated',
+        entityId: courseId,
+      }),
+    );
+  });
+
+  it('deactivates a course with isActive=false and writes a course.deactivated audit event', async () => {
+    const { app, auditLogger } = createTestApp();
+
+    const response = await request(app)
+      .patch(`/api/admin/courses/${courseId}`)
+      .set('Cookie', authCookie())
+      .send({ isActive: false })
+      .expect(200);
+
+    const body = CourseMutationResponseSchema.parse(response.body);
+    expect(body.data.isActive).toBe(false);
+    expect(auditLogger.logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'course.deactivated',
+        entityId: courseId,
+      }),
+    );
+  });
+
   it('rejects anonymous and non-admin users', async () => {
     await request(createTestApp(null).app)
       .get('/api/admin/courses')
@@ -243,6 +378,41 @@ describe('admin course routes', () => {
       .get('/api/admin/courses/not-a-uuid')
       .set('Cookie', authCookie())
       .expect(400);
+  });
+
+  it('returns validation errors for invalid create and empty update bodies', async () => {
+    const { app } = createTestApp();
+
+    await request(app)
+      .post('/api/admin/courses')
+      .set('Cookie', authCookie())
+      .send({ code: 'bad code', title: '', semester: 0, ectsCredits: 0 })
+      .expect(400);
+
+    await request(app)
+      .patch(`/api/admin/courses/${courseId}`)
+      .set('Cookie', authCookie())
+      .send({})
+      .expect(400);
+  });
+
+  it('returns 409 for duplicate course codes on create and update', async () => {
+    await request(createTestApp('admin', { duplicateOnCreate: true }).app)
+      .post('/api/admin/courses')
+      .set('Cookie', authCookie())
+      .send({
+        code: 'CS101',
+        title: 'Duplicate Course',
+        semester: 3,
+        ectsCredits: 6,
+      })
+      .expect(409);
+
+    await request(createTestApp('admin', { duplicateOnUpdate: true }).app)
+      .patch(`/api/admin/courses/${courseId}`)
+      .set('Cookie', authCookie())
+      .send({ code: 'CS101' })
+      .expect(409);
   });
 
   it('returns 404 when a course does not exist', async () => {

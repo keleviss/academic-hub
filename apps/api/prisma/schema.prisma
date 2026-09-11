@@ -130,6 +130,8 @@ enum InterventionType {
 enum AuditAction {
   user_created            @map("user.created")
   course_created          @map("course.created")
+  course_updated          @map("course.updated")
+  course_deactivated      @map("course.deactivated")
   enrollment_changed      @map("enrollment.changed")
   document_uploaded       @map("document.uploaded")
   document_replaced       @map("document.replaced")

@@ -8,10 +8,14 @@ import type {
   PrismaClient,
 } from '@prisma/client';
 import {
+  CourseCreateRequestSchema,
   CourseDetailResponseSchema,
   CourseIdParamsSchema,
   CourseListQuerySchema,
   CourseListResponseSchema,
+  CourseMutationResponseSchema,
+  CourseUpdateRequestSchema,
+  type CourseCreateRequest,
   type CourseDetail,
   type CourseDetailResponse,
   type CourseDocumentMetadata,
@@ -20,9 +24,11 @@ import {
   type CourseListItem,
   type CourseListQuery,
   type CourseListResponse,
+  type CourseMutationResponse,
+  type CourseUpdateRequest,
 } from '@web-app/contracts';
 
-import { type AuditLogger } from '../auth/audit-log.js';
+import { createAuditLogger, type AuditLogger } from '../auth/audit-log.js';
 import {
   requireRole,
   type AuthorizationMiddlewareOptions,
@@ -110,10 +116,35 @@ export function createAdminCoursesRouter(
 ): Router {
   const router = Router();
   const prisma = options.prisma ?? defaultPrisma;
+  const auditLogger = options.auditLogger ?? createAuditLogger();
   const gateOptions: AuthorizationMiddlewareOptions = {
-    auditLogger: options.auditLogger,
+    auditLogger,
     sessionService: options.sessionService,
   };
+
+  router.post(
+    '/',
+    requireRole(['admin'], gateOptions),
+    validateRequest({ body: CourseCreateRequestSchema }),
+    asyncHandler(async (request, response) => {
+      const input = request.body as CourseCreateRequest;
+      const course = await createCourse(prisma, input);
+
+      await auditLogger.logAuditEvent({
+        action: 'course.created',
+        actorId: request.currentSession!.user.id,
+        entityId: course.id,
+        entityType: 'course',
+        metadata: { code: course.code },
+      });
+
+      const payload: CourseMutationResponse = {
+        data: toCourseDetail(course),
+      };
+
+      sendJson(response, 201, CourseMutationResponseSchema, payload);
+    }),
+  );
 
   router.get(
     '/',
@@ -186,7 +217,150 @@ export function createAdminCoursesRouter(
     }),
   );
 
+  router.patch(
+    '/:courseId',
+    requireRole(['admin'], gateOptions),
+    validateRequest({
+      body: CourseUpdateRequestSchema,
+      params: CourseIdParamsSchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { courseId } = request.params as { courseId: string };
+      const input = request.body as CourseUpdateRequest;
+      const previous = await prisma.course.findUnique({
+        select: { code: true, id: true, isActive: true },
+        where: { id: courseId },
+      });
+
+      if (!previous) {
+        throw courseNotFound(courseId);
+      }
+
+      const course = await updateCourse(prisma, courseId, input);
+      const action =
+        input.isActive === false && previous.isActive
+          ? 'course.deactivated'
+          : 'course.updated';
+
+      await auditLogger.logAuditEvent({
+        action,
+        actorId: request.currentSession!.user.id,
+        entityId: course.id,
+        entityType: 'course',
+        metadata: {
+          changedFields: Object.keys(input),
+          code: course.code,
+          previousCode: previous.code,
+        },
+      });
+
+      const payload: CourseMutationResponse = {
+        data: toCourseDetail(course),
+      };
+
+      sendJson(response, 200, CourseMutationResponseSchema, payload);
+    }),
+  );
+
   return router;
+}
+
+async function createCourse(
+  prisma: AdminCoursesPrismaClient,
+  input: CourseCreateRequest,
+): Promise<CourseDetailRecord> {
+  try {
+    return (await prisma.course.create({
+      data: normalizeCourseCreateData(input),
+      include: courseDetailInclude(),
+    })) as CourseDetailRecord;
+  } catch (error) {
+    throw mapCourseWriteError(error);
+  }
+}
+
+async function updateCourse(
+  prisma: AdminCoursesPrismaClient,
+  courseId: string,
+  input: CourseUpdateRequest,
+): Promise<CourseDetailRecord> {
+  try {
+    return (await prisma.course.update({
+      data: normalizeCourseUpdateData(input),
+      include: courseDetailInclude(),
+      where: { id: courseId },
+    })) as CourseDetailRecord;
+  } catch (error) {
+    throw mapCourseWriteError(error, courseId);
+  }
+}
+
+function normalizeCourseCreateData(
+  input: CourseCreateRequest,
+): Prisma.CourseCreateInput {
+  return {
+    code: input.code,
+    title: input.title,
+    description: input.description ?? null,
+    semester: input.semester,
+    ectsCredits: input.ectsCredits,
+  };
+}
+
+function normalizeCourseUpdateData(
+  input: CourseUpdateRequest,
+): Prisma.CourseUpdateInput {
+  const data: Prisma.CourseUpdateInput = {};
+
+  if (input.code !== undefined) data.code = input.code;
+  if (input.title !== undefined) data.title = input.title;
+  if (input.semester !== undefined) data.semester = input.semester;
+  if (input.ectsCredits !== undefined) data.ectsCredits = input.ectsCredits;
+  if (input.isActive !== undefined) data.isActive = input.isActive;
+  if (Object.prototype.hasOwnProperty.call(input, 'description')) {
+    data.description = input.description ?? null;
+  }
+
+  return data;
+}
+
+function mapCourseWriteError(error: unknown, courseId?: string): Error {
+  if (isPrismaWriteError(error)) {
+    if (error.code === 'P2002') {
+      return new HttpError(
+        409,
+        'Course code already exists',
+        { target: error.meta?.target },
+        'COURSE_CODE_ALREADY_EXISTS',
+      );
+    }
+
+    if (error.code === 'P2025' && courseId) {
+      return courseNotFound(courseId);
+    }
+  }
+
+  return error instanceof Error ? error : new Error('Course write failed');
+}
+
+function isPrismaWriteError(
+  error: unknown,
+): error is { code: string; meta?: { target?: unknown } } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof (error as { code?: unknown }).code === 'string'
+  );
+}
+
+function courseNotFound(courseId: string): HttpError {
+  return new HttpError(
+    404,
+    'Course not found',
+    { courseId },
+    'COURSE_NOT_FOUND',
+  );
 }
 
 function buildCourseListWhere(query: CourseListQuery): Prisma.CourseWhereInput {
