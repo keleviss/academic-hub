@@ -194,6 +194,27 @@ function createTestApp(
         return assignment;
       },
     ),
+    delete: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          courseId_instructorId: { courseId: string; instructorId: string };
+        };
+      }) => {
+        const assignmentIndex = instructorAssignments.findIndex(
+          (assignment) =>
+            where.courseId_instructorId.courseId === courseId &&
+            assignment.instructor.id ===
+              where.courseId_instructorId.instructorId,
+        );
+
+        if (assignmentIndex === -1) throw courseWriteError('P2025');
+
+        const [assignment] = instructorAssignments.splice(assignmentIndex, 1);
+        return assignment;
+      },
+    ),
     findMany: vi.fn(async () => instructorAssignments),
     findUnique: vi.fn(
       async ({
@@ -409,6 +430,26 @@ describe('admin course routes', () => {
     });
   });
 
+  it('removes an assigned professor from a course', async () => {
+    const { app, courseInstructor } = createTestApp();
+
+    const response = await request(app)
+      .delete(`/api/admin/courses/${courseId}/instructors/${instructorId}`)
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    const body = CourseInstructorsResponseSchema.parse(response.body);
+    expect(body.data).toEqual([]);
+    expect(courseInstructor.delete).toHaveBeenCalledWith({
+      where: {
+        courseId_instructorId: {
+          courseId,
+          instructorId,
+        },
+      },
+    });
+  });
+
   it('creates a course and writes a course.created audit event', async () => {
     const { app, auditLogger, course } = createTestApp();
 
@@ -511,6 +552,15 @@ describe('admin course routes', () => {
       .set('Cookie', authCookie())
       .send({ instructorId: secondInstructorId })
       .expect(403);
+
+    await request(createTestApp(null).app)
+      .delete(`/api/admin/courses/${courseId}/instructors/${instructorId}`)
+      .expect(401);
+
+    await request(createTestApp('professor').app)
+      .delete(`/api/admin/courses/${courseId}/instructors/${instructorId}`)
+      .set('Cookie', authCookie())
+      .expect(403);
   });
 
   it('returns validation errors for invalid query and params', async () => {
@@ -535,6 +585,16 @@ describe('admin course routes', () => {
       .post('/api/admin/courses/not-a-uuid/instructors')
       .set('Cookie', authCookie())
       .send({ instructorId: secondInstructorId })
+      .expect(400);
+
+    await request(app)
+      .delete(`/api/admin/courses/not-a-uuid/instructors/${instructorId}`)
+      .set('Cookie', authCookie())
+      .expect(400);
+
+    await request(app)
+      .delete(`/api/admin/courses/${courseId}/instructors/not-a-uuid`)
+      .set('Cookie', authCookie())
       .expect(400);
   });
 
@@ -616,6 +676,20 @@ describe('admin course routes', () => {
     expect(courseInstructor.create).not.toHaveBeenCalled();
   });
 
+  it('returns 404 when removing an instructor from a missing course', async () => {
+    const { app, courseInstructor } = createTestApp();
+
+    const response = await request(app)
+      .delete(
+        `/api/admin/courses/99999999-9999-4999-8999-999999999999/instructors/${instructorId}`,
+      )
+      .set('Cookie', authCookie())
+      .expect(404);
+
+    expect(response.body.error.code).toBe('COURSE_NOT_FOUND');
+    expect(courseInstructor.delete).not.toHaveBeenCalled();
+  });
+
   it('rejects missing, inactive and non-professor users for course assignment', async () => {
     const missingResponse = await request(
       createTestApp('admin', { professorExists: false }).app,
@@ -663,5 +737,19 @@ describe('admin course routes', () => {
       'COURSE_INSTRUCTOR_ALREADY_ASSIGNED',
     );
     expect(courseInstructor.create).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when removing a missing course instructor assignment', async () => {
+    const { app, courseInstructor } = createTestApp();
+
+    const response = await request(app)
+      .delete(`/api/admin/courses/${courseId}/instructors/${secondInstructorId}`)
+      .set('Cookie', authCookie())
+      .expect(404);
+
+    expect(response.body.error.code).toBe(
+      'COURSE_INSTRUCTOR_ASSIGNMENT_NOT_FOUND',
+    );
+    expect(courseInstructor.delete).not.toHaveBeenCalled();
   });
 });

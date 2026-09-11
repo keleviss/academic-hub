@@ -16,6 +16,7 @@ import {
   CourseInstructorsResponseSchema,
   CourseListQuerySchema,
   CourseListResponseSchema,
+  CourseMemberIdParamsSchema,
   CourseMutationResponseSchema,
   CourseUpdateRequestSchema,
   type AssignCourseInstructorRequest,
@@ -249,6 +250,27 @@ export function createAdminCoursesRouter(
     }),
   );
 
+  router.delete(
+    '/:courseId/instructors/:userId',
+    requireRole(['admin'], gateOptions),
+    validateRequest({ params: CourseMemberIdParamsSchema }),
+    asyncHandler(async (request, response) => {
+      const { courseId, userId } = request.params as {
+        courseId: string;
+        userId: string;
+      };
+
+      await assertCourseExists(prisma, courseId);
+      await deleteCourseInstructor(prisma, courseId, userId);
+
+      const payload: CourseInstructorsResponse = {
+        data: await listCourseInstructors(prisma, courseId),
+      };
+
+      sendJson(response, 200, CourseInstructorsResponseSchema, payload);
+    }),
+  );
+
   router.get(
     '/:courseId',
     requireRole(['admin'], gateOptions),
@@ -420,6 +442,45 @@ async function createCourseInstructor(
   }
 }
 
+async function deleteCourseInstructor(
+  prisma: AdminCoursesPrismaClient,
+  courseId: string,
+  instructorId: string,
+): Promise<void> {
+  const assignment = await prisma.courseInstructor.findUnique({
+    select: { id: true },
+    where: {
+      courseId_instructorId: {
+        courseId,
+        instructorId,
+      },
+    },
+  });
+
+  if (!assignment) {
+    throw courseInstructorAssignmentNotFound(courseId, instructorId);
+  }
+
+  try {
+    await prisma.courseInstructor.delete({
+      where: {
+        courseId_instructorId: {
+          courseId,
+          instructorId,
+        },
+      },
+    });
+  } catch (error) {
+    if (isPrismaWriteError(error) && error.code === 'P2025') {
+      throw courseInstructorAssignmentNotFound(courseId, instructorId);
+    }
+
+    throw error instanceof Error
+      ? error
+      : new Error('Course instructor removal failed');
+  }
+}
+
 async function listCourseInstructors(
   prisma: AdminCoursesPrismaClient,
   courseId: string,
@@ -550,6 +611,18 @@ function courseInstructorAlreadyAssigned(
     'Course instructor already assigned',
     { courseId, instructorId },
     'COURSE_INSTRUCTOR_ALREADY_ASSIGNED',
+  );
+}
+
+function courseInstructorAssignmentNotFound(
+  courseId: string,
+  instructorId: string,
+): HttpError {
+  return new HttpError(
+    404,
+    'Course instructor assignment not found',
+    { courseId, instructorId },
+    'COURSE_INSTRUCTOR_ASSIGNMENT_NOT_FOUND',
   );
 }
 
