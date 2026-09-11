@@ -20,6 +20,9 @@ export type ApiRouterOptions = AuthRouteOptions &
 export function createApiRouter(options: ApiRouterOptions = {}): Router {
   const router = Router();
 
+  router.use('/auth', createAuthRouter(options));
+  router.use('/health', createHealthRouter(options));
+  router.use('/readiness', createReadinessRouter(options));
   router.use(
     '/admin/courses',
     createAdminCoursesRouter({
@@ -27,10 +30,7 @@ export function createApiRouter(options: ApiRouterOptions = {}): Router {
       prisma: options.coursesPrisma,
       sessionService: options.sessionService,
     }),
-  );
-  router.use('/auth', createAuthRouter(options));
-  router.use('/health', createHealthRouter(options));
-  router.use('/readiness', createReadinessRouter(options));
+  );    
 
   return router;
 }
