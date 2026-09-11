@@ -15,6 +15,7 @@ import { env } from '../config/env.js';
 
 const courseId = '11111111-1111-4111-8111-111111111111';
 const instructorId = '22222222-2222-4222-8222-222222222222';
+const secondInstructorId = '99999999-9999-4999-8999-999999999991';
 const studentId = '33333333-3333-4333-8333-333333333333';
 const documentId = '44444444-4444-4444-8444-444444444444';
 const now = new Date('2026-09-11T12:00:00.000Z');
@@ -100,11 +101,20 @@ function courseWriteError(code: string): Error & {
 
 function createTestApp(
   role: UserRole | null = 'admin',
-  options: { duplicateOnCreate?: boolean; duplicateOnUpdate?: boolean } = {},
+  options: {
+    duplicateAssignment?: boolean;
+    duplicateAssignmentOnCreate?: boolean;
+    duplicateOnCreate?: boolean;
+    duplicateOnUpdate?: boolean;
+    professorActive?: boolean;
+    professorExists?: boolean;
+    professorRole?: UserRole;
+  } = {},
 ) {
   const auditLogger: AuditLogger = {
     logAuditEvent: vi.fn().mockResolvedValue(undefined),
   };
+  const instructorAssignments = [...detailCourse.instructors];
   const course = {
     count: vi.fn(async (args?: { where?: unknown }) => {
       const where = args?.where as
@@ -156,7 +166,66 @@ function createTestApp(
     ),
   };
   const courseInstructor = {
-    findMany: vi.fn(async () => detailCourse.instructors),
+    create: vi.fn(
+      async ({
+        data,
+      }: {
+        data: {
+          courseId: string;
+          instructorId: string;
+          instructorRole: 'owner' | 'assistant';
+        };
+      }) => {
+        if (options.duplicateAssignmentOnCreate) {
+          throw courseWriteError('P2002');
+        }
+
+        const assignment = {
+          id: '99999999-9999-4999-8999-999999999992',
+          createdAt: now,
+          instructorRole: data.instructorRole,
+          instructor: {
+            id: data.instructorId,
+            email: 'grace@example.edu',
+            fullName: 'Grace Hopper',
+          },
+        };
+        instructorAssignments.push(assignment);
+        return assignment;
+      },
+    ),
+    findMany: vi.fn(async () => instructorAssignments),
+    findUnique: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          courseId_instructorId: { courseId: string; instructorId: string };
+        };
+      }) => {
+        if (options.duplicateAssignment) return detailCourse.instructors[0];
+
+        return (
+          instructorAssignments.find(
+            (assignment) =>
+              where.courseId_instructorId.courseId === courseId &&
+              assignment.instructor.id ===
+                where.courseId_instructorId.instructorId,
+          ) ?? null
+        );
+      },
+    ),
+  };
+  const user = {
+    findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
+      options.professorExists === false
+        ? null
+        : {
+            id: where.id,
+            isActive: options.professorActive ?? true,
+            role: options.professorRole ?? 'professor',
+          },
+    ),
   };
 
   const sessionService: SessionService = {
@@ -181,14 +250,14 @@ function createTestApp(
 
   const app = createApp({
     auditLogger,
-    coursesPrisma: { course, courseInstructor } as unknown as Pick<
+    coursesPrisma: { course, courseInstructor, user } as unknown as Pick<
       PrismaClient,
-      'course' | 'courseInstructor'
+      'course' | 'courseInstructor' | 'user'
     >,
     sessionService,
   });
 
-  return { app, auditLogger, course, courseInstructor };
+  return { app, auditLogger, course, courseInstructor, user };
 }
 
 function authCookie(): string {
@@ -307,6 +376,39 @@ describe('admin course routes', () => {
     );
   });
 
+  it('assigns an active professor to a course', async () => {
+    const { app, courseInstructor, user } = createTestApp();
+
+    const response = await request(app)
+      .post(`/api/admin/courses/${courseId}/instructors`)
+      .set('Cookie', authCookie())
+      .send({ instructorId: secondInstructorId, role: 'assistant' })
+      .expect(201);
+
+    const body = CourseInstructorsResponseSchema.parse(response.body);
+    expect(body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: secondInstructorId,
+          fullName: 'Grace Hopper',
+          email: 'grace@example.edu',
+          role: 'assistant',
+        }),
+      ]),
+    );
+    expect(user.findUnique).toHaveBeenCalledWith({
+      select: { id: true, isActive: true, role: true },
+      where: { id: secondInstructorId },
+    });
+    expect(courseInstructor.create).toHaveBeenCalledWith({
+      data: {
+        courseId,
+        instructorId: secondInstructorId,
+        instructorRole: 'assistant',
+      },
+    });
+  });
+
   it('creates a course and writes a course.created audit event', async () => {
     const { app, auditLogger, course } = createTestApp();
 
@@ -398,6 +500,17 @@ describe('admin course routes', () => {
       .get('/api/admin/courses')
       .set('Cookie', authCookie())
       .expect(403);
+
+    await request(createTestApp(null).app)
+      .post(`/api/admin/courses/${courseId}/instructors`)
+      .send({ instructorId: secondInstructorId })
+      .expect(401);
+
+    await request(createTestApp('professor').app)
+      .post(`/api/admin/courses/${courseId}/instructors`)
+      .set('Cookie', authCookie())
+      .send({ instructorId: secondInstructorId })
+      .expect(403);
   });
 
   it('returns validation errors for invalid query and params', async () => {
@@ -417,6 +530,12 @@ describe('admin course routes', () => {
       .get('/api/admin/courses/not-a-uuid/instructors')
       .set('Cookie', authCookie())
       .expect(400);
+
+    await request(app)
+      .post('/api/admin/courses/not-a-uuid/instructors')
+      .set('Cookie', authCookie())
+      .send({ instructorId: secondInstructorId })
+      .expect(400);
   });
 
   it('returns validation errors for invalid create and empty update bodies', async () => {
@@ -432,6 +551,12 @@ describe('admin course routes', () => {
       .patch(`/api/admin/courses/${courseId}`)
       .set('Cookie', authCookie())
       .send({})
+      .expect(400);
+
+    await request(app)
+      .post(`/api/admin/courses/${courseId}/instructors`)
+      .set('Cookie', authCookie())
+      .send({ instructorId: 'not-a-uuid', role: 'primary' })
       .expect(400);
   });
 
@@ -475,5 +600,68 @@ describe('admin course routes', () => {
 
     expect(response.body.error.code).toBe('COURSE_NOT_FOUND');
     expect(courseInstructor.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when assigning an instructor to a missing course', async () => {
+    const { app, courseInstructor, user } = createTestApp();
+
+    const response = await request(app)
+      .post('/api/admin/courses/99999999-9999-4999-8999-999999999999/instructors')
+      .set('Cookie', authCookie())
+      .send({ instructorId: secondInstructorId })
+      .expect(404);
+
+    expect(response.body.error.code).toBe('COURSE_NOT_FOUND');
+    expect(user.findUnique).not.toHaveBeenCalled();
+    expect(courseInstructor.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects missing, inactive and non-professor users for course assignment', async () => {
+    const missingResponse = await request(
+      createTestApp('admin', { professorExists: false }).app,
+    )
+      .post(`/api/admin/courses/${courseId}/instructors`)
+      .set('Cookie', authCookie())
+      .send({ instructorId: secondInstructorId })
+      .expect(404);
+
+    expect(missingResponse.body.error.code).toBe('PROFESSOR_NOT_FOUND');
+
+    const inactiveResponse = await request(
+      createTestApp('admin', { professorActive: false }).app,
+    )
+      .post(`/api/admin/courses/${courseId}/instructors`)
+      .set('Cookie', authCookie())
+      .send({ instructorId: secondInstructorId })
+      .expect(409);
+
+    expect(inactiveResponse.body.error.code).toBe('PROFESSOR_INACTIVE');
+
+    const studentResponse = await request(
+      createTestApp('admin', { professorRole: 'student' }).app,
+    )
+      .post(`/api/admin/courses/${courseId}/instructors`)
+      .set('Cookie', authCookie())
+      .send({ instructorId: secondInstructorId })
+      .expect(409);
+
+    expect(studentResponse.body.error.code).toBe('USER_IS_NOT_PROFESSOR');
+  });
+
+  it('returns 409 when assigning an already assigned professor', async () => {
+    const { app, courseInstructor } = createTestApp('admin', {
+      duplicateAssignment: true,
+    });
+
+    const response = await request(app)
+      .post(`/api/admin/courses/${courseId}/instructors`)
+      .set('Cookie', authCookie())
+      .send({ instructorId })
+      .expect(409);
+
+    expect(response.body.error.code).toBe(
+      'COURSE_INSTRUCTOR_ALREADY_ASSIGNED',
+    );
+    expect(courseInstructor.create).not.toHaveBeenCalled();
   });
 });
