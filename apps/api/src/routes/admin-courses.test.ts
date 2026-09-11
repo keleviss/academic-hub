@@ -1,8 +1,9 @@
-import type { PrismaClient, UserRole } from '@prisma/client';
+import type { EnrollmentStatus, PrismaClient, UserRole } from '@prisma/client';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CourseDetailResponseSchema,
+  CourseEnrollmentsResponseSchema,
   CourseInstructorsResponseSchema,
   CourseListResponseSchema,
   CourseMutationResponseSchema,
@@ -18,6 +19,8 @@ const instructorId = '22222222-2222-4222-8222-222222222222';
 const secondInstructorId = '99999999-9999-4999-8999-999999999991';
 const studentId = '33333333-3333-4333-8333-333333333333';
 const documentId = '44444444-4444-4444-8444-444444444444';
+const newStudentId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const inactiveStudentId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const now = new Date('2026-09-11T12:00:00.000Z');
 
 const listCourse = {
@@ -104,11 +107,15 @@ function createTestApp(
   options: {
     duplicateAssignment?: boolean;
     duplicateAssignmentOnCreate?: boolean;
+    duplicateEnrollmentOnCreate?: boolean;
     duplicateOnCreate?: boolean;
     duplicateOnUpdate?: boolean;
     professorActive?: boolean;
     professorExists?: boolean;
     professorRole?: UserRole;
+    studentActive?: boolean;
+    studentExists?: boolean;
+    studentRole?: UserRole;
   } = {},
 ) {
   const auditLogger: AuditLogger = {
@@ -237,16 +244,116 @@ function createTestApp(
       },
     ),
   };
+  const enrollmentRecords = [
+    ...detailCourse.enrollments,
+    {
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      createdAt: now,
+      updatedAt: now,
+      status: 'inactive' as EnrollmentStatus,
+      student: {
+        id: inactiveStudentId,
+        email: 'inactive@example.edu',
+        fullName: 'Inactive Student',
+      },
+    },
+  ];
+  const enrollment = {
+    create: vi.fn(
+      async ({
+        data,
+      }: {
+        data: {
+          courseId: string;
+          status: EnrollmentStatus;
+          studentId: string;
+        };
+      }) => {
+        if (options.duplicateEnrollmentOnCreate) {
+          throw courseWriteError('P2002');
+        }
+
+        const record = {
+          id: '99999999-9999-4999-8999-999999999993',
+          createdAt: now,
+          updatedAt: now,
+          status: data.status,
+          student: {
+            id: data.studentId,
+            email: 'newstudent@example.edu',
+            fullName: 'New Student',
+          },
+        };
+        enrollmentRecords.push(record);
+        return { id: record.id, status: record.status };
+      },
+    ),
+    findMany: vi.fn(async () => enrollmentRecords),
+    findUnique: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          courseId_studentId: { courseId: string; studentId: string };
+        };
+      }) =>
+        enrollmentRecords.find(
+          (record) =>
+            where.courseId_studentId.courseId === courseId &&
+            record.student.id === where.courseId_studentId.studentId,
+        ) ?? null,
+    ),
+    update: vi.fn(
+      async ({
+        data,
+        where,
+      }: {
+        data: { status: EnrollmentStatus };
+        where: {
+          courseId_studentId: { courseId: string; studentId: string };
+        };
+      }) => {
+        const recordIndex = enrollmentRecords.findIndex(
+          (record) =>
+            where.courseId_studentId.courseId === courseId &&
+            record.student.id === where.courseId_studentId.studentId,
+        );
+
+        if (recordIndex === -1) throw courseWriteError('P2025');
+
+        enrollmentRecords[recordIndex] = {
+          ...enrollmentRecords[recordIndex],
+          status: data.status,
+          updatedAt: now,
+        };
+
+        return {
+          id: enrollmentRecords[recordIndex].id,
+          status: data.status,
+        };
+      },
+    ),
+  };
   const user = {
-    findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
-      options.professorExists === false
+    findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
+      if (where.id === instructorId || where.id === secondInstructorId) {
+        return options.professorExists === false
+          ? null
+          : {
+              id: where.id,
+              isActive: options.professorActive ?? true,
+              role: options.professorRole ?? 'professor',
+            };
+      }
+
+      return options.studentExists === false
         ? null
         : {
             id: where.id,
-            isActive: options.professorActive ?? true,
-            role: options.professorRole ?? 'professor',
-          },
-    ),
+            isActive: options.studentActive ?? true,
+            role: options.studentRole ?? 'student',
+          };
+    }),
   };
 
   const sessionService: SessionService = {
@@ -271,14 +378,19 @@ function createTestApp(
 
   const app = createApp({
     auditLogger,
-    coursesPrisma: { course, courseInstructor, user } as unknown as Pick<
+    coursesPrisma: {
+      course,
+      courseInstructor,
+      enrollment,
+      user,
+    } as unknown as Pick<
       PrismaClient,
-      'course' | 'courseInstructor' | 'user'
+      'course' | 'courseInstructor' | 'enrollment' | 'user'
     >,
     sessionService,
   });
 
-  return { app, auditLogger, course, courseInstructor, user };
+  return { app, auditLogger, course, courseInstructor, enrollment, user };
 }
 
 function authCookie(): string {
@@ -751,5 +863,250 @@ describe('admin course routes', () => {
       'COURSE_INSTRUCTOR_ASSIGNMENT_NOT_FOUND',
     );
     expect(courseInstructor.delete).not.toHaveBeenCalled();
+  });
+
+  it('lists enrolled students for admins', async () => {
+    const { app, enrollment } = createTestApp();
+
+    const response = await request(app)
+      .get(`/api/admin/courses/${courseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    const body = CourseEnrollmentsResponseSchema.parse(response.body);
+    expect(body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          studentId,
+          email: 'student@example.edu',
+          status: 'active',
+        }),
+      ]),
+    );
+    expect(enrollment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { createdAt: 'asc' },
+        where: { courseId },
+      }),
+    );
+  });
+
+  it('enrolls an active student in a course', async () => {
+    const { app, auditLogger, enrollment, user } = createTestApp();
+
+    const response = await request(app)
+      .post(`/api/admin/courses/${courseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .send({ studentId: newStudentId })
+      .expect(201);
+
+    const body = CourseEnrollmentsResponseSchema.parse(response.body);
+    expect(body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          studentId: newStudentId,
+          fullName: 'New Student',
+          status: 'active',
+        }),
+      ]),
+    );
+    expect(user.findUnique).toHaveBeenCalledWith({
+      select: { id: true, isActive: true, role: true },
+      where: { id: newStudentId },
+    });
+    expect(enrollment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { courseId, status: 'active', studentId: newStudentId },
+      }),
+    );
+    expect(auditLogger.logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'enrollment.changed',
+        entityType: 'enrollment',
+        metadata: expect.objectContaining({
+          courseId,
+          status: 'active',
+          studentId: newStudentId,
+        }),
+      }),
+    );
+  });
+
+  it('reactivates a previously inactive enrollment instead of creating a duplicate', async () => {
+    const { app, enrollment } = createTestApp();
+
+    const response = await request(app)
+      .post(`/api/admin/courses/${courseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .send({ studentId: inactiveStudentId, status: 'active' })
+      .expect(200);
+
+    const body = CourseEnrollmentsResponseSchema.parse(response.body);
+    expect(body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          studentId: inactiveStudentId,
+          status: 'active',
+        }),
+      ]),
+    );
+    expect(enrollment.create).not.toHaveBeenCalled();
+    expect(enrollment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: 'active' },
+        where: {
+          courseId_studentId: { courseId, studentId: inactiveStudentId },
+        },
+      }),
+    );
+  });
+
+  it('rejects enrolling a student who already has an active enrollment', async () => {
+    const { app, enrollment } = createTestApp();
+
+    const response = await request(app)
+      .post(`/api/admin/courses/${courseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .send({ studentId })
+      .expect(409);
+
+    expect(response.body.error.code).toBe('STUDENT_ALREADY_ENROLLED');
+    expect(enrollment.create).not.toHaveBeenCalled();
+    expect(enrollment.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects missing, inactive and non-student users for enrollment', async () => {
+    const missingResponse = await request(
+      createTestApp('admin', { studentExists: false }).app,
+    )
+      .post(`/api/admin/courses/${courseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .send({ studentId: newStudentId })
+      .expect(404);
+
+    expect(missingResponse.body.error.code).toBe('STUDENT_NOT_FOUND');
+
+    const inactiveResponse = await request(
+      createTestApp('admin', { studentActive: false }).app,
+    )
+      .post(`/api/admin/courses/${courseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .send({ studentId: newStudentId })
+      .expect(409);
+
+    expect(inactiveResponse.body.error.code).toBe('STUDENT_INACTIVE');
+
+    const professorResponse = await request(
+      createTestApp('admin', { studentRole: 'professor' }).app,
+    )
+      .post(`/api/admin/courses/${courseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .send({ studentId: newStudentId })
+      .expect(409);
+
+    expect(professorResponse.body.error.code).toBe('USER_IS_NOT_STUDENT');
+  });
+
+  it('updates an enrollment status and writes an enrollment.changed audit event', async () => {
+    const { app, auditLogger, enrollment } = createTestApp();
+
+    const response = await request(app)
+      .patch(`/api/admin/courses/${courseId}/enrollments/${studentId}`)
+      .set('Cookie', authCookie())
+      .send({ status: 'completed' })
+      .expect(200);
+
+    const body = CourseEnrollmentsResponseSchema.parse(response.body);
+    expect(body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ studentId, status: 'completed' }),
+      ]),
+    );
+    expect(enrollment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: 'completed' },
+        where: { courseId_studentId: { courseId, studentId } },
+      }),
+    );
+    expect(auditLogger.logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'enrollment.changed',
+        metadata: expect.objectContaining({
+          previousStatus: 'active',
+          status: 'completed',
+          studentId,
+        }),
+      }),
+    );
+  });
+
+  it('returns 404 when updating a missing enrollment', async () => {
+    const { app, enrollment } = createTestApp();
+
+    const response = await request(app)
+      .patch(`/api/admin/courses/${courseId}/enrollments/${newStudentId}`)
+      .set('Cookie', authCookie())
+      .send({ status: 'inactive' })
+      .expect(404);
+
+    expect(response.body.error.code).toBe('ENROLLMENT_NOT_FOUND');
+    expect(enrollment.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 for enrollment endpoints on a missing course', async () => {
+    const missingCourseId = '99999999-9999-4999-8999-999999999999';
+
+    const listResponse = await request(createTestApp().app)
+      .get(`/api/admin/courses/${missingCourseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .expect(404);
+    expect(listResponse.body.error.code).toBe('COURSE_NOT_FOUND');
+
+    const enrollResponse = await request(createTestApp().app)
+      .post(`/api/admin/courses/${missingCourseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .send({ studentId: newStudentId })
+      .expect(404);
+    expect(enrollResponse.body.error.code).toBe('COURSE_NOT_FOUND');
+  });
+
+  it('rejects anonymous and non-admin users for enrollment endpoints', async () => {
+    await request(createTestApp(null).app)
+      .get(`/api/admin/courses/${courseId}/enrollments`)
+      .expect(401);
+
+    await request(createTestApp('professor').app)
+      .post(`/api/admin/courses/${courseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .send({ studentId: newStudentId })
+      .expect(403);
+
+    await request(createTestApp('student').app)
+      .patch(`/api/admin/courses/${courseId}/enrollments/${studentId}`)
+      .set('Cookie', authCookie())
+      .send({ status: 'inactive' })
+      .expect(403);
+  });
+
+  it('returns validation errors for invalid enrollment params and bodies', async () => {
+    const { app } = createTestApp();
+
+    await request(app)
+      .post(`/api/admin/courses/${courseId}/enrollments`)
+      .set('Cookie', authCookie())
+      .send({ studentId: 'not-a-uuid' })
+      .expect(400);
+
+    await request(app)
+      .patch(`/api/admin/courses/${courseId}/enrollments/${studentId}`)
+      .set('Cookie', authCookie())
+      .send({ status: 'graduated' })
+      .expect(400);
+
+    await request(app)
+      .patch(`/api/admin/courses/not-a-uuid/enrollments/${studentId}`)
+      .set('Cookie', authCookie())
+      .send({ status: 'inactive' })
+      .expect(400);
   });
 });

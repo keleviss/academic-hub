@@ -12,6 +12,7 @@ import {
   AssignCourseInstructorRequestSchema,
   CourseCreateRequestSchema,
   CourseDetailResponseSchema,
+  CourseEnrollmentsResponseSchema,
   CourseIdParamsSchema,
   CourseInstructorsResponseSchema,
   CourseListQuerySchema,
@@ -19,12 +20,15 @@ import {
   CourseMemberIdParamsSchema,
   CourseMutationResponseSchema,
   CourseUpdateRequestSchema,
+  EnrollStudentRequestSchema,
+  UpdateEnrollmentStatusRequestSchema,
   type AssignCourseInstructorRequest,
   type CourseCreateRequest,
   type CourseDetail,
   type CourseDetailResponse,
   type CourseDocumentMetadata,
   type CourseEnrollment,
+  type CourseEnrollmentsResponse,
   type CourseInstructor,
   type CourseInstructorsResponse,
   type CourseListItem,
@@ -32,6 +36,8 @@ import {
   type CourseListResponse,
   type CourseMutationResponse,
   type CourseUpdateRequest,
+  type EnrollStudentRequest,
+  type UpdateEnrollmentStatusRequest,
 } from '@web-app/contracts';
 
 import { createAuditLogger, type AuditLogger } from '../auth/audit-log.js';
@@ -48,7 +54,7 @@ import { validateRequest } from '../lib/request-validation.js';
 
 type AdminCoursesPrismaClient = Pick<
   PrismaClient,
-  'course' | 'courseInstructor' | 'user'
+  'course' | 'courseInstructor' | 'enrollment' | 'user'
 >;
 
 export interface AdminCoursesRouteOptions {
@@ -99,6 +105,10 @@ interface ProfessorCandidateRecord {
   isActive: boolean;
   role: UserRole;
 }
+
+type StudentCandidateRecord = ProfessorCandidateRecord;
+
+type CourseEnrollmentRecord = CourseDetailRecord['enrollments'][0];
 
 interface CourseDetailRecord extends CourseListRecord {
   documents: Array<{
@@ -272,6 +282,109 @@ export function createAdminCoursesRouter(
   );
 
   router.get(
+    '/:courseId/enrollments',
+    requireRole(['admin'], gateOptions),
+    validateRequest({ params: CourseIdParamsSchema }),
+    asyncHandler(async (request, response) => {
+      const { courseId } = request.params as { courseId: string };
+      await assertCourseExists(prisma, courseId);
+
+      const payload: CourseEnrollmentsResponse = {
+        data: await listCourseEnrollments(prisma, courseId),
+      };
+
+      sendJson(response, 200, CourseEnrollmentsResponseSchema, payload);
+    }),
+  );
+
+  router.post(
+    '/:courseId/enrollments',
+    requireRole(['admin'], gateOptions),
+    validateRequest({
+      body: EnrollStudentRequestSchema,
+      params: CourseIdParamsSchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { courseId } = request.params as { courseId: string };
+      const input = request.body as EnrollStudentRequest;
+
+      await assertCourseExists(prisma, courseId);
+      await assertActiveStudent(prisma, input.studentId);
+      const { created, enrollment } = await enrollStudent(
+        prisma,
+        courseId,
+        input,
+      );
+
+      await auditLogger.logAuditEvent({
+        action: 'enrollment.changed',
+        actorId: request.currentSession!.user.id,
+        entityId: enrollment.id,
+        entityType: 'enrollment',
+        metadata: {
+          courseId,
+          status: enrollment.status,
+          studentId: input.studentId,
+        },
+      });
+
+      const payload: CourseEnrollmentsResponse = {
+        data: await listCourseEnrollments(prisma, courseId),
+      };
+
+      sendJson(
+        response,
+        created ? 201 : 200,
+        CourseEnrollmentsResponseSchema,
+        payload,
+      );
+    }),
+  );
+
+  router.patch(
+    '/:courseId/enrollments/:userId',
+    requireRole(['admin'], gateOptions),
+    validateRequest({
+      body: UpdateEnrollmentStatusRequestSchema,
+      params: CourseMemberIdParamsSchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { courseId, userId } = request.params as {
+        courseId: string;
+        userId: string;
+      };
+      const input = request.body as UpdateEnrollmentStatusRequest;
+
+      await assertCourseExists(prisma, courseId);
+      const previous = await assertEnrollmentExists(prisma, courseId, userId);
+
+      await prisma.enrollment.update({
+        data: { status: input.status },
+        where: { courseId_studentId: { courseId, studentId: userId } },
+      });
+
+      await auditLogger.logAuditEvent({
+        action: 'enrollment.changed',
+        actorId: request.currentSession!.user.id,
+        entityId: previous.id,
+        entityType: 'enrollment',
+        metadata: {
+          courseId,
+          previousStatus: previous.status,
+          status: input.status,
+          studentId: userId,
+        },
+      });
+
+      const payload: CourseEnrollmentsResponse = {
+        data: await listCourseEnrollments(prisma, courseId),
+      };
+
+      sendJson(response, 200, CourseEnrollmentsResponseSchema, payload);
+    }),
+  );
+
+  router.get(
     '/:courseId',
     requireRole(['admin'], gateOptions),
     validateRequest({ params: CourseIdParamsSchema }),
@@ -398,6 +511,120 @@ async function assertActiveProfessor(
   }
 }
 
+async function assertActiveStudent(
+  prisma: AdminCoursesPrismaClient,
+  studentId: string,
+): Promise<void> {
+  const user = (await prisma.user.findUnique({
+    select: { id: true, isActive: true, role: true },
+    where: { id: studentId },
+  })) as StudentCandidateRecord | null;
+
+  if (!user) {
+    throw new HttpError(
+      404,
+      'Student not found',
+      { studentId },
+      'STUDENT_NOT_FOUND',
+    );
+  }
+
+  if (!user.isActive) {
+    throw new HttpError(
+      409,
+      'Student is inactive',
+      { studentId },
+      'STUDENT_INACTIVE',
+    );
+  }
+
+  if (user.role !== 'student') {
+    throw new HttpError(
+      409,
+      'User is not a student',
+      { studentId, role: user.role },
+      'USER_IS_NOT_STUDENT',
+    );
+  }
+}
+
+async function assertEnrollmentExists(
+  prisma: AdminCoursesPrismaClient,
+  courseId: string,
+  studentId: string,
+): Promise<{ id: string; status: EnrollmentStatus }> {
+  const enrollment = await prisma.enrollment.findUnique({
+    select: { id: true, status: true },
+    where: {
+      courseId_studentId: {
+        courseId,
+        studentId,
+      },
+    },
+  });
+
+  if (!enrollment) {
+    throw enrollmentNotFound(courseId, studentId);
+  }
+
+  return enrollment;
+}
+
+async function enrollStudent(
+  prisma: AdminCoursesPrismaClient,
+  courseId: string,
+  input: EnrollStudentRequest,
+): Promise<{ created: boolean; enrollment: { id: string; status: EnrollmentStatus } }> {
+  const existing = await prisma.enrollment.findUnique({
+    select: { id: true, status: true },
+    where: {
+      courseId_studentId: {
+        courseId,
+        studentId: input.studentId,
+      },
+    },
+  });
+
+  if (existing) {
+    if (existing.status === 'active') {
+      throw studentAlreadyEnrolled(courseId, input.studentId);
+    }
+
+    // Re-enrolling an inactive or completed student reactivates the existing row instead of creating a duplicate.
+    const reactivated = await prisma.enrollment.update({
+      data: { status: input.status },
+      select: { id: true, status: true },
+      where: {
+        courseId_studentId: {
+          courseId,
+          studentId: input.studentId,
+        },
+      },
+    });
+
+    return { created: false, enrollment: reactivated };
+  }
+
+  try {
+    const created = await prisma.enrollment.create({
+      data: {
+        courseId,
+        status: input.status,
+        studentId: input.studentId,
+      },
+      select: { id: true, status: true },
+    });
+
+    return { created: true, enrollment: created };
+  } catch (error) {
+    if (isPrismaWriteError(error) && error.code === 'P2002') {
+      throw studentAlreadyEnrolled(courseId, input.studentId);
+    }
+
+    throw error instanceof Error ? error : new Error('Enrollment failed');
+  }
+}
+
 async function assertCourseInstructorNotAssigned(
   prisma: AdminCoursesPrismaClient,
   courseId: string,
@@ -502,6 +729,27 @@ async function listCourseInstructors(
   return (assignments as CourseInstructorAssignmentRecord[]).map(
     toCourseInstructor,
   );
+}
+
+async function listCourseEnrollments(
+  prisma: AdminCoursesPrismaClient,
+  courseId: string,
+): Promise<CourseEnrollment[]> {
+  const enrollments = await prisma.enrollment.findMany({
+    include: {
+      student: {
+        select: {
+          email: true,
+          fullName: true,
+          id: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+    where: { courseId },
+  });
+
+  return (enrollments as CourseEnrollmentRecord[]).map(toCourseEnrollment);
 }
 
 async function createCourse(
@@ -623,6 +871,27 @@ function courseInstructorAssignmentNotFound(
     'Course instructor assignment not found',
     { courseId, instructorId },
     'COURSE_INSTRUCTOR_ASSIGNMENT_NOT_FOUND',
+  );
+}
+
+function studentAlreadyEnrolled(
+  courseId: string,
+  studentId: string,
+): HttpError {
+  return new HttpError(
+    409,
+    'Student already enrolled',
+    { courseId, studentId },
+    'STUDENT_ALREADY_ENROLLED',
+  );
+}
+
+function enrollmentNotFound(courseId: string, studentId: string): HttpError {
+  return new HttpError(
+    404,
+    'Enrollment not found',
+    { courseId, studentId },
+    'ENROLLMENT_NOT_FOUND',
   );
 }
 
