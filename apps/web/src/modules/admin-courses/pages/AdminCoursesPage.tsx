@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
@@ -274,20 +274,23 @@ function Summary({ course }: { course: CourseDetail }): React.JSX.Element {
 }
 
 export function AdminCoursesPage(): React.JSX.Element {
-  const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const client = useQueryClient();
+  const [params, setParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
+
   const page = Number(params.get('page') ?? '1');
   const requestedStatus = params.get('status');
+
   const status: 'all' | 'active' | 'inactive' =
     requestedStatus === 'active' || requestedStatus === 'inactive'
       ? requestedStatus
       : 'all';
-  const search = params.get('search') ?? '';
+  const search = useMemo(() => params.get('search') ?? '', [params]);
   const semester = params.get('semester')
     ? Number(params.get('semester'))
     : undefined;
+
   const list = useQuery({
     queryKey: [...courseListKey, { page, search, semester, status }],
     queryFn: ({ signal }) =>
@@ -296,6 +299,7 @@ export function AdminCoursesPage(): React.JSX.Element {
         signal,
       ),
   });
+
   const create = useMutation({
     mutationFn: createAdminCourse,
     onSuccess: ({ data }) => {
@@ -304,14 +308,15 @@ export function AdminCoursesPage(): React.JSX.Element {
       navigate(`/app/courses/${data.id}`);
     },
   });
-  const setFilter = (next: Record<string, string | undefined>) => {
+
+  const setFilter = useCallback((next: Record<string, string | undefined>) => {
     const updated = new URLSearchParams(params);
     Object.entries(next).forEach(([key, value]) =>
       value ? updated.set(key, value) : updated.delete(key),
     );
     if (!('page' in next)) updated.delete('page');
     setParams(updated);
-  };
+  }, [params, setParams]);
 
   return (
     <section className="admin-courses-page">
@@ -374,7 +379,7 @@ export function AdminCoursesPage(): React.JSX.Element {
                   </button>
                 ))}
               </div>
-              <div className="course-filter-row">
+              <div className="course-filter-row text-sm">
                 <input
                   aria-label="Αναζήτηση μαθημάτων"
                   placeholder="Αναζήτηση τίτλου, κωδικού ή διδάσκοντα…"
