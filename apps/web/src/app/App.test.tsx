@@ -334,6 +334,38 @@ describe('session, routing and role workspaces', () => {
     );
   });
 
+  it('toggles sidebar subitems from grouped navigation rows', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('admin'));
+
+    renderApp('/app/courses');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Μαθήματα' }),
+    ).toBeInTheDocument();
+    const toggle = screen.getByRole('button', {
+      name: 'Απόκρυψη υποστοιχείων Μαθήματα',
+    });
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('link', { name: 'Ενεργά μαθήματα' }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('link', { name: 'Ενεργά μαθήματα' }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('link', { name: 'Ενεργά μαθήματα' }),
+    ).toBeInTheDocument();
+  });
+
   it('keeps the sidebar parent active when a feature route has search params', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('student'));
 

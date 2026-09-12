@@ -146,32 +146,51 @@ function NavItem({
   const currentPath = location.pathname;
   const currentHref = `${location.pathname}${location.search}`;
   const Icon = item.icon ? iconMap[item.icon] : Home;
-  const childActive = item.children?.some(
+  const children = item.children ?? [];
+  const hasChildren = children.length > 0;
+  const [expanded, setExpanded] = useState(hasChildren);
+  const subnavId = `sidebar-subnav-${item.path || 'index'}`;
+  const childActive = children.some(
     (child) => navTarget(child.path) === currentHref,
   );
   const active = childActive || isActivePath(item.path, currentPath);
 
   return (
     <li>
-      <Link
-        to={navTarget(item.path)}
-        className={active ? 'sidebar-nav-link is-active' : 'sidebar-nav-link'}
-        aria-current={active ? 'page' : undefined}
-        onClick={onNavigate}
+      <div
+        className={
+          active ? 'sidebar-nav-row is-active' : 'sidebar-nav-row'
+        }
       >
-        <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
-        <span>{item.label}</span>
-        {!!item.children?.length && (
-          <ChevronDown
-            aria-hidden="true"
-            className="sidebar-nav-chevron"
-            size={15}
-          />
+        <Link
+          to={navTarget(item.path)}
+          className="sidebar-nav-link"
+          aria-current={active ? 'page' : undefined}
+          onClick={onNavigate}
+        >
+          <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
+          <span>{item.label}</span>
+        </Link>
+        {hasChildren && (
+          <button
+            type="button"
+            className="sidebar-nav-toggle"
+            aria-label={`${expanded ? 'Απόκρυψη' : 'Εμφάνιση'} υποστοιχείων ${item.label}`}
+            aria-controls={subnavId}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+          >
+            <ChevronDown
+              aria-hidden="true"
+              className="sidebar-nav-chevron"
+              size={15}
+            />
+          </button>
         )}
-      </Link>
-      {!!item.children?.length && (
-        <ul className="sidebar-subnav">
-          {item.children.map((child) => {
+      </div>
+      {hasChildren && expanded && (
+        <ul className="sidebar-subnav" id={subnavId}>
+          {children.map((child) => {
             const childTarget = navTarget(child.path);
             const childIsActive = childTarget === currentHref;
             return (
