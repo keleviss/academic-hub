@@ -22,11 +22,11 @@ import {
   updateCourseEnrollmentStatus,
 } from '../../../api/client';
 import { ErrorNotice } from '../../../components/feedback';
+import { useNotification } from '../../../components/notifications';
 
 const courseListKey = ['admin', 'courses'] as const;
 const semesters = Array.from({ length: 12 }, (_, index) => index + 1);
 
-type Notice = { kind: 'success'; text: string } | null;
 type CourseFormValue = CourseCreateRequest;
 
 function messageFor(error: unknown): string {
@@ -276,6 +276,7 @@ function Summary({ course }: { course: CourseDetail }): React.JSX.Element {
 export function AdminCoursesPage(): React.JSX.Element {
   const navigate = useNavigate();
   const client = useQueryClient();
+  const { notify } = useNotification();
   const [params, setParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -297,14 +298,17 @@ export function AdminCoursesPage(): React.JSX.Element {
     ? Number(params.get('semester'))
     : undefined;
 
-  const setFilter = useCallback((next: Record<string, string | undefined>) => {
-    const updated = new URLSearchParams(params);
-    Object.entries(next).forEach(([key, value]) =>
-      value ? updated.set(key, value) : updated.delete(key),
-    );
-    if (!('page' in next)) updated.delete('page');
-    setParams(updated);
-  }, [params, setParams]);
+  const setFilter = useCallback(
+    (next: Record<string, string | undefined>) => {
+      const updated = new URLSearchParams(params);
+      Object.entries(next).forEach(([key, value]) =>
+        value ? updated.set(key, value) : updated.delete(key),
+      );
+      if (!('page' in next)) updated.delete('page');
+      setParams(updated);
+    },
+    [params, setParams],
+  );
 
   useEffect(() => {
     if (searchDraft === search) return;
@@ -331,6 +335,10 @@ export function AdminCoursesPage(): React.JSX.Element {
     onSuccess: ({ data }) => {
       void client.invalidateQueries({ queryKey: courseListKey });
       setCreateOpen(false);
+      notify({
+        kind: 'success',
+        message: 'Το νέο μάθημα δημιουργήθηκε.',
+      });
       navigate(`/app/courses/${data.id}`);
     },
   });
@@ -529,14 +537,13 @@ export function AdminCoursesPage(): React.JSX.Element {
 export function AdminCourseDetailPage(): React.JSX.Element {
   const { courseId = '' } = useParams();
   const client = useQueryClient();
+  const { notify } = useNotification();
   const [tab, setTab] = useState<'details' | 'instructors' | 'students'>(
     'details',
   );
   const [dialog, setDialog] = useState<
     'edit' | 'activation' | 'instructor' | 'student' | null
   >(null);
-  const [notice, setNotice] = useState<Notice>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
   const courseQuery = useQuery({
     queryKey: [...courseListKey, courseId],
@@ -550,10 +557,18 @@ export function AdminCourseDetailPage(): React.JSX.Element {
   const update = useMutation({
     mutationFn: (input: Parameters<typeof updateAdminCourse>[1]) =>
       updateAdminCourse(courseId, input),
-    onSuccess: async () => {
+    onSuccess: async (_result, input) => {
       await refresh();
       setDialog(null);
-      setNotice({ kind: 'success', text: 'Οι αλλαγές αποθηκεύτηκαν.' });
+      notify({
+        kind: 'success',
+        message:
+          typeof input.isActive === 'boolean'
+            ? input.isActive
+              ? 'Το μάθημα ενεργοποιήθηκε.'
+              : 'Το μάθημα απενεργοποιήθηκε.'
+            : 'Οι αλλαγές αποθηκεύτηκαν.',
+      });
     },
   });
   const assign = useMutation({
@@ -562,7 +577,10 @@ export function AdminCourseDetailPage(): React.JSX.Element {
     onSuccess: async () => {
       await refresh();
       setDialog(null);
-      setNotice({ kind: 'success', text: 'Ο διδάσκων ανατέθηκε στο μάθημα.' });
+      notify({
+        kind: 'success',
+        message: 'Ο διδάσκων ανατέθηκε στο μάθημα.',
+      });
     },
   });
   const enroll = useMutation({
@@ -571,7 +589,10 @@ export function AdminCourseDetailPage(): React.JSX.Element {
     onSuccess: async () => {
       await refresh();
       setDialog(null);
-      setNotice({ kind: 'success', text: 'Ο φοιτητής εγγράφηκε στο μάθημα.' });
+      notify({
+        kind: 'success',
+        message: 'Ο φοιτητής εγγράφηκε στο μάθημα.',
+      });
     },
   });
   const detail = courseQuery.data?.data;
@@ -597,26 +618,26 @@ export function AdminCourseDetailPage(): React.JSX.Element {
   );
   const changeEnrollment = async (userId: string, status: EnrollmentStatus) => {
     try {
-      setActionError(null);
       await updateCourseEnrollmentStatus(courseId, userId, { status });
       await refresh();
-      setNotice({ kind: 'success', text: 'Η κατάσταση εγγραφής ενημερώθηκε.' });
+      notify({
+        kind: 'success',
+        message: 'Η κατάσταση εγγραφής ενημερώθηκε.',
+      });
     } catch (error) {
-      setNotice(null);
-      setActionError(messageFor(error));
+      notify({ kind: 'error', message: messageFor(error) });
     }
   };
   const removeInstructor = async (userId: string) => {
     try {
-      setActionError(null);
       await removeCourseInstructor(courseId, userId);
       await refresh();
-      setNotice({
+      notify({
         kind: 'success',
-        text: 'Ο διδάσκων αφαιρέθηκε από το μάθημα.',
+        message: 'Ο διδάσκων αφαιρέθηκε από το μάθημα.',
       });
     } catch (error) {
-      setActionError(messageFor(error));
+      notify({ kind: 'error', message: messageFor(error) });
     }
   };
   return (
@@ -641,12 +662,6 @@ export function AdminCourseDetailPage(): React.JSX.Element {
           {detail.isActive ? 'Ενεργό' : 'Ανενεργό'}
         </span>
       </header>
-      {notice && (
-        <p className="success-notice" role="status">
-          {notice.text}
-        </p>
-      )}
-      {actionError && <ErrorNotice>{actionError}</ErrorNotice>}
       <div className="course-detail-layout">
         <div className="course-list-card">
           <div className="course-filter-tabs" role="tablist">

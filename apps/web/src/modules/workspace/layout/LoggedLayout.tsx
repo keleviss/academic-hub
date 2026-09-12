@@ -12,6 +12,7 @@ import {
   MobileSidebarDrawer,
 } from '../../../components/AppSidebar';
 import { ErrorNotice } from '../../../components/feedback';
+import { NotificationProvider } from '../../../components/notifications';
 import { appPath, useLogoutMutation } from '../../../auth/session';
 import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
 import { AdminCourseDetailPage } from '../../admin-courses/pages/AdminCoursesPage';
@@ -114,28 +115,30 @@ export function LoggedLayout(): React.JSX.Element {
         />
       </MobileSidebarDrawer>
       <main ref={contentRef} className="workspace-content" id="main-content">
-        {logoutFailed && (
-          <ErrorNotice>
-            Η αποσύνδεση δεν ολοκληρώθηκε. Δοκίμασε ξανά.
-          </ErrorNotice>
-        )}
-        <Routes>
-          {routes.map((route) => (
-            <Route
-              key={route.path || 'index'}
-              index={route.path === ''}
-              path={route.path || undefined}
-              element={route.element}
-            />
-          ))}
-          {user.role === 'admin' && (
-            <Route
-              path="courses/:courseId"
-              element={<AdminCourseDetailPage />}
-            />
+        <NotificationProvider>
+          {logoutFailed && (
+            <ErrorNotice>
+              Η αποσύνδεση δεν ολοκληρώθηκε. Δοκίμασε ξανά.
+            </ErrorNotice>
           )}
-          <Route path="*" element={<Navigate to={appPath} replace />} />
-        </Routes>
+          <Routes>
+            {routes.map((route) => (
+              <Route
+                key={route.path || 'index'}
+                index={route.path === ''}
+                path={route.path || undefined}
+                element={route.element}
+              />
+            ))}
+            {user.role === 'admin' && (
+              <Route
+                path="courses/:courseId"
+                element={<AdminCourseDetailPage />}
+              />
+            )}
+            <Route path="*" element={<Navigate to={appPath} replace />} />
+          </Routes>
+        </NotificationProvider>
       </main>
     </div>
   );
