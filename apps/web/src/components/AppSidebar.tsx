@@ -148,12 +148,13 @@ function NavItem({
   const Icon = item.icon ? iconMap[item.icon] : Home;
   const children = item.children ?? [];
   const hasChildren = children.length > 0;
-  const [expanded, setExpanded] = useState(hasChildren);
   const subnavId = `sidebar-subnav-${item.path || 'index'}`;
   const childActive = children.some(
     (child) => navTarget(child.path) === currentHref,
   );
   const active = childActive || isActivePath(item.path, currentPath);
+
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <li>
