@@ -905,6 +905,9 @@ select {
   min-width: 46rem;
   border-collapse: collapse;
 }
+.course-table-wrap .course-table-header {
+  background: #f7f9fb;
+}
 .course-table-wrap th,
 .course-table-wrap td {
   padding: var(--hub-space-3) var(--hub-space-4);

@@ -411,7 +411,7 @@ export function AdminCoursesPage(): React.JSX.Element {
                 <div className="course-table-wrap">
                   <table>
                     <thead>
-                      <tr>
+                      <tr className="course-table-header">
                         <th>Μάθημα</th>
                         <th>Εξάμηνο</th>
                         <th>Διδάσκων</th>
