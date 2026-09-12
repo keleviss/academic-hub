@@ -4,13 +4,13 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router';
 import {
   AppSidebar,
   MobileSidebarDrawer,
-  MobileWorkspaceHeader,
 } from '../../../components/AppSidebar';
 import { ErrorNotice } from '../../../components/feedback';
 import { appPath, useLogoutMutation } from '../../../auth/session';
 import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
 import { AdminCourseDetailPage } from '../../admin-courses/pages/AdminCoursesPage';
 import { workspaceRoutesByRole } from '../routing/workspaceRoutes';
+import { WorkspaceToolbar } from './WorkspaceToolbar';
 
 export function LoggedLayout(): React.JSX.Element {
   const user = useAuthenticatedUser();
@@ -45,7 +45,10 @@ export function LoggedLayout(): React.JSX.Element {
           onLogout={() => void signOut()}
         />
       </div>
-      <MobileWorkspaceHeader onOpenSidebar={() => setMobileSidebarOpen(true)} />
+      <WorkspaceToolbar
+        role={user.role}
+        onOpenSidebar={() => setMobileSidebarOpen(true)}
+      />
       <MobileSidebarDrawer
         open={mobileSidebarOpen}
         onClose={() => setMobileSidebarOpen(false)}
@@ -75,7 +78,10 @@ export function LoggedLayout(): React.JSX.Element {
             />
           ))}
           {user.role === 'admin' && (
-            <Route path="courses/:courseId" element={<AdminCourseDetailPage />} />
+            <Route
+              path="courses/:courseId"
+              element={<AdminCourseDetailPage />}
+            />
           )}
           <Route path="*" element={<Navigate to={appPath} replace />} />
         </Routes>

@@ -2,14 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
   BarChart3,
-  Bell,
   BookOpen,
   CalendarDays,
   ChevronDown,
   Home,
   LogOut,
   Mail,
-  Menu,
   Search,
   Settings,
   ShieldCheck,
@@ -329,42 +327,6 @@ function LoggedSidebar({
         </button>
       </div>
     </aside>
-  );
-}
-
-export function MobileWorkspaceHeader({
-  onOpenSidebar,
-}: {
-  onOpenSidebar: () => void;
-}): React.JSX.Element {
-  return (
-    <header className="mobile-workspace-header">
-      <button
-        type="button"
-        className="mobile-icon-button"
-        aria-label="Άνοιγμα sidebar"
-        onClick={onOpenSidebar}
-      >
-        <Menu aria-hidden="true" size={21} />
-      </button>
-      <BrandLockup compact />
-      <div className="mobile-header-actions">
-        <button
-          type="button"
-          className="mobile-icon-button"
-          aria-label="Ειδοποιήσεις"
-        >
-          <Bell aria-hidden="true" size={20} />
-        </button>
-        <Link
-          to={`${appPath}/profile`}
-          className="mobile-icon-button"
-          aria-label="Προφίλ"
-        >
-          <UserCircle aria-hidden="true" size={20} />
-        </Link>
-      </div>
-    </header>
   );
 }
 
