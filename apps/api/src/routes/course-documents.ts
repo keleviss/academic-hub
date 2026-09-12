@@ -4,6 +4,7 @@ import type {
   DocumentVisibility,
   Prisma,
   PrismaClient,
+  UserRole,
 } from '@prisma/client';
 import {
   CourseDocumentIdParamsSchema,
@@ -77,7 +78,7 @@ export function createCourseDocumentsRouter(
 
   router.get(
     '/',
-    requireRole(['admin', 'professor'], gateOptions),
+    requireRole(['admin', 'professor', 'student'], gateOptions),
     validateRequest({ params: CourseIdParamsSchema }),
     asyncHandler(async (request, response) => {
       const { courseId } = request.params as { courseId: string };
@@ -88,7 +89,11 @@ export function createCourseDocumentsRouter(
       );
 
       const payload: CourseDocumentsResponse = {
-        data: await listCourseDocuments(prisma, courseId),
+        data: await listCourseDocuments(
+          prisma,
+          courseId,
+          request.currentSession!.user.role,
+        ),
       };
 
       sendJson(response, 200, CourseDocumentsResponseSchema, payload);
@@ -128,7 +133,7 @@ export function createCourseDocumentsRouter(
 
   router.get(
     '/:documentId',
-    requireRole(['admin', 'professor'], gateOptions),
+    requireRole(['admin', 'professor', 'student'], gateOptions),
     validateRequest({ params: CourseDocumentIdParamsSchema }),
     asyncHandler(async (request, response) => {
       const { courseId, documentId } = request.params as {
@@ -143,7 +148,12 @@ export function createCourseDocumentsRouter(
 
       const payload: CourseDocumentResponse = {
         data: toCourseDocumentMetadata(
-          await getCourseDocumentOrThrow(prisma, courseId, documentId),
+          await getCourseDocumentOrThrow(
+            prisma,
+            courseId,
+            documentId,
+            request.currentSession!.user.role,
+          ),
         ),
       };
 
@@ -169,7 +179,12 @@ export function createCourseDocumentsRouter(
         courseId,
         requestContext(request),
       );
-      await getCourseDocumentOrThrow(prisma, courseId, documentId);
+      await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
 
       const document = await updateCourseDocumentMetadata(
         prisma,
@@ -192,11 +207,12 @@ export function createCourseDocumentsRouter(
 async function listCourseDocuments(
   prisma: CourseDocumentsPrismaClient,
   courseId: string,
+  role: UserRole,
 ): Promise<CourseDocumentMetadata[]> {
   const documents = await prisma.document.findMany({
     orderBy: { createdAt: 'asc' },
     select: courseDocumentSelect(),
-    where: { courseId },
+    where: courseDocumentWhere(courseId, role),
   });
 
   return (documents as CourseDocumentRecord[]).map(toCourseDocumentMetadata);
@@ -232,10 +248,11 @@ async function getCourseDocumentOrThrow(
   prisma: CourseDocumentsPrismaClient,
   courseId: string,
   documentId: string,
+  role: UserRole,
 ): Promise<CourseDocumentRecord> {
   const document = await prisma.document.findFirst({
     select: courseDocumentSelect(),
-    where: { courseId, id: documentId },
+    where: courseDocumentWhere(courseId, role, documentId),
   });
 
   if (!document) {
@@ -243,6 +260,23 @@ async function getCourseDocumentOrThrow(
   }
 
   return document as CourseDocumentRecord;
+}
+
+function courseDocumentWhere(
+  courseId: string,
+  role: UserRole,
+  documentId?: string,
+): Prisma.DocumentWhereInput {
+  return {
+    courseId,
+    ...(documentId ? { id: documentId } : {}),
+    ...(role === 'student'
+      ? {
+          status: 'active',
+          visibility: 'visible_to_students',
+        }
+      : {}),
+  };
 }
 
 async function updateCourseDocumentMetadata(

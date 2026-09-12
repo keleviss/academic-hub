@@ -15,8 +15,11 @@ const courseId = '11111111-1111-4111-8111-111111111111';
 const missingCourseId = '99999999-9999-4999-8999-999999999999';
 const documentId = '44444444-4444-4444-8444-444444444444';
 const secondDocumentId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const visibleDocumentId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const deletedDocumentId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const professorId = '22222222-2222-4222-8222-222222222222';
 const adminId = '77777777-7777-4777-8777-777777777777';
+const studentId = '33333333-3333-4333-8333-333333333333';
 const now = new Date('2026-09-12T09:00:00.000Z');
 
 const course = {
@@ -48,13 +51,32 @@ const documentRecord = {
 function createTestApp(
   role: UserRole | null = 'professor',
   options: {
+    activeEnrollment?: boolean;
     assignedProfessor?: boolean;
+    visibilityFixtures?: boolean;
   } = {},
 ) {
   const auditLogger: AuditLogger = {
     logAuditEvent: vi.fn().mockResolvedValue(undefined),
   };
-  const documents = [{ ...documentRecord }];
+  const documents = options.visibilityFixtures
+    ? [
+        { ...documentRecord },
+        {
+          ...documentRecord,
+          id: visibleDocumentId,
+          title: 'Visible handout',
+          visibility: 'visible_to_students',
+        },
+        {
+          ...documentRecord,
+          id: deletedDocumentId,
+          status: 'deleted',
+          title: 'Deleted handout',
+          visibility: 'visible_to_students',
+        },
+      ]
+    : [{ ...documentRecord }];
   const courseDelegate = {
     findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
       where.id === courseId ? course : null,
@@ -77,7 +99,20 @@ function createTestApp(
     ),
   };
   const enrollment = {
-    findUnique: vi.fn(async () => null),
+    findUnique: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          courseId_studentId: { courseId: string; studentId: string };
+        };
+      }) =>
+        options.activeEnrollment === false ||
+        where.courseId_studentId.courseId !== courseId ||
+        where.courseId_studentId.studentId !== studentId
+          ? null
+          : { id: '66666666-6666-4666-8666-666666666666', status: 'active' },
+    ),
   };
   const document = {
     create: vi.fn(
@@ -118,13 +153,32 @@ function createTestApp(
       async ({
         where,
       }: {
-        where: { courseId: string; id: string };
+        where: {
+          courseId: string;
+          id: string;
+          status?: 'active' | 'deleted' | 'replaced';
+          visibility?: 'hidden_from_students' | 'visible_to_students';
+        };
       }) =>
         where.courseId === courseId
-          ? documents.find((record) => record.id === where.id) ?? null
+          ? documents.find((record) => documentMatchesWhere(record, where)) ??
+            null
           : null,
     ),
-    findMany: vi.fn(async () => documents),
+    findMany: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          courseId: string;
+          status?: 'active' | 'deleted' | 'replaced';
+          visibility?: 'hidden_from_students' | 'visible_to_students';
+        };
+      }) =>
+        where.courseId === courseId
+          ? documents.filter((record) => documentMatchesWhere(record, where))
+          : [],
+    ),
     update: vi.fn(
       async ({
         data,
@@ -162,7 +216,12 @@ function createTestApp(
             id: 'test-session',
             expiresAt: new Date(now.getTime() + 60_000),
             user: {
-              id: role === 'professor' ? professorId : adminId,
+              id:
+                role === 'professor'
+                  ? professorId
+                  : role === 'student'
+                    ? studentId
+                    : adminId,
               email: `${role}@example.edu`,
               fullName: 'Test User',
               role,
@@ -189,6 +248,21 @@ function createTestApp(
   });
 
   return { app, courseDelegate, courseInstructor, document };
+}
+
+function documentMatchesWhere(
+  record: typeof documentRecord,
+  where: {
+    id?: string;
+    status?: 'active' | 'deleted' | 'replaced';
+    visibility?: 'hidden_from_students' | 'visible_to_students';
+  },
+): boolean {
+  return (
+    (where.id === undefined || record.id === where.id) &&
+    (where.status === undefined || record.status === where.status) &&
+    (where.visibility === undefined || record.visibility === where.visibility)
+  );
 }
 
 function authCookie(): string {
@@ -291,6 +365,62 @@ describe('course document routes', () => {
         where: { id: documentId },
       }),
     );
+  });
+
+  it('shows students only active documents visible to students', async () => {
+    const { app, document } = createTestApp('student', {
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .get(`/api/courses/${courseId}/documents`)
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    const body = CourseDocumentsResponseSchema.parse(response.body);
+    expect(body.data).toEqual([
+      expect.objectContaining({
+        id: visibleDocumentId,
+        status: 'active',
+        visibility: 'visible_to_students',
+      }),
+    ]);
+    expect(document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          courseId,
+          status: 'active',
+          visibility: 'visible_to_students',
+        },
+      }),
+    );
+  });
+
+  it('hides hidden and deleted document details from students', async () => {
+    const { app } = createTestApp('student', {
+      visibilityFixtures: true,
+    });
+
+    const visibleResponse = await request(app)
+      .get(`/api/courses/${courseId}/documents/${visibleDocumentId}`)
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    expect(CourseDocumentResponseSchema.parse(visibleResponse.body).data.id).toBe(
+      visibleDocumentId,
+    );
+
+    const hiddenResponse = await request(app)
+      .get(`/api/courses/${courseId}/documents/${documentId}`)
+      .set('Cookie', authCookie())
+      .expect(404);
+    expect(hiddenResponse.body.error.code).toBe('DOCUMENT_NOT_FOUND');
+
+    const deletedResponse = await request(app)
+      .get(`/api/courses/${courseId}/documents/${deletedDocumentId}`)
+      .set('Cookie', authCookie())
+      .expect(404);
+    expect(deletedResponse.body.error.code).toBe('DOCUMENT_NOT_FOUND');
   });
 
   it('rejects unassigned professors before reading document rows', async () => {
