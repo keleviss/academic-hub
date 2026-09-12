@@ -13,6 +13,8 @@ import {
   CourseUpdateRequestSchema,
   CreateCourseDocumentRequestSchema,
   EnrollStudentRequestSchema,
+  ProfessorCourseDetailResponseSchema,
+  ProfessorCourseListResponseSchema,
   UpdateCourseDocumentMetadataRequestSchema,
   UpdateEnrollmentStatusRequestSchema,
 } from './course-management.js';
@@ -311,5 +313,45 @@ describe('course management contracts', () => {
     });
 
     expect(response.data.id).toBe(documentId);
+  });
+});
+
+describe('professor course contracts', () => {
+  const professorListItem = {
+    id: courseId,
+    code: 'ICE-302',
+    title: 'Ηλεκτρονική',
+    description: 'Αναλογικά και ψηφιακά ηλεκτρονικά κυκλώματα.',
+    semester: 3,
+    ectsCredits: 5,
+    isActive: true,
+    instructorRole: 'owner',
+    counts: {
+      documentCount: 4,
+      visibleDocumentCount: 2,
+    },
+  };
+
+  it('parses professor course list responses with assignment summary', () => {
+    const response = ProfessorCourseListResponseSchema.parse({
+      data: [professorListItem],
+      summary: { assignedCourseCount: 1 },
+    });
+
+    expect(response.data[0]?.instructorRole).toBe('owner');
+    expect(response.summary.assignedCourseCount).toBe(1);
+  });
+
+  it('parses professor course detail responses with instructors and student count', () => {
+    const response = ProfessorCourseDetailResponseSchema.parse({
+      data: {
+        ...professorListItem,
+        studentCount: 42,
+        instructors: [instructor],
+      },
+    });
+
+    expect(response.data.studentCount).toBe(42);
+    expect(response.data.instructors[0]?.role).toBe('owner');
   });
 });

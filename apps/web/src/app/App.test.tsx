@@ -419,7 +419,9 @@ describe('session, routing and role workspaces', () => {
 
     renderApp('/app/courses');
 
-    expect(await screen.findByText('Διδασκόμενα μαθήματα')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Τα μαθήματά μου' }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app/courses');
   });
 

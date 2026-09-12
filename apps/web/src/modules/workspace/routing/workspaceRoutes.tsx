@@ -2,6 +2,7 @@ import type { UserRole } from '@web-app/contracts';
 
 import { roleLabels } from '../../../auth/session';
 import { AdminCoursesPage } from '../../admin-courses/pages/AdminCoursesPage';
+import { ProfessorCoursesPage } from '../../professor-courses/pages/ProfessorCoursesPage';
 
 export type WorkspaceNavIcon =
   | 'activity'
@@ -201,35 +202,7 @@ const professorRoutes: WorkspaceRoute[] = [
     label: 'Μαθήματα',
     icon: 'courses',
     keywords: ['courses', 'υλικό', 'roadmap', 'concepts'],
-    children: [
-      {
-        path: 'courses?course=algorithms',
-        label: 'Αλγόριθμοι και Πολυπλοκότητα',
-        keywords: ['algorithms', 'complexity'],
-      },
-      {
-        path: 'courses?course=electronics',
-        label: 'Ηλεκτρονική',
-        keywords: ['electronics'],
-      },
-      {
-        path: 'courses?course=thesis',
-        label: 'Διπλωματική εργασία',
-        keywords: ['thesis'],
-      },
-    ],
-    element: (
-      <WorkspacePanel
-        eyebrow="Διδάσκων"
-        title="Διδασκόμενα μαθήματα"
-        body="Οργάνωση υλικού γύρω από concepts, visibility και contextual Q&A."
-        items={[
-          'Ορατότητα documents',
-          'Roadmap και learning objectives',
-          'Ερωτήσεις συνδεδεμένες με υλικό',
-        ]}
-      />
-    ),
+    element: <ProfessorCoursesPage />,
     nav: true,
   },
   {

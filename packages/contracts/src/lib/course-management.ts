@@ -264,6 +264,37 @@ export const CourseMutationResponseSchema = z.object({
   data: CourseDetailSchema,
 });
 
+export const ProfessorCourseListItemSchema = z.object({
+  id: z.uuid(),
+  code: CourseCodeSchema,
+  title: z.string().min(1),
+  description: z.string().nullable(),
+  semester: CourseSemesterSchema,
+  ectsCredits: CourseEctsCreditsSchema,
+  isActive: z.boolean(),
+  instructorRole: CourseInstructorRoleSchema,
+  counts: z.object({
+    documentCount: z.number().int().nonnegative(),
+    visibleDocumentCount: z.number().int().nonnegative(),
+  }),
+});
+
+export const ProfessorCourseListResponseSchema = z.object({
+  data: z.array(ProfessorCourseListItemSchema),
+  summary: z.object({
+    assignedCourseCount: z.number().int().nonnegative(),
+  }),
+});
+
+export const ProfessorCourseDetailSchema = ProfessorCourseListItemSchema.extend({
+  studentCount: z.number().int().nonnegative(),
+  instructors: z.array(CourseInstructorSchema),
+});
+
+export const ProfessorCourseDetailResponseSchema = z.object({
+  data: ProfessorCourseDetailSchema,
+});
+
 export type CourseIdParams = z.infer<typeof CourseIdParamsSchema>;
 export type CourseMemberIdParams = z.infer<typeof CourseMemberIdParamsSchema>;
 export type CourseDocumentIdParams = z.infer<
@@ -322,4 +353,14 @@ export type CourseDetail = z.infer<typeof CourseDetailSchema>;
 export type CourseDetailResponse = z.infer<typeof CourseDetailResponseSchema>;
 export type CourseMutationResponse = z.infer<
   typeof CourseMutationResponseSchema
+>;
+export type ProfessorCourseListItem = z.infer<
+  typeof ProfessorCourseListItemSchema
+>;
+export type ProfessorCourseListResponse = z.infer<
+  typeof ProfessorCourseListResponseSchema
+>;
+export type ProfessorCourseDetail = z.infer<typeof ProfessorCourseDetailSchema>;
+export type ProfessorCourseDetailResponse = z.infer<
+  typeof ProfessorCourseDetailResponseSchema
 >;

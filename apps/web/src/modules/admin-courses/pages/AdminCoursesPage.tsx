@@ -21,6 +21,7 @@ import {
   updateAdminCourse,
   updateCourseEnrollmentStatus,
 } from '../../../api/client';
+import { Dialog } from '../../../components/Dialog';
 import { ErrorNotice } from '../../../components/feedback';
 import { useNotification } from '../../../components/notifications';
 
@@ -39,53 +40,6 @@ function messageFor(error: unknown): string {
     return messages[error.code ?? ''] ?? error.message;
   }
   return 'Η ενέργεια δεν ολοκληρώθηκε. Δοκίμασε ξανά.';
-}
-
-function Dialog({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}): React.JSX.Element {
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
-
-  return (
-    <div
-      className="course-dialog-layer"
-      role="presentation"
-      onMouseDown={onClose}
-    >
-      <section
-        aria-modal="true"
-        aria-labelledby="course-dialog-title"
-        className="course-dialog"
-        role="dialog"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header className="course-dialog-header">
-          <h2 id="course-dialog-title">{title}</h2>
-          <button
-            aria-label="Κλείσιμο"
-            className="icon-button"
-            type="button"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </header>
-        {children}
-      </section>
-    </div>
-  );
 }
 
 function CourseForm({

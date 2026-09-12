@@ -1,6 +1,8 @@
 import {
   CsrfResponseSchema,
   CourseDetailResponseSchema,
+  CourseDocumentResponseSchema,
+  CourseDocumentsResponseSchema,
   CourseEnrollmentsResponseSchema,
   CourseInstructorsResponseSchema,
   CourseListResponseSchema,
@@ -9,10 +11,14 @@ import {
   CurrentSessionSchema,
   HealthResponseSchema,
   LoginRequestSchema,
+  ProfessorCourseDetailResponseSchema,
+  ProfessorCourseListResponseSchema,
   type CurrentSession,
   type AssignCourseInstructorRequest,
   type CourseCreateRequest,
   type CourseDetailResponse,
+  type CourseDocumentResponse,
+  type CourseDocumentsResponse,
   type CourseEnrollmentsResponse,
   type CourseInstructorsResponse,
   type CourseListQuery,
@@ -21,9 +27,13 @@ import {
   type CourseMemberCandidatesResponse,
   type CourseMutationResponse,
   type CourseUpdateRequest,
+  type CreateCourseDocumentRequest,
   type EnrollStudentRequest,
   type HealthResponse,
   type LoginRequest,
+  type ProfessorCourseDetailResponse,
+  type ProfessorCourseListResponse,
+  type UpdateCourseDocumentMetadataRequest,
   type UpdateEnrollmentStatusRequest,
 } from '@web-app/contracts';
 import { z } from 'zod';
@@ -276,6 +286,61 @@ export function updateCourseEnrollmentStatus(
   return requestMutation(
     `/api/admin/courses/${courseId}/enrollments/${userId}`,
     CourseEnrollmentsResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function fetchProfessorCourses(
+  signal?: AbortSignal,
+): Promise<ProfessorCourseListResponse> {
+  return requestJson(
+    '/api/professor/courses',
+    ProfessorCourseListResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchProfessorCourse(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<ProfessorCourseDetailResponse> {
+  return requestJson(
+    `/api/professor/courses/${courseId}`,
+    ProfessorCourseDetailResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchCourseDocuments(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<CourseDocumentsResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/documents`,
+    CourseDocumentsResponseSchema,
+    { signal },
+  );
+}
+
+export function createCourseDocument(
+  courseId: string,
+  input: CreateCourseDocumentRequest,
+): Promise<CourseDocumentResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/documents`,
+    CourseDocumentResponseSchema,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function updateCourseDocumentMetadata(
+  courseId: string,
+  documentId: string,
+  input: UpdateCourseDocumentMetadataRequest,
+): Promise<CourseDocumentResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/documents/${documentId}`,
+    CourseDocumentResponseSchema,
     { method: 'PATCH', body: JSON.stringify(input) },
   );
 }

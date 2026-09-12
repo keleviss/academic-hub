@@ -20,6 +20,7 @@ import {
 import type { CurrentUser } from '@web-app/contracts';
 
 import { appPath, roleLabels } from '../auth/session';
+import { normalizeSearch } from '../lib/normalize-search';
 import type {
   WorkspaceNavIcon,
   WorkspaceNavItem,
@@ -74,14 +75,6 @@ function BrandLockup({
       </div>
     </div>
   );
-}
-
-function normalizeSearch(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('el-GR')
-    .trim();
 }
 
 function navTarget(path: string): string {

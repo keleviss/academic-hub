@@ -16,6 +16,7 @@ import { NotificationProvider } from '../../../components/notifications';
 import { appPath, useLogoutMutation } from '../../../auth/session';
 import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
 import { AdminCourseDetailPage } from '../../admin-courses/pages/AdminCoursesPage';
+import { ProfessorCourseDetailPage } from '../../professor-courses/pages/ProfessorCourseDetailPage';
 import { workspaceRoutesByRole } from '../routing/workspaceRoutes';
 import { WorkspaceToolbar } from './WorkspaceToolbar';
 
@@ -134,6 +135,12 @@ export function LoggedLayout(): React.JSX.Element {
               <Route
                 path="courses/:courseId"
                 element={<AdminCourseDetailPage />}
+              />
+            )}
+            {user.role === 'professor' && (
+              <Route
+                path="courses/:courseId"
+                element={<ProfessorCourseDetailPage />}
               />
             )}
             <Route path="*" element={<Navigate to={appPath} replace />} />

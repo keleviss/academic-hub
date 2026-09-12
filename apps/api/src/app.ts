@@ -7,6 +7,7 @@ import { createApiRouter } from './routes/api.js';
 import type { AdminCoursesRouteOptions } from './routes/admin-courses.js';
 import type { AuthRouteOptions } from './routes/auth.js';
 import type { CourseDocumentsRouteOptions } from './routes/course-documents.js';
+import type { ProfessorCoursesRouteOptions } from './routes/professor-courses.js';
 import type { ReadinessRouteOptions } from './routes/readiness.js';
 
 export interface CreateAppOptions {
@@ -16,6 +17,7 @@ export interface CreateAppOptions {
   corsOrigin?: boolean | string | string[];
   coursesPrisma?: AdminCoursesRouteOptions['prisma'];
   databaseCheck?: ReadinessRouteOptions['databaseCheck'];
+  professorCoursesPrisma?: ProfessorCoursesRouteOptions['prisma'];
   serviceName?: string;
   sessionService?: AuthRouteOptions['sessionService'];
   storageCheck?: ReadinessRouteOptions['storageCheck'];
@@ -43,6 +45,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
       coursesPrisma: options.coursesPrisma,
       databaseCheck: options.databaseCheck,
       prisma: options.authPrisma,
+      professorCoursesPrisma: options.professorCoursesPrisma,
       serviceName: options.serviceName,
       sessionService: options.sessionService,
       storageCheck: options.storageCheck,
