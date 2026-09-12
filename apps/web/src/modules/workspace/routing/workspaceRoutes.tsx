@@ -1,6 +1,7 @@
 import type { UserRole } from '@web-app/contracts';
 
-import { roleLabels } from '../../auth/session';
+import { roleLabels } from '../../../auth/session';
+import { AdminCoursesPage } from '../../admin-courses/pages/AdminCoursesPage';
 
 export type WorkspaceNavIcon =
   | 'activity'
@@ -284,33 +285,22 @@ const adminRoutes: WorkspaceRoute[] = [
     keywords: ['courses', 'enrollments', 'assignments'],
     children: [
       {
-        path: 'courses?scope=active',
+        path: 'courses',
+        label: 'Όλα τα μαθήματα',
+        keywords: ['all courses'],
+      },
+      {
+        path: 'courses?status=active',
         label: 'Ενεργά μαθήματα',
         keywords: ['active courses'],
       },
       {
-        path: 'courses?scope=enrollments',
-        label: 'Εγγραφές φοιτητών',
-        keywords: ['enrollments'],
-      },
-      {
-        path: 'courses?scope=audit',
-        label: 'Audit μαθημάτων',
-        keywords: ['audit'],
+        path: 'courses?status=inactive',
+        label: 'Ανενεργά μαθήματα',
+        keywords: ['inactive courses'],
       },
     ],
-    element: (
-      <WorkspacePanel
-        eyebrow="Διαχειριστής"
-        title="Μαθήματα και εγγραφές"
-        body="Διαχειριστική εποπτεία μαθημάτων, αναθέσεων καθηγητών και εγγραφών φοιτητών."
-        items={[
-          'Δημιουργία και ενημέρωση μαθημάτων',
-          'Αναθέσεις διδασκόντων',
-          'Εγγραφές φοιτητών',
-        ]}
-      />
-    ),
+    element: <AdminCoursesPage />,
     nav: true,
   },
 ];

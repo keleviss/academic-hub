@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from 'react-router';
 
 import { appPath } from '../auth/session';
 import { LoginRoute, RequireSession } from '../auth/routes';
-import { LoggedLayout } from '../modules/workspace/LoggedLayout';
+import { LoggedLayout } from '../modules/workspace/layout/LoggedLayout';
 
 export function AppRouter(): React.JSX.Element {
   return (

@@ -6,6 +6,7 @@ import {
   CourseEnrollmentsResponseSchema,
   CourseInstructorsResponseSchema,
   CourseListResponseSchema,
+  CourseMemberCandidatesResponseSchema,
   CourseMutationResponseSchema,
 } from '@web-app/contracts';
 
@@ -335,6 +336,14 @@ function createTestApp(
     ),
   };
   const user = {
+    findMany: vi.fn(async () => [
+      {
+        id: secondInstructorId,
+        email: 'grace@example.edu',
+        fullName: 'Grace Hopper',
+        role: 'professor',
+      },
+    ]),
     findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
       if (where.id === instructorId || where.id === secondInstructorId) {
         return options.professorExists === false
@@ -479,6 +488,40 @@ describe('admin course routes', () => {
       instructors: [{ userId: instructorId, email: 'ada@example.edu' }],
       enrollments: [{ studentId, email: 'student@example.edu' }],
       documents: [{ id: documentId, title: 'Syllabus' }],
+    });
+  });
+
+  it('finds active, unassigned members by role and search text', async () => {
+    const { app, user } = createTestApp();
+
+    const response = await request(app)
+      .get(`/api/admin/courses/${courseId}/member-candidates?role=professor&search=gr`)
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    expect(CourseMemberCandidatesResponseSchema.parse(response.body)).toEqual({
+      data: [
+        {
+          id: secondInstructorId,
+          email: 'grace@example.edu',
+          fullName: 'Grace Hopper',
+          role: 'professor',
+        },
+      ],
+    });
+    expect(user.findMany).toHaveBeenCalledWith({
+      orderBy: { fullName: 'asc' },
+      select: { email: true, fullName: true, id: true, role: true },
+      take: 20,
+      where: {
+        instructedCourses: { none: { courseId } },
+        isActive: true,
+        role: 'professor',
+        OR: [
+          { fullName: { contains: 'gr', mode: 'insensitive' } },
+          { email: { contains: 'gr', mode: 'insensitive' } },
+        ],
+      },
     });
   });
 
@@ -655,6 +698,15 @@ describe('admin course routes', () => {
       .expect(403);
 
     await request(createTestApp(null).app)
+      .get(`/api/admin/courses/${courseId}/member-candidates?role=student&search=st`)
+      .expect(401);
+
+    await request(createTestApp('professor').app)
+      .get(`/api/admin/courses/${courseId}/member-candidates?role=student&search=st`)
+      .set('Cookie', authCookie())
+      .expect(403);
+
+    await request(createTestApp(null).app)
       .post(`/api/admin/courses/${courseId}/instructors`)
       .send({ instructorId: secondInstructorId })
       .expect(401);
@@ -690,6 +742,11 @@ describe('admin course routes', () => {
 
     await request(app)
       .get('/api/admin/courses/not-a-uuid/instructors')
+      .set('Cookie', authCookie())
+      .expect(400);
+
+    await request(app)
+      .get(`/api/admin/courses/${courseId}/member-candidates?role=student&search=x`)
       .set('Cookie', authCookie())
       .expect(400);
 

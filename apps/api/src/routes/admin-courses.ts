@@ -17,6 +17,8 @@ import {
   CourseInstructorsResponseSchema,
   CourseListQuerySchema,
   CourseListResponseSchema,
+  CourseMemberCandidatesQuerySchema,
+  CourseMemberCandidatesResponseSchema,
   CourseMemberIdParamsSchema,
   CourseMutationResponseSchema,
   CourseUpdateRequestSchema,
@@ -34,6 +36,9 @@ import {
   type CourseListItem,
   type CourseListQuery,
   type CourseListResponse,
+  type CourseMemberCandidate,
+  type CourseMemberCandidatesQuery,
+  type CourseMemberCandidatesResponse,
   type CourseMutationResponse,
   type CourseUpdateRequest,
   type EnrollStudentRequest,
@@ -103,6 +108,13 @@ interface CourseInstructorAssignmentRecord {
 interface ProfessorCandidateRecord {
   id: string;
   isActive: boolean;
+  role: UserRole;
+}
+
+interface CourseMemberCandidateRecord {
+  email: string;
+  fullName: string;
+  id: string;
   role: UserRole;
 }
 
@@ -213,6 +225,26 @@ export function createAdminCoursesRouter(
       };
 
       sendJson(response, 200, CourseListResponseSchema, payload);
+    }),
+  );
+
+  router.get(
+    '/:courseId/member-candidates',
+    requireRole(['admin'], gateOptions),
+    validateRequest({
+      params: CourseIdParamsSchema,
+      query: CourseMemberCandidatesQuerySchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { courseId } = request.params as { courseId: string };
+      const query = request.query as unknown as CourseMemberCandidatesQuery;
+      await assertCourseExists(prisma, courseId);
+
+      const payload: CourseMemberCandidatesResponse = {
+        data: await listCourseMemberCandidates(prisma, courseId, query),
+      };
+
+      sendJson(response, 200, CourseMemberCandidatesResponseSchema, payload);
     }),
   );
 
@@ -729,6 +761,38 @@ async function listCourseInstructors(
   return (assignments as CourseInstructorAssignmentRecord[]).map(
     toCourseInstructor,
   );
+}
+
+async function listCourseMemberCandidates(
+  prisma: AdminCoursesPrismaClient,
+  courseId: string,
+  query: CourseMemberCandidatesQuery,
+): Promise<CourseMemberCandidate[]> {
+  const relationshipFilter =
+    query.role === 'professor'
+      ? { instructedCourses: { none: { courseId } } }
+      : { enrollments: { none: { courseId } } };
+  const users = await prisma.user.findMany({
+    orderBy: { fullName: 'asc' },
+    select: { email: true, fullName: true, id: true, role: true },
+    take: 20,
+    where: {
+      ...relationshipFilter,
+      isActive: true,
+      role: query.role,
+      OR: [
+        { fullName: { contains: query.search, mode: 'insensitive' } },
+        { email: { contains: query.search, mode: 'insensitive' } },
+      ],
+    },
+  });
+
+  return (users as CourseMemberCandidateRecord[]).map((user) => ({
+    email: user.email,
+    fullName: user.fullName,
+    id: user.id,
+    role: user.role,
+  }));
 }
 
 async function listCourseEnrollments(

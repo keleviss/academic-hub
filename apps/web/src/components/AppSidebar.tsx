@@ -26,7 +26,7 @@ import type {
   WorkspaceNavIcon,
   WorkspaceNavItem,
   WorkspaceRoute,
-} from '../modules/workspace/workspaceRoutes';
+} from '../modules/workspace/routing/workspaceRoutes';
 
 const iconMap: Record<WorkspaceNavIcon, LucideIcon> = {
   activity: BarChart3,

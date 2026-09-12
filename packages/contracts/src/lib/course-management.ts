@@ -6,6 +6,7 @@ import {
   DocumentStatusSchema,
   DocumentVisibilitySchema,
   EnrollmentStatusSchema,
+  UserRoleSchema,
 } from './enums.js';
 
 export const CourseIdParamsSchema = z.object({
@@ -103,6 +104,27 @@ export const CourseListQuerySchema = PaginationQuerySchema.extend({
   search: z.string().trim().min(1).max(120).optional(),
   semester: CourseSemesterSchema.optional(),
   status: CourseStatusFilterSchema.default('all'),
+});
+
+export const CourseMemberCandidateRoleSchema = z.enum([
+  'professor',
+  'student',
+]);
+
+export const CourseMemberCandidatesQuerySchema = z.object({
+  role: CourseMemberCandidateRoleSchema,
+  search: z.string().trim().min(2).max(120),
+});
+
+export const CourseMemberCandidateSchema = z.object({
+  id: z.uuid(),
+  fullName: z.string().min(1),
+  email: z.email(),
+  role: UserRoleSchema,
+});
+
+export const CourseMemberCandidatesResponseSchema = z.object({
+  data: z.array(CourseMemberCandidateSchema),
 });
 
 export const CourseSummaryCountsSchema = z.object({
@@ -251,6 +273,18 @@ export type CourseStatusFilter = z.infer<typeof CourseStatusFilterSchema>;
 export type CourseCreateRequest = z.infer<typeof CourseCreateRequestSchema>;
 export type CourseUpdateRequest = z.infer<typeof CourseUpdateRequestSchema>;
 export type CourseListQuery = z.infer<typeof CourseListQuerySchema>;
+export type CourseMemberCandidateRole = z.infer<
+  typeof CourseMemberCandidateRoleSchema
+>;
+export type CourseMemberCandidatesQuery = z.infer<
+  typeof CourseMemberCandidatesQuerySchema
+>;
+export type CourseMemberCandidate = z.infer<
+  typeof CourseMemberCandidateSchema
+>;
+export type CourseMemberCandidatesResponse = z.infer<
+  typeof CourseMemberCandidatesResponseSchema
+>;
 export type CourseSummaryCounts = z.infer<typeof CourseSummaryCountsSchema>;
 export type CourseListItem = z.infer<typeof CourseListItemSchema>;
 export type CourseListResponse = z.infer<typeof CourseListResponseSchema>;
