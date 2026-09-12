@@ -334,6 +334,18 @@ describe('session, routing and role workspaces', () => {
     );
   });
 
+  it('keeps the sidebar parent active when a feature route has search params', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('student'));
+
+    renderApp('/app/courses?search=eme');
+
+    expect(await screen.findByText('Τα μαθήματά μου')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Μαθήματα/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   it.each([
     ['/app/profile', 'Προφίλ χρήστη'],
     ['/app/settings', 'Ρυθμίσεις λογαριασμού'],
@@ -377,6 +389,22 @@ describe('session, routing and role workspaces', () => {
 
     expect(await screen.findByText('Διδασκόμενα μαθήματα')).toBeInTheDocument();
     expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app/courses');
+  });
+
+  it('resets workspace content scroll after route changes', async () => {
+    vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('student'));
+
+    renderApp('/app');
+
+    expect(await screen.findByText('Φοιτητικό workspace')).toBeInTheDocument();
+    const workspaceContent = document.getElementById('main-content');
+    expect(workspaceContent).not.toBeNull();
+    workspaceContent!.scrollTop = 480;
+
+    await userEvent.click(screen.getByRole('link', { name: /Μαθήματα/ }));
+
+    expect(await screen.findByText('Τα μαθήματά μου')).toBeInTheDocument();
+    await waitFor(() => expect(workspaceContent).toHaveProperty('scrollTop', 0));
   });
 
   it('fetches the existing server session after a fresh mount', async () => {

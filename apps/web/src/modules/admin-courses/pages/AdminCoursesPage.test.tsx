@@ -64,28 +64,30 @@ const courseDetail = {
   },
 };
 
+const courseListResponse = {
+  data: [
+    {
+      id: '11111111-1111-4111-8111-111111111111',
+      code: 'CS-101',
+      title: 'Δομές Δεδομένων',
+      description: 'Βασικό μάθημα',
+      semester: 3,
+      ectsCredits: 6,
+      isActive: true,
+      counts: { documentCount: 2, instructorCount: 1, studentCount: 12 },
+      primaryInstructor: {
+        id: '22222222-2222-4222-8222-222222222222',
+        fullName: 'Ada Lovelace',
+      },
+    },
+  ],
+  meta: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 },
+  summary: { totalCourses: 1, activeCourses: 1, unassignedCourses: 0 },
+};
+
 describe('AdminCoursesPage', () => {
   beforeEach(() => {
-    vi.mocked(fetchAdminCourses).mockResolvedValue({
-      data: [
-        {
-          id: '11111111-1111-4111-8111-111111111111',
-          code: 'CS-101',
-          title: 'Δομές Δεδομένων',
-          description: 'Βασικό μάθημα',
-          semester: 3,
-          ectsCredits: 6,
-          isActive: true,
-          counts: { documentCount: 2, instructorCount: 1, studentCount: 12 },
-          primaryInstructor: {
-            id: '22222222-2222-4222-8222-222222222222',
-            fullName: 'Ada Lovelace',
-          },
-        },
-      ],
-      meta: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 },
-      summary: { totalCourses: 1, activeCourses: 1, unassignedCourses: 0 },
-    });
+    vi.mocked(fetchAdminCourses).mockResolvedValue(courseListResponse);
   });
 
   it('renders API-backed course summary and opens the create dialog', async () => {
@@ -103,6 +105,38 @@ describe('AdminCoursesPage', () => {
       screen.getByRole('dialog', { name: 'Νέο μάθημα' }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Τίτλος μαθήματος')).toBeInTheDocument();
+  });
+
+  it('keeps the course search input focused while a new query is loading', async () => {
+    vi.mocked(fetchAdminCourses)
+      .mockResolvedValueOnce(courseListResponse)
+      .mockImplementation(() => new Promise(() => {}));
+    const user = userEvent.setup();
+
+    renderWithProviders(<AdminCoursesPage />, ['/app/courses']);
+
+    const searchInput = await screen.findByRole('textbox', {
+      name: 'Αναζήτηση μαθημάτων',
+    });
+
+    await user.type(searchInput, 'algo');
+
+    expect(searchInput).toHaveFocus();
+    expect(searchInput).toHaveValue('algo');
+    expect(screen.getByText('Δομές Δεδομένων')).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(fetchAdminCourses).toHaveBeenLastCalledWith(
+        {
+          page: 1,
+          search: 'algo',
+          semester: undefined,
+          status: 'all',
+        },
+        expect.any(AbortSignal),
+      ),
+    );
+    expect(searchInput).toHaveFocus();
   });
 
   it('confirms activation for an inactive course', async () => {

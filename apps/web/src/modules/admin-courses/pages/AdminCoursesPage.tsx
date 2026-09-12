@@ -287,9 +287,34 @@ export function AdminCoursesPage(): React.JSX.Element {
       ? requestedStatus
       : 'all';
   const search = useMemo(() => params.get('search') ?? '', [params]);
+  const [searchDraftState, setSearchDraftState] = useState(() => ({
+    source: search,
+    value: search,
+  }));
+  const searchDraft =
+    searchDraftState.source === search ? searchDraftState.value : search;
   const semester = params.get('semester')
     ? Number(params.get('semester'))
     : undefined;
+
+  const setFilter = useCallback((next: Record<string, string | undefined>) => {
+    const updated = new URLSearchParams(params);
+    Object.entries(next).forEach(([key, value]) =>
+      value ? updated.set(key, value) : updated.delete(key),
+    );
+    if (!('page' in next)) updated.delete('page');
+    setParams(updated);
+  }, [params, setParams]);
+
+  useEffect(() => {
+    if (searchDraft === search) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setFilter({ search: searchDraft || undefined });
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [search, searchDraft, setFilter]);
 
   const list = useQuery({
     queryKey: [...courseListKey, { page, search, semester, status }],
@@ -298,6 +323,7 @@ export function AdminCoursesPage(): React.JSX.Element {
         { page, search: search || undefined, semester, status },
         signal,
       ),
+    placeholderData: (previousData) => previousData,
   });
 
   const create = useMutation({
@@ -308,15 +334,6 @@ export function AdminCoursesPage(): React.JSX.Element {
       navigate(`/app/courses/${data.id}`);
     },
   });
-
-  const setFilter = useCallback((next: Record<string, string | undefined>) => {
-    const updated = new URLSearchParams(params);
-    Object.entries(next).forEach(([key, value]) =>
-      value ? updated.set(key, value) : updated.delete(key),
-    );
-    if (!('page' in next)) updated.delete('page');
-    setParams(updated);
-  }, [params, setParams]);
 
   return (
     <section className="admin-courses-page">
@@ -383,9 +400,12 @@ export function AdminCoursesPage(): React.JSX.Element {
                 <input
                   aria-label="Αναζήτηση μαθημάτων"
                   placeholder="Αναζήτηση τίτλου, κωδικού ή διδάσκοντα…"
-                  value={search}
+                  value={searchDraft}
                   onChange={(event) =>
-                    setFilter({ search: event.target.value || undefined })
+                    setSearchDraftState({
+                      source: search,
+                      value: event.target.value,
+                    })
                   }
                 />
                 <select

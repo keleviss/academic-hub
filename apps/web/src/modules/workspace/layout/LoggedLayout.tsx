@@ -43,7 +43,6 @@ export function LoggedLayout(): React.JSX.Element {
 
     content.scrollTop = 0;
     content.scrollLeft = 0;
-    content.scrollTo?.({ top: 0, left: 0, behavior: 'auto' });
   }, [location.pathname, location.search]);
 
   useEffect(() => {

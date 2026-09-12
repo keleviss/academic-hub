@@ -143,10 +143,11 @@ function NavItem({
   onNavigate?: () => void;
 }): React.JSX.Element {
   const location = useLocation();
-  const currentPath = `${location.pathname}${location.search}`;
+  const currentPath = location.pathname;
+  const currentHref = `${location.pathname}${location.search}`;
   const Icon = item.icon ? iconMap[item.icon] : Home;
   const childActive = item.children?.some(
-    (child) => navTarget(child.path) === currentPath,
+    (child) => navTarget(child.path) === currentHref,
   );
   const active = childActive || isActivePath(item.path, currentPath);
 
@@ -172,7 +173,7 @@ function NavItem({
         <ul className="sidebar-subnav">
           {item.children.map((child) => {
             const childTarget = navTarget(child.path);
-            const childIsActive = childTarget === currentPath;
+            const childIsActive = childTarget === currentHref;
             return (
               <li key={`${child.path}-${child.label}`}>
                 <Link
