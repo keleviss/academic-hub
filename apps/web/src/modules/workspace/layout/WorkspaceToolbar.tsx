@@ -72,33 +72,36 @@ export function WorkspaceToolbar({
   return (
     <header className="workspace-toolbar">
       <div className="workspace-toolbar-content">
-        <button
-          aria-label="Άνοιγμα sidebar"
-          className="workspace-toolbar-menu"
-          type="button"
-          onClick={onOpenSidebar}
-        >
-          <Menu aria-hidden="true" size={20} />
-        </button>
-        <nav aria-label="Διαδρομή σελίδας" className="workspace-breadcrumbs">
-          <ol>
-            {breadcrumbs.map((breadcrumb, index) => (
-              <li key={`${breadcrumb.label}-${breadcrumb.to ?? 'current'}`}>
-                {breadcrumb.to && index < breadcrumbs.length - 1 ? (
-                  <Link to={breadcrumb.to}>{breadcrumb.label}</Link>
-                ) : (
-                  <span
-                    aria-current={
-                      index === breadcrumbs.length - 1 ? 'page' : undefined
-                    }
-                  >
-                    {breadcrumb.label}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ol>
-        </nav>
+        <div className="workspace-toolbar-left">
+          <button
+            aria-label="Άνοιγμα sidebar"
+            className="workspace-toolbar-menu"
+            type="button"
+            onClick={onOpenSidebar}
+          >
+            <Menu aria-hidden="true" size={20} />
+          </button>
+          <nav aria-label="Διαδρομή σελίδας" className="workspace-breadcrumbs">
+            <ol>
+              {breadcrumbs.map((breadcrumb, index) => (
+                <li key={`${breadcrumb.label}-${breadcrumb.to ?? 'current'}`}>
+                  {breadcrumb.to && index < breadcrumbs.length - 1 ? (
+                    <Link to={breadcrumb.to}>{breadcrumb.label}</Link>
+                  ) : (
+                    <span
+                      aria-current={
+                        index === breadcrumbs.length - 1 ? 'page' : undefined
+                      }
+                    >
+                      {breadcrumb.label}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </nav>
+
+        </div>
         <Link
           to={`${appPath}/profile`}
           className="workspace-toolbar-profile"
