@@ -9,8 +9,19 @@
   --color-hub-muted: #596b7e;
   --color-hub-subtle: #9ab0c4;
   --color-hub-surface: #f5f8fb;
+  --color-hub-app: #f6f8fa;
+  --color-hub-app-alt: #f0f4f8;
+  --color-hub-white: #ffffff;
   --color-hub-border: #d9e3ea;
+  --color-hub-accent: #e5446d;
   --color-hub-danger: #b4234b;
+  --color-hub-success: #137a44;
+  --color-hub-warning: #8a5a00;
+  --color-hub-nav-active: #e9f7f9;
+  --color-hub-progress: #eef3f6;
+  --color-hub-warning-plate: #fff7d1;
+  --color-hub-highlight: #fff1b8;
+  --color-hub-info: #e6f7f9;
   --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
   --radius-hub-card: 0.75rem;
   --radius-hub-control: 0.5rem;
@@ -27,8 +38,8 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--color-hub-app);
+  color: var(--color-hub-navy);
 }
 
 :focus-visible {
@@ -118,7 +129,7 @@ button:disabled {
 }
 .auth-mobile-header {
   padding: 1rem 1.5rem;
-  background: white;
+  background: var(--color-hub-white);
   border-bottom: 1px solid var(--color-hub-border);
 }
 .auth-mobile-header .auth-brand > span {
@@ -165,7 +176,7 @@ button:disabled {
 }
 .login-card,
 .identity-card {
-  background: white;
+  background: var(--color-hub-white);
   border: 1px solid var(--color-hub-border);
   border-radius: var(--radius-hub-card);
   padding: 1.5rem 1.25rem;
@@ -203,7 +214,7 @@ button:disabled {
   padding: 0.75rem 1rem;
   border: 1px solid var(--color-hub-border);
   border-radius: var(--radius-hub-control);
-  background: white;
+  background: var(--color-hub-white);
   font-size: 1rem;
 }
 .form-field input::placeholder {
@@ -237,7 +248,7 @@ button:disabled {
   min-height: 3rem;
   padding: 0.75rem 1rem;
   background: var(--color-hub-teal);
-  color: white;
+  color: var(--color-hub-white);
   border-radius: var(--radius-hub-control);
   font-size: 0.875rem;
   line-height: 1.5;
@@ -271,7 +282,7 @@ button:disabled {
   gap: 1.25rem;
   max-width: 32.5rem;
   padding: 1.5rem;
-  background: white;
+  background: var(--color-hub-white);
   border: 1px solid var(--color-hub-border);
   border-radius: var(--radius-hub-card);
 }
@@ -299,7 +310,7 @@ button:disabled {
   gap: 1.25rem;
   max-width: 42rem;
   padding: 1.5rem;
-  background: white;
+  background: var(--color-hub-white);
   border: 1px solid var(--color-hub-border);
   border-radius: var(--radius-hub-card);
   overflow-wrap: anywhere;
@@ -325,7 +336,7 @@ button:disabled {
 }
 .workspace-shell {
   min-height: 100dvh;
-  background: var(--color-hub-surface);
+  background: var(--color-hub-app);
   color: var(--color-hub-navy);
 }
 .workspace-sidebar-desktop {
@@ -345,7 +356,7 @@ button:disabled {
   justify-content: space-between;
   overflow: hidden;
   border-right: 1px solid rgb(154 176 196 / 15%);
-  background: #142231;
+  background: var(--color-hub-rail);
   color: #d8e4ee;
 }
 .sidebar-main {
@@ -365,7 +376,7 @@ button:disabled {
   gap: 0.625rem;
   border: 1px solid #2c4a68;
   border-radius: 0.5rem;
-  background: #1d354d;
+  background: rgb(255 255 255 / 6%);
   padding: 0 0.875rem;
   color: #9ab0c4;
 }
@@ -375,12 +386,12 @@ button:disabled {
   border: 0;
   outline: 0;
   background: transparent;
-  color: #e9f6f8;
+  color: var(--color-hub-info);
   font-size: 0.875rem;
   font-weight: 600;
 }
 .sidebar-search input::placeholder {
-  color: #d8e4ee;
+  color: var(--color-hub-subtle);
 }
 .sidebar-search kbd {
   color: #a8bed0;
@@ -411,7 +422,7 @@ button:disabled {
   color: white;
 }
 .sidebar-nav-link.is-active {
-  background: #e2f6f8;
+  background: var(--color-hub-nav-active);
   color: var(--color-hub-teal);
   font-weight: 700;
 }
@@ -436,7 +447,7 @@ button:disabled {
 }
 .sidebar-subnav-link:hover,
 .sidebar-subnav-link.is-active {
-  color: #4fd4de;
+  color: var(--color-hub-info);
 }
 .sidebar-empty {
   color: #b7c6d4;
@@ -455,7 +466,7 @@ button:disabled {
   gap: 0.75rem;
   border: 1px solid #2c4a68;
   border-radius: 0.5rem;
-  background: #1b334b;
+  background: rgb(255 255 255 / 6%);
   padding: 0.625rem;
   color: white;
   text-align: left;
@@ -501,7 +512,7 @@ button:disabled {
   gap: 0.25rem;
   border: 1px solid #2c4a68;
   border-radius: 0.5rem;
-  background: #203a55;
+  background: var(--color-hub-rail);
   padding: 0.375rem;
   box-shadow: 0 1.25rem 2.5rem rgb(2 8 23 / 35%);
 }
@@ -552,7 +563,7 @@ button:disabled {
   place-items: center;
   border: 1px solid var(--color-hub-border);
   border-radius: 0.5rem;
-  background: white;
+  background: var(--color-hub-white);
   color: var(--color-hub-navy);
   text-decoration: none;
 }
@@ -565,7 +576,7 @@ button:disabled {
   position: absolute;
   inset: 0;
   width: 100%;
-  background: rgb(15 23 42 / 45%);
+  background: rgb(16 36 58 / 45%);
 }
 .mobile-sidebar-panel {
   position: relative;
@@ -610,7 +621,7 @@ button:disabled {
     display: inline-block;
     padding: 0.5rem 0.875rem;
     border-radius: 2rem;
-    background: #e2f6f8;
+    background: var(--color-hub-info);
     color: var(--color-hub-teal-dark);
     font-size: 0.75rem;
     font-weight: 600;
@@ -678,7 +689,7 @@ button:disabled {
   .workspace-content {
     align-content: start;
     max-width: 72rem;
-    padding: 2rem 3rem 4rem;
+    padding: 2.5rem 2.5rem 4rem;
   }
 }
 
