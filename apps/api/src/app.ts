@@ -6,11 +6,13 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createApiRouter } from './routes/api.js';
 import type { AdminCoursesRouteOptions } from './routes/admin-courses.js';
 import type { AuthRouteOptions } from './routes/auth.js';
+import type { CourseDocumentsRouteOptions } from './routes/course-documents.js';
 import type { ReadinessRouteOptions } from './routes/readiness.js';
 
 export interface CreateAppOptions {
   auditLogger?: AuthRouteOptions['auditLogger'];
   authPrisma?: AuthRouteOptions['prisma'];
+  courseDocumentsPrisma?: CourseDocumentsRouteOptions['prisma'];
   corsOrigin?: boolean | string | string[];
   coursesPrisma?: AdminCoursesRouteOptions['prisma'];
   databaseCheck?: ReadinessRouteOptions['databaseCheck'];
@@ -37,6 +39,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
     '/api',
     createApiRouter({
       auditLogger: options.auditLogger,
+      courseDocumentsPrisma: options.courseDocumentsPrisma,
       coursesPrisma: options.coursesPrisma,
       databaseCheck: options.databaseCheck,
       prisma: options.authPrisma,
