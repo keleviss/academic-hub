@@ -9,6 +9,7 @@
     "dev:web": "nx serve web",
     "db:start": "nx run database:start",
     "db:stop": "nx run database:stop",
+    "db:reset": "nx run database:reset",
     "db:status": "nx run database:status",
     "db:logs": "nx run database:logs",
     "db:setup": "nx run database:start && nx run api:prisma-generate && nx run api:prisma-migrate-deploy && nx run api:prisma-seed",
