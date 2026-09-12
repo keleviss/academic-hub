@@ -1,5 +1,9 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+import {
+  PrismaClient,
+  type DocumentStatus,
+  type DocumentVisibility,
+} from '@prisma/client';
 
 import { hashPassword } from '../src/auth/password.js';
 import { env } from '../src/config/env.js';
@@ -169,8 +173,7 @@ const extraCourses = [
     id: '40404040-4040-4040-8040-404040404043',
     code: 'CS-HCI-410',
     title: 'Human-Centered Learning Systems',
-    description:
-      'Designing accessible and feedback-rich educational software.',
+    description: 'Designing accessible and feedback-rich educational software.',
     semester: 7,
     ectsCredits: 5,
     isActive: false,
@@ -206,6 +209,200 @@ const extraCourses = [
     isActive: true,
   },
 ] as const;
+
+type SeedDocumentInput = {
+  checksumSha256: string;
+  courseId: string;
+  createdById: string;
+  deletedAt?: Date | null;
+  description: string | null;
+  fileSizeBytes: bigint;
+  id: string;
+  mimeType: string;
+  objectKey: string;
+  originalFilename: string;
+  pageCount: number;
+  replacedAt?: Date | null;
+  status: DocumentStatus;
+  title: string;
+  updatedById?: string | null;
+  visibility: DocumentVisibility;
+};
+
+const extraDocuments: ReadonlyArray<SeedDocumentInput> = [
+  {
+    id: '70707070-7070-4070-8070-707070707071',
+    courseId: ids.course,
+    title: 'Week 2 - Conceptual Roadmaps and Study Paths',
+    description:
+      'Follow-up PDF that connects concepts, prerequisites, and roadmap nodes.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-lms-101/week-2-conceptual-roadmaps.pdf',
+    originalFilename: 'week-2-conceptual-roadmaps.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 1_568_000n,
+    checksumSha256:
+      '62df86819993dc26dcf97f1d5542528cf636d18e8e636f55608404477d7c51b5',
+    pageCount: 22,
+    createdById: ids.professor,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707072',
+    courseId: ids.course,
+    title: 'Instructor Notes - Confusion Signal Review',
+    description:
+      'Private instructor notes used to prepare interventions from learner signals.',
+    status: 'active',
+    visibility: 'hidden_from_students',
+    objectKey: 'courses/cs-lms-101/instructor-confusion-signals.pdf',
+    originalFilename: 'instructor-confusion-signals.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 836_000n,
+    checksumSha256:
+      '4d9f1eb3075fc9a6a6fd998d7515bd52d6a4038a1a940646e7c4835c16fc13b8',
+    pageCount: 11,
+    createdById: ids.professor,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707073',
+    courseId: ids.course,
+    title: 'Week 0 - Orientation Slides',
+    description:
+      'Replaced orientation material kept to test historical document states.',
+    status: 'replaced',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-lms-101/week-0-orientation-v1.pdf',
+    originalFilename: 'week-0-orientation-v1.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 624_000n,
+    checksumSha256:
+      '93017d5f61e4f0cf74d77d06c23201000dcbf2ae48d63c78e56c8b3c4d8cd978',
+    pageCount: 9,
+    replacedAt: new Date('2026-08-25T10:15:00.000Z'),
+    createdById: ids.professor,
+    updatedById: extraProfessorUsers[0].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707074',
+    courseId: ids.course,
+    title: 'Legacy Forum Export',
+    description:
+      'Deleted import artifact retained for admin/professor metadata testing.',
+    status: 'deleted',
+    visibility: 'hidden_from_students',
+    objectKey: 'courses/cs-lms-101/legacy-forum-export.pdf',
+    originalFilename: 'legacy-forum-export.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 402_000n,
+    checksumSha256:
+      '1ca7a347d3ff420d8feb26452e920b7dbf40315d1eab9ce9a23ba1614b99a7f3',
+    pageCount: 5,
+    deletedAt: new Date('2026-08-28T08:40:00.000Z'),
+    createdById: ids.professor,
+    updatedById: ids.professor,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707075',
+    courseId: extraCourses[0].id,
+    title: 'Asymptotic Analysis Cheat Sheet',
+    description: 'Compact reference for Big-O, Big-Omega, and Big-Theta.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-alg-201/asymptotic-analysis-cheat-sheet.pdf',
+    originalFilename: 'asymptotic-analysis-cheat-sheet.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 318_000n,
+    checksumSha256:
+      '95f6f0393534689c58263ee5d1fc412a8ee3b6e0a12966dbb7ccf00f9fb17264',
+    pageCount: 4,
+    createdById: ids.professor,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707076',
+    courseId: extraCourses[0].id,
+    title: 'Proof Techniques Workbook',
+    description:
+      'Instructor-prepared exercises for induction and exchange arguments.',
+    status: 'active',
+    visibility: 'hidden_from_students',
+    objectKey: 'courses/cs-alg-201/proof-techniques-workbook.pdf',
+    originalFilename: 'proof-techniques-workbook.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 1_104_000n,
+    checksumSha256:
+      '74ce92d30ed31812ee5810924e7f3b7b58ca329a2cf9f0dbb03b2cbe2644493e',
+    pageCount: 16,
+    createdById: extraProfessorUsers[1].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707077',
+    courseId: extraCourses[1].id,
+    title: 'Transaction Isolation Examples',
+    description: 'Worked examples for anomalies and isolation levels.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-db-301/transaction-isolation-examples.pdf',
+    originalFilename: 'transaction-isolation-examples.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 742_000n,
+    checksumSha256:
+      'ec67a38d26f176ee7f2171ee7a14d66eb37e1ec82c71310f28b97d35ea5fe65a',
+    pageCount: 12,
+    createdById: extraProfessorUsers[2].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707078',
+    courseId: extraCourses[1].id,
+    title: 'Indexing Lab Brief',
+    description:
+      'Hands-on lab instructions for query plans and index selection.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-db-301/indexing-lab-brief.pdf',
+    originalFilename: 'indexing-lab-brief.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 511_000n,
+    checksumSha256:
+      '2c9250790cf2bf4f8d0c745451edc3f25d27fe4456203047bd81afcbdb946d6d',
+    pageCount: 7,
+    createdById: extraProfessorUsers[2].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707079',
+    courseId: extraCourses[2].id,
+    title: 'Accessibility Heuristics for Learning Tools',
+    description:
+      'Reading material for an inactive course, useful for admin list counts.',
+    status: 'active',
+    visibility: 'hidden_from_students',
+    objectKey: 'courses/cs-hci-410/accessibility-heuristics.pdf',
+    originalFilename: 'accessibility-heuristics.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 679_000n,
+    checksumSha256:
+      'd8137c275e80f98cef87817b2ca898c68672c5b657ca9f34c6aa2fd4f250b6e2',
+    pageCount: 10,
+    createdById: extraProfessorUsers[3].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707080',
+    courseId: extraCourses[3].id,
+    title: 'Resilient Service Boundary Checklist',
+    description:
+      'Checklist for API boundaries, retries, and failure-handling reviews.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-dist-501/service-boundary-checklist.pdf',
+    originalFilename: 'service-boundary-checklist.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 289_000n,
+    checksumSha256:
+      'b1a8d2c41ebad193513285c2c30fa21b6203d90e3fab3e2d65fd220b40a1d063',
+    pageCount: 6,
+    createdById: extraProfessorUsers[0].id,
+  },
+];
 
 type SeedUserInput = {
   email: string;
@@ -459,32 +656,70 @@ async function seedCourse(): Promise<void> {
   }
 }
 
-async function seedDocumentsAndRoadmap(): Promise<void> {
+async function upsertSeedDocument(document: SeedDocumentInput): Promise<void> {
+  const deletedAt = document.deletedAt ?? null;
+  const replacedAt = document.replacedAt ?? null;
+  const updatedById = document.updatedById ?? document.createdById;
+
   await prisma.document.upsert({
-    where: { id: ids.document },
+    where: { id: document.id },
     update: {
-      title: 'Week 1 - Active Reading and Feedback Loops',
-      visibility: 'visible_to_students',
-      status: 'active',
-      pageCount: 18,
+      checksumSha256: document.checksumSha256,
+      deletedAt,
+      description: document.description,
+      fileSizeBytes: document.fileSizeBytes,
+      mimeType: document.mimeType,
+      objectKey: document.objectKey,
+      originalFilename: document.originalFilename,
+      pageCount: document.pageCount,
+      replacedAt,
+      status: document.status,
+      title: document.title,
+      updatedById,
+      visibility: document.visibility,
     },
     create: {
-      id: ids.document,
-      courseId: ids.course,
-      title: 'Week 1 - Active Reading and Feedback Loops',
-      description: 'Introductory PDF used by the demo course.',
-      status: 'active',
-      visibility: 'visible_to_students',
-      objectKey: 'courses/cs-lms-101/week-1-active-reading.pdf',
-      originalFilename: 'week-1-active-reading.pdf',
-      mimeType: 'application/pdf',
-      fileSizeBytes: 1_284_000n,
-      checksumSha256:
-        '77e3b7f79f5a6ebfb7cb5d7737d921c0b5e14f7c9ad1f3eacb2e8a92ef8cc001',
-      pageCount: 18,
-      createdById: ids.professor,
+      checksumSha256: document.checksumSha256,
+      courseId: document.courseId,
+      createdById: document.createdById,
+      deletedAt,
+      description: document.description,
+      fileSizeBytes: document.fileSizeBytes,
+      id: document.id,
+      mimeType: document.mimeType,
+      objectKey: document.objectKey,
+      originalFilename: document.originalFilename,
+      pageCount: document.pageCount,
+      replacedAt,
+      status: document.status,
+      title: document.title,
+      updatedById,
+      visibility: document.visibility,
     },
   });
+}
+
+async function seedDocumentsAndRoadmap(): Promise<void> {
+  await upsertSeedDocument({
+    id: ids.document,
+    courseId: ids.course,
+    title: 'Week 1 - Active Reading and Feedback Loops',
+    description: 'Introductory PDF used by the demo course.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-lms-101/week-1-active-reading.pdf',
+    originalFilename: 'week-1-active-reading.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 1_284_000n,
+    checksumSha256:
+      '77e3b7f79f5a6ebfb7cb5d7737d921c0b5e14f7c9ad1f3eacb2e8a92ef8cc001',
+    pageCount: 18,
+    createdById: ids.professor,
+  });
+
+  for (const document of extraDocuments) {
+    await upsertSeedDocument(document);
+  }
 
   const concepts = [
     {
