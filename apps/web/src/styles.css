@@ -654,7 +654,7 @@ button:disabled {
 .profile-popover {
   position: absolute;
   right: 1.5rem;
-  bottom: calc(100% + 0.5rem);
+  bottom: calc(100% - 1rem);
   left: 1.5rem;
   z-index: 30;
   display: grid;

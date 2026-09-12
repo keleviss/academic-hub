@@ -235,8 +235,24 @@ function LoggedSidebar({
       if (event.key === 'Escape') setProfileOpen(false);
     }
 
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        profileOpen &&
+        !(
+          (event.target as HTMLElement).closest('.profile-popover') ||
+          (event.target as HTMLElement).closest('.sidebar-profile')
+        )
+      ) {
+        setProfileOpen(false);
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('click', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleClickOutside);
+    };
   }, [profileOpen]);
 
   function closeAfterNavigate() {
