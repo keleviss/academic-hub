@@ -191,26 +191,41 @@ export function createAdminCoursesRouter(
     validateRequest({ query: CourseListQuerySchema }),
     asyncHandler(async (request, response) => {
       const query = request.query as unknown as CourseListQuery;
-      const where = buildCourseListWhere(query);
+      const where = buildCourseListWhere(query, {
+        includeSearch: !query.search,
+      });
       const skip = (query.page - 1) * query.pageSize;
 
-      const [data, totalItems, totalCourses, activeCourses, unassignedCourses] =
-        await Promise.all([
-          prisma.course.findMany({
-            include: courseListInclude(),
-            orderBy: { code: 'asc' },
-            skip,
-            take: query.pageSize,
-            where,
-          }),
-          prisma.course.count({ where }),
-          prisma.course.count(),
-          prisma.course.count({ where: { isActive: true } }),
-          prisma.course.count({ where: { instructors: { none: {} } } }),
-        ]);
+      const [
+        rawData,
+        databaseTotalItems,
+        totalCourses,
+        activeCourses,
+        unassignedCourses,
+      ] = await Promise.all([
+        prisma.course.findMany({
+          include: courseListInclude(),
+          orderBy: { code: 'asc' },
+          ...(query.search ? {} : { skip, take: query.pageSize }),
+          where,
+        }),
+        query.search ? Promise.resolve(null) : prisma.course.count({ where }),
+        prisma.course.count(),
+        prisma.course.count({ where: { isActive: true } }),
+        prisma.course.count({ where: { instructors: { none: {} } } }),
+      ]);
+      const filteredData = query.search
+        ? filterCourseListBySearch(rawData as CourseListRecord[], query.search)
+        : (rawData as CourseListRecord[]);
+      const data = query.search
+        ? filteredData.slice(skip, skip + query.pageSize)
+        : filteredData;
+      const totalItems = query.search
+        ? filteredData.length
+        : (databaseTotalItems ?? 0);
 
       const payload: CourseListResponse = {
-        data: (data as CourseListRecord[]).map(toCourseListItem),
+        data: data.map(toCourseListItem),
         meta: {
           page: query.page,
           pageSize: query.pageSize,
@@ -606,7 +621,10 @@ async function enrollStudent(
   prisma: AdminCoursesPrismaClient,
   courseId: string,
   input: EnrollStudentRequest,
-): Promise<{ created: boolean; enrollment: { id: string; status: EnrollmentStatus } }> {
+): Promise<{
+  created: boolean;
+  enrollment: { id: string; status: EnrollmentStatus };
+}> {
   const existing = await prisma.enrollment.findUnique({
     select: { id: true, status: true },
     where: {
@@ -959,7 +977,43 @@ function enrollmentNotFound(courseId: string, studentId: string): HttpError {
   );
 }
 
-function buildCourseListWhere(query: CourseListQuery): Prisma.CourseWhereInput {
+function normalizeSearchForMatch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('el-GR');
+}
+
+function courseMatchesSearch(
+  course: CourseListRecord,
+  search: string,
+): boolean {
+  const normalizedSearch = normalizeSearchForMatch(search);
+  const primaryInstructor = course.instructors[0]?.instructor.fullName ?? '';
+  const searchableText = [
+    course.code,
+    course.title,
+    course.description ?? '',
+    primaryInstructor,
+  ]
+    .map(normalizeSearchForMatch)
+    .join(' ');
+
+  return searchableText.includes(normalizedSearch);
+}
+
+function filterCourseListBySearch(
+  courses: CourseListRecord[],
+  search: string,
+): CourseListRecord[] {
+  return courses.filter((course) => courseMatchesSearch(course, search));
+}
+
+function buildCourseListWhere(
+  query: CourseListQuery,
+  options: { includeSearch?: boolean } = {},
+): Prisma.CourseWhereInput {
+  const includeSearch = options.includeSearch ?? true;
   const conditions: Prisma.CourseWhereInput[] = [];
 
   if (query.status === 'active') {
@@ -974,7 +1028,7 @@ function buildCourseListWhere(query: CourseListQuery): Prisma.CourseWhereInput {
     conditions.push({ semester: query.semester });
   }
 
-  if (query.search) {
+  if (includeSearch && query.search) {
     conditions.push({
       OR: [
         { code: { contains: query.search, mode: 'insensitive' } },

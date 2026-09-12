@@ -111,6 +111,7 @@ function createTestApp(
     duplicateEnrollmentOnCreate?: boolean;
     duplicateOnCreate?: boolean;
     duplicateOnUpdate?: boolean;
+    listCourses?: (typeof listCourse)[];
     professorActive?: boolean;
     professorExists?: boolean;
     professorRole?: UserRole;
@@ -151,7 +152,7 @@ function createTestApp(
         instructors: [],
       };
     }),
-    findMany: vi.fn(async () => [listCourse]),
+    findMany: vi.fn(async () => options.listCourses ?? [listCourse]),
     findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
       where.id === courseId ? detailCourse : null,
     ),
@@ -455,23 +456,46 @@ describe('admin course routes', () => {
 
     expect(course.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        skip: 5,
-        take: 5,
         where: {
-          AND: [
-            { isActive: true },
-            { semester: 3 },
-            {
-              OR: [
-                { code: { contains: 'data', mode: 'insensitive' } },
-                { title: { contains: 'data', mode: 'insensitive' } },
-                { description: { contains: 'data', mode: 'insensitive' } },
-              ],
-            },
-          ],
+          AND: [{ isActive: true }, { semester: 3 }],
         },
       }),
     );
+  });
+
+  it('matches course searches without requiring Greek accents', async () => {
+    const { app } = createTestApp('admin', {
+      listCourses: [
+        {
+          ...listCourse,
+          code: 'CS-CV-707',
+          id: '77777777-7777-4777-8777-777777777778',
+          title: 'Όραση Υπολογιστών',
+        },
+        {
+          ...listCourse,
+          code: 'CS-ALG-201',
+          id: '77777777-7777-4777-8777-777777777779',
+          title: 'Αλγόριθμοι και Πολυπλοκότητα',
+        },
+      ],
+    });
+
+    const response = await request(app)
+      .get('/api/admin/courses?search=Οραση')
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    const body = CourseListResponseSchema.parse(response.body);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0]).toMatchObject({
+      code: 'CS-CV-707',
+      title: 'Όραση Υπολογιστών',
+    });
+    expect(body.meta).toMatchObject({
+      totalItems: 1,
+      totalPages: 1,
+    });
   });
 
   it('returns a course detail response with read-only relations', async () => {
@@ -495,7 +519,9 @@ describe('admin course routes', () => {
     const { app, user } = createTestApp();
 
     const response = await request(app)
-      .get(`/api/admin/courses/${courseId}/member-candidates?role=professor&search=gr`)
+      .get(
+        `/api/admin/courses/${courseId}/member-candidates?role=professor&search=gr`,
+      )
       .set('Cookie', authCookie())
       .expect(200);
 
@@ -698,11 +724,15 @@ describe('admin course routes', () => {
       .expect(403);
 
     await request(createTestApp(null).app)
-      .get(`/api/admin/courses/${courseId}/member-candidates?role=student&search=st`)
+      .get(
+        `/api/admin/courses/${courseId}/member-candidates?role=student&search=st`,
+      )
       .expect(401);
 
     await request(createTestApp('professor').app)
-      .get(`/api/admin/courses/${courseId}/member-candidates?role=student&search=st`)
+      .get(
+        `/api/admin/courses/${courseId}/member-candidates?role=student&search=st`,
+      )
       .set('Cookie', authCookie())
       .expect(403);
 
@@ -746,7 +776,9 @@ describe('admin course routes', () => {
       .expect(400);
 
     await request(app)
-      .get(`/api/admin/courses/${courseId}/member-candidates?role=student&search=x`)
+      .get(
+        `/api/admin/courses/${courseId}/member-candidates?role=student&search=x`,
+      )
       .set('Cookie', authCookie())
       .expect(400);
 
@@ -823,7 +855,9 @@ describe('admin course routes', () => {
     const { app, courseInstructor } = createTestApp();
 
     const response = await request(app)
-      .get('/api/admin/courses/99999999-9999-4999-8999-999999999999/instructors')
+      .get(
+        '/api/admin/courses/99999999-9999-4999-8999-999999999999/instructors',
+      )
       .set('Cookie', authCookie())
       .expect(404);
 
@@ -835,7 +869,9 @@ describe('admin course routes', () => {
     const { app, courseInstructor, user } = createTestApp();
 
     const response = await request(app)
-      .post('/api/admin/courses/99999999-9999-4999-8999-999999999999/instructors')
+      .post(
+        '/api/admin/courses/99999999-9999-4999-8999-999999999999/instructors',
+      )
       .set('Cookie', authCookie())
       .send({ instructorId: secondInstructorId })
       .expect(404);
@@ -902,9 +938,7 @@ describe('admin course routes', () => {
       .send({ instructorId })
       .expect(409);
 
-    expect(response.body.error.code).toBe(
-      'COURSE_INSTRUCTOR_ALREADY_ASSIGNED',
-    );
+    expect(response.body.error.code).toBe('COURSE_INSTRUCTOR_ALREADY_ASSIGNED');
     expect(courseInstructor.create).not.toHaveBeenCalled();
   });
 
@@ -912,7 +946,9 @@ describe('admin course routes', () => {
     const { app, courseInstructor } = createTestApp();
 
     const response = await request(app)
-      .delete(`/api/admin/courses/${courseId}/instructors/${secondInstructorId}`)
+      .delete(
+        `/api/admin/courses/${courseId}/instructors/${secondInstructorId}`,
+      )
       .set('Cookie', authCookie())
       .expect(404);
 
