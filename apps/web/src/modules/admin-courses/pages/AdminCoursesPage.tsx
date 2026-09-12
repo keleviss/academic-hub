@@ -425,16 +425,20 @@ export function AdminCoursesPage(): React.JSX.Element {
                     <tbody>
                       {list.data.data.map((course) => (
                         <tr key={course.id}>
-                          <td>
+                          <td data-label="Μάθημα">
                             <strong>{course.title}</strong>
                             <span>
                               {course.code} · {course.ectsCredits} ECTS
                             </span>
                           </td>
-                          <td>{course.semester}ο</td>
-                          <td>{course.primaryInstructor?.fullName ?? '—'}</td>
-                          <td>{course.counts.studentCount}</td>
-                          <td>
+                          <td data-label="Εξάμηνο">{course.semester}ο</td>
+                          <td data-label="Διδάσκων">
+                            {course.primaryInstructor?.fullName ?? '—'}
+                          </td>
+                          <td data-label="Φοιτητές">
+                            {course.counts.studentCount}
+                          </td>
+                          <td data-label="Κατάσταση">
                             <span
                               className={
                                 course.isActive
@@ -445,7 +449,7 @@ export function AdminCoursesPage(): React.JSX.Element {
                               {course.isActive ? 'Ενεργό' : 'Ανενεργό'}
                             </span>
                           </td>
-                          <td>
+                          <td data-label="Ενέργειες">
                             <Link
                               className="course-row-link"
                               to={`/app/courses/${course.id}`}
