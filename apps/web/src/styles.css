@@ -888,6 +888,8 @@ select {
   background: white;
   padding: 0.625rem 0.75rem;
   color: var(--color-hub-navy);
+  font-size: 14px;
+  font-weight: 400;
 }
 .course-filter-row input {
   flex: 1;
