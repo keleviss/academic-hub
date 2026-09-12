@@ -4,12 +4,16 @@ import {
   AssignCourseInstructorRequestSchema,
   CourseCreateRequestSchema,
   CourseDetailResponseSchema,
+  CourseDocumentIdParamsSchema,
   CourseDocumentMetadataSchema,
+  CourseDocumentResponseSchema,
   CourseIdParamsSchema,
   CourseListQuerySchema,
   CourseListResponseSchema,
   CourseUpdateRequestSchema,
+  CreateCourseDocumentRequestSchema,
   EnrollStudentRequestSchema,
+  UpdateCourseDocumentMetadataRequestSchema,
   UpdateEnrollmentStatusRequestSchema,
 } from './course-management.js';
 
@@ -190,6 +194,9 @@ describe('course management contracts', () => {
 
   it('validates route params and rejects invalid UUIDs', () => {
     expect(CourseIdParamsSchema.parse({ courseId })).toEqual({ courseId });
+    expect(CourseDocumentIdParamsSchema.parse({ courseId, documentId })).toEqual(
+      { courseId, documentId },
+    );
     expect(() =>
       CourseIdParamsSchema.parse({ courseId: 'not-a-uuid' }),
     ).toThrow();
@@ -246,5 +253,63 @@ describe('course management contracts', () => {
         visibility: 'public',
       }),
     ).toThrow();
+  });
+
+  it('normalizes document metadata create requests', () => {
+    expect(
+      CreateCourseDocumentRequestSchema.parse({
+        title: '  Lecture 1  ',
+        description: '  Introductory material.  ',
+        visibility: 'visible_to_students',
+        originalFilename: '  lecture-1.pdf  ',
+        mimeType: '  application/pdf  ',
+        fileSizeBytes: '2048',
+        pageCount: '12',
+      }),
+    ).toEqual({
+      title: 'Lecture 1',
+      description: 'Introductory material.',
+      visibility: 'visible_to_students',
+      originalFilename: 'lecture-1.pdf',
+      mimeType: 'application/pdf',
+      fileSizeBytes: 2048,
+      pageCount: 12,
+    });
+
+    expect(
+      CreateCourseDocumentRequestSchema.parse({
+        title: 'Draft material',
+      }),
+    ).toEqual({
+      title: 'Draft material',
+      visibility: 'hidden_from_students',
+    });
+  });
+
+  it('validates document metadata updates', () => {
+    expect(
+      UpdateCourseDocumentMetadataRequestSchema.parse({
+        description: null,
+        status: 'deleted',
+        visibility: 'hidden_from_students',
+      }),
+    ).toEqual({
+      description: null,
+      status: 'deleted',
+      visibility: 'hidden_from_students',
+    });
+
+    expect(() => UpdateCourseDocumentMetadataRequestSchema.parse({})).toThrow();
+    expect(() =>
+      UpdateCourseDocumentMetadataRequestSchema.parse({ status: 'archived' }),
+    ).toThrow();
+  });
+
+  it('parses single document metadata responses', () => {
+    const response = CourseDocumentResponseSchema.parse({
+      data: documentMetadata,
+    });
+
+    expect(response.data.id).toBe(documentId);
   });
 });

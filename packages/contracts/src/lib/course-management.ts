@@ -44,6 +44,45 @@ export const CourseDescriptionInputSchema = z
   .nullable()
   .optional();
 
+export const CourseDocumentTitleSchema = z.string().trim().min(1).max(160);
+
+export const CourseDocumentDescriptionInputSchema = z
+  .string()
+  .trim()
+  .max(2_000)
+  .nullable()
+  .optional();
+
+export const CourseDocumentFilenameInputSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .nullable()
+  .optional();
+
+export const CourseDocumentMimeTypeInputSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(127)
+  .nullable()
+  .optional();
+
+export const CourseDocumentFileSizeInputSchema = z.coerce
+  .number()
+  .int()
+  .nonnegative()
+  .nullable()
+  .optional();
+
+export const CourseDocumentPageCountInputSchema = z.coerce
+  .number()
+  .int()
+  .nonnegative()
+  .nullable()
+  .optional();
+
 export const CourseCreateRequestSchema = z.object({
   code: CourseCodeSchema,
   title: z.string().trim().min(1).max(160),
@@ -154,8 +193,37 @@ export const CourseDocumentMetadataSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+export const CreateCourseDocumentRequestSchema = z.object({
+  title: CourseDocumentTitleSchema,
+  description: CourseDocumentDescriptionInputSchema,
+  visibility: DocumentVisibilitySchema.default('hidden_from_students'),
+  originalFilename: CourseDocumentFilenameInputSchema,
+  mimeType: CourseDocumentMimeTypeInputSchema,
+  fileSizeBytes: CourseDocumentFileSizeInputSchema,
+  pageCount: CourseDocumentPageCountInputSchema,
+});
+
+export const UpdateCourseDocumentMetadataRequestSchema = z
+  .object({
+    title: CourseDocumentTitleSchema.optional(),
+    description: CourseDocumentDescriptionInputSchema,
+    status: DocumentStatusSchema.optional(),
+    visibility: DocumentVisibilitySchema.optional(),
+    originalFilename: CourseDocumentFilenameInputSchema,
+    mimeType: CourseDocumentMimeTypeInputSchema,
+    fileSizeBytes: CourseDocumentFileSizeInputSchema,
+    pageCount: CourseDocumentPageCountInputSchema,
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one document metadata field must be provided.',
+  });
+
 export const CourseDocumentsResponseSchema = z.object({
   data: z.array(CourseDocumentMetadataSchema),
+});
+
+export const CourseDocumentResponseSchema = z.object({
+  data: CourseDocumentMetadataSchema,
 });
 
 export const CourseDetailSchema = CourseListItemSchema.extend({
@@ -204,8 +272,17 @@ export type CourseEnrollmentsResponse = z.infer<
 export type CourseDocumentMetadata = z.infer<
   typeof CourseDocumentMetadataSchema
 >;
+export type CreateCourseDocumentRequest = z.infer<
+  typeof CreateCourseDocumentRequestSchema
+>;
+export type UpdateCourseDocumentMetadataRequest = z.infer<
+  typeof UpdateCourseDocumentMetadataRequestSchema
+>;
 export type CourseDocumentsResponse = z.infer<
   typeof CourseDocumentsResponseSchema
+>;
+export type CourseDocumentResponse = z.infer<
+  typeof CourseDocumentResponseSchema
 >;
 export type CourseDetail = z.infer<typeof CourseDetailSchema>;
 export type CourseDetailResponse = z.infer<typeof CourseDetailResponseSchema>;
