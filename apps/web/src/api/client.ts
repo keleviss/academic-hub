@@ -1,11 +1,48 @@
 import {
   CsrfResponseSchema,
+  CourseDocumentAnnotationResponseSchema,
+  CourseDocumentAnnotationsResponseSchema,
+  CourseDetailResponseSchema,
+  CourseDocumentResponseSchema,
+  CourseDocumentsResponseSchema,
+  CourseEnrollmentsResponseSchema,
+  CourseInstructorsResponseSchema,
+  CourseListResponseSchema,
+  CourseMemberCandidatesResponseSchema,
+  CourseMutationResponseSchema,
   CurrentSessionSchema,
   HealthResponseSchema,
   LoginRequestSchema,
+  ProfessorCourseDetailResponseSchema,
+  ProfessorCourseListResponseSchema,
+  StudentCourseDetailResponseSchema,
+  StudentCourseListResponseSchema,
   type CurrentSession,
+  type AssignCourseInstructorRequest,
+  type CourseCreateRequest,
+  type CourseDetailResponse,
+  type CourseDocumentAnnotationResponse,
+  type CourseDocumentAnnotationsResponse,
+  type CourseDocumentResponse,
+  type CourseDocumentsResponse,
+  type CourseEnrollmentsResponse,
+  type CourseInstructorsResponse,
+  type CourseListQuery,
+  type CourseListResponse,
+  type CourseMemberCandidateRole,
+  type CourseMemberCandidatesResponse,
+  type CourseMutationResponse,
+  type CourseUpdateRequest,
+  type CreateCourseDocumentAnnotationRequest,
+  type EnrollStudentRequest,
   type HealthResponse,
   type LoginRequest,
+  type ProfessorCourseDetailResponse,
+  type ProfessorCourseListResponse,
+  type StudentCourseDetailResponse,
+  type StudentCourseListResponse,
+  type UpdateCourseDocumentMetadataRequest,
+  type UpdateEnrollmentStatusRequest,
 } from '@web-app/contracts';
 import { z } from 'zod';
 
@@ -101,6 +138,338 @@ function validateSession(session: CurrentSession): CurrentSession {
 
 export function fetchCsrfToken() {
   return requestJson('/api/auth/csrf', CsrfResponseSchema);
+}
+
+async function performMutation<T>(
+  path: `/${string}`,
+  schema: z.ZodType<T>,
+  init: RequestInit,
+): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    const { csrfToken } = await fetchCsrfToken();
+    try {
+      return await requestJson(path, schema, {
+        ...init,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+          ...init.headers,
+        },
+      });
+    } catch (error) {
+      if (
+        attempt === 0 &&
+        error instanceof ApiClientError &&
+        error.status === 403 &&
+        error.code === 'CSRF_TOKEN_INVALID'
+      )
+        continue;
+      throw error;
+    }
+  }
+}
+
+// Every CSRF token fetch rotates the matching cookie. Keep write pairs in this
+// tab ordered, as the authentication client already does for login/logout.
+let mutationQueue: Promise<unknown> = Promise.resolve();
+function requestMutation<T>(
+  path: `/${string}`,
+  schema: z.ZodType<T>,
+  init: RequestInit,
+): Promise<T> {
+  const result = mutationQueue.then(
+    () => performMutation(path, schema, init),
+    () => performMutation(path, schema, init),
+  );
+  mutationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+// FormData bodies must not get a manual Content-Type: the browser sets the
+// multipart boundary itself.
+async function performMultipartMutation<T>(
+  path: `/${string}`,
+  schema: z.ZodType<T>,
+  init: { body: FormData; method: string },
+): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    const { csrfToken } = await fetchCsrfToken();
+    try {
+      return await requestJson(path, schema, {
+        ...init,
+        headers: { 'x-csrf-token': csrfToken },
+      });
+    } catch (error) {
+      if (
+        attempt === 0 &&
+        error instanceof ApiClientError &&
+        error.status === 403 &&
+        error.code === 'CSRF_TOKEN_INVALID'
+      )
+        continue;
+      throw error;
+    }
+  }
+}
+
+function requestMultipartMutation<T>(
+  path: `/${string}`,
+  schema: z.ZodType<T>,
+  init: { body: FormData; method: string },
+): Promise<T> {
+  const result = mutationQueue.then(
+    () => performMultipartMutation(path, schema, init),
+    () => performMultipartMutation(path, schema, init),
+  );
+  mutationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+function courseQueryString(query: Partial<CourseListQuery>): string {
+  const params = new URLSearchParams();
+  if (query.page) params.set('page', String(query.page));
+  if (query.pageSize) params.set('pageSize', String(query.pageSize));
+  if (query.search) params.set('search', query.search);
+  if (query.semester) params.set('semester', String(query.semester));
+  if (query.status) params.set('status', query.status);
+  const value = params.toString();
+  return value ? `?${value}` : '';
+}
+
+export function fetchAdminCourses(
+  query: Partial<CourseListQuery> = {},
+  signal?: AbortSignal,
+): Promise<CourseListResponse> {
+  return requestJson(
+    `/api/admin/courses${courseQueryString(query)}`,
+    CourseListResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchAdminCourse(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<CourseDetailResponse> {
+  return requestJson(
+    `/api/admin/courses/${courseId}`,
+    CourseDetailResponseSchema,
+    {
+      signal,
+    },
+  );
+}
+
+export function fetchCourseMemberCandidates(
+  courseId: string,
+  role: CourseMemberCandidateRole,
+  search: string,
+  signal?: AbortSignal,
+): Promise<CourseMemberCandidatesResponse> {
+  const params = new URLSearchParams({ role, search });
+  return requestJson(
+    `/api/admin/courses/${courseId}/member-candidates?${params.toString()}`,
+    CourseMemberCandidatesResponseSchema,
+    { signal },
+  );
+}
+
+export function createAdminCourse(
+  input: CourseCreateRequest,
+): Promise<CourseMutationResponse> {
+  return requestMutation('/api/admin/courses', CourseMutationResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateAdminCourse(
+  courseId: string,
+  input: CourseUpdateRequest,
+): Promise<CourseMutationResponse> {
+  return requestMutation(
+    `/api/admin/courses/${courseId}`,
+    CourseMutationResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function assignCourseInstructor(
+  courseId: string,
+  input: AssignCourseInstructorRequest,
+): Promise<CourseInstructorsResponse> {
+  return requestMutation(
+    `/api/admin/courses/${courseId}/instructors`,
+    CourseInstructorsResponseSchema,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function removeCourseInstructor(
+  courseId: string,
+  userId: string,
+): Promise<CourseInstructorsResponse> {
+  return requestMutation(
+    `/api/admin/courses/${courseId}/instructors/${userId}`,
+    CourseInstructorsResponseSchema,
+    { method: 'DELETE' },
+  );
+}
+
+export function enrollCourseStudent(
+  courseId: string,
+  input: EnrollStudentRequest,
+): Promise<CourseEnrollmentsResponse> {
+  return requestMutation(
+    `/api/admin/courses/${courseId}/enrollments`,
+    CourseEnrollmentsResponseSchema,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function updateCourseEnrollmentStatus(
+  courseId: string,
+  userId: string,
+  input: UpdateEnrollmentStatusRequest,
+): Promise<CourseEnrollmentsResponse> {
+  return requestMutation(
+    `/api/admin/courses/${courseId}/enrollments/${userId}`,
+    CourseEnrollmentsResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function fetchProfessorCourses(
+  signal?: AbortSignal,
+): Promise<ProfessorCourseListResponse> {
+  return requestJson(
+    '/api/professor/courses',
+    ProfessorCourseListResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchProfessorCourse(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<ProfessorCourseDetailResponse> {
+  return requestJson(
+    `/api/professor/courses/${courseId}`,
+    ProfessorCourseDetailResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchStudentCourses(
+  signal?: AbortSignal,
+): Promise<StudentCourseListResponse> {
+  return requestJson('/api/student/courses', StudentCourseListResponseSchema, {
+    signal,
+  });
+}
+
+export function fetchStudentCourse(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<StudentCourseDetailResponse> {
+  return requestJson(
+    `/api/student/courses/${courseId}`,
+    StudentCourseDetailResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchCourseDocuments(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<CourseDocumentsResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/documents`,
+    CourseDocumentsResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchCourseDocument(
+  courseId: string,
+  documentId: string,
+  signal?: AbortSignal,
+): Promise<CourseDocumentResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/documents/${documentId}`,
+    CourseDocumentResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchCourseDocumentAnnotations(
+  courseId: string,
+  documentId: string,
+  signal?: AbortSignal,
+): Promise<CourseDocumentAnnotationsResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/documents/${documentId}/annotations`,
+    CourseDocumentAnnotationsResponseSchema,
+    { signal },
+  );
+}
+
+export function createCourseDocumentAnnotation(
+  courseId: string,
+  documentId: string,
+  input: CreateCourseDocumentAnnotationRequest,
+): Promise<CourseDocumentAnnotationResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/documents/${documentId}/annotations`,
+    CourseDocumentAnnotationResponseSchema,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function uploadCourseDocument(
+  courseId: string,
+  formData: FormData,
+): Promise<CourseDocumentResponse> {
+  return requestMultipartMutation(
+    `/api/courses/${courseId}/documents`,
+    CourseDocumentResponseSchema,
+    { method: 'POST', body: formData },
+  );
+}
+
+export async function fetchCourseDocumentContent(
+  courseId: string,
+  documentId: string,
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/courses/${courseId}/documents/${documentId}/content`,
+    { credentials: 'include', signal },
+  );
+
+  if (!response.ok) {
+    throw await readError(response);
+  }
+
+  return response.arrayBuffer();
+}
+
+export function updateCourseDocumentMetadata(
+  courseId: string,
+  documentId: string,
+  input: UpdateCourseDocumentMetadataRequest,
+): Promise<CourseDocumentResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/documents/${documentId}`,
+    CourseDocumentResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
 }
 
 async function postAuth(

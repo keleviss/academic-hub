@@ -24,6 +24,7 @@ npx nx run database:config
 npm run db:start
 npm run db:logs
 npm run db:stop
+npm run db:reset
 ```
 
 `db:start` waits for both healthchecks with a 120-second timeout. `db:logs` follows
@@ -31,6 +32,9 @@ logs until Ctrl+C. `db:stop` removes containers and the network while preserving
 the PostgreSQL and MinIO named volumes. These scripts delegate to the `database`
 Nx project. To start infrastructure, migrations, API, and frontend together, use
 `npm run dev`; see the [workspace guide](../../README.md#start-and-stop-local-development).
+
+`db:reset` is destructive: it removes the local PostgreSQL and MinIO named
+volumes.
 
 You can also validate the Compose file directly:
 

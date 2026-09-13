@@ -88,6 +88,8 @@ export const interventionTypeValues = [
 export const auditActionValues = [
   'user.created',
   'course.created',
+  'course.updated',
+  'course.deactivated',
   'enrollment.changed',
   'document.uploaded',
   'document.replaced',

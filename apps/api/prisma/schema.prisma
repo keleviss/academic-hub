@@ -130,6 +130,8 @@ enum InterventionType {
 enum AuditAction {
   user_created            @map("user.created")
   course_created          @map("course.created")
+  course_updated          @map("course.updated")
+  course_deactivated      @map("course.deactivated")
   enrollment_changed      @map("enrollment.changed")
   document_uploaded       @map("document.uploaded")
   document_replaced       @map("document.replaced")
@@ -193,6 +195,8 @@ model Course {
   code                  String                 @unique
   title                 String
   description           String?
+  semester              Int                    @default(1)
+  ectsCredits           Int                    @default(6) @map("ects_credits")
   isActive              Boolean                @default(true) @map("is_active")
   createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)

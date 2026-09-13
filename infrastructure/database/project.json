@@ -19,6 +19,13 @@
         "command": "docker compose -f infrastructure/database/docker-compose.yml down"
       }
     },
+    "reset": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "docker compose -f infrastructure/database/docker-compose.yml down -v"
+      }
+    },
     "status": {
       "executor": "nx:run-commands",
       "cache": false,

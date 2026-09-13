@@ -1,5 +1,9 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+import {
+  PrismaClient,
+  type DocumentStatus,
+  type DocumentVisibility,
+} from '@prisma/client';
 
 import { hashPassword } from '../src/auth/password.js';
 import { env } from '../src/config/env.js';
@@ -60,83 +64,420 @@ const ids = {
 
 const demoPassword = 'AcademicHubDemo2026!';
 
-async function seedUsers(): Promise<void> {
-  const adminPasswordHash = await hashPassword(demoPassword);
-  const professorPasswordHash = await hashPassword(demoPassword);
-  const studentMariaPasswordHash = await hashPassword(demoPassword);
-  const studentNikosPasswordHash = await hashPassword(demoPassword);
+const extraProfessorUsers = [
+  {
+    id: '20202020-2020-4020-8020-202020202021',
+    email: 'markos.professor@academic-hub.local',
+    fullName: 'Μάρκος Ιωαννίδης',
+    isActive: true,
+  },
+  {
+    id: '20202020-2020-4020-8020-202020202022',
+    email: 'sofia.professor@academic-hub.local',
+    fullName: 'Σοφία Νικολαΐδου',
+    isActive: true,
+  },
+  {
+    id: '20202020-2020-4020-8020-202020202023',
+    email: 'dimitris.professor@academic-hub.local',
+    fullName: 'Δημήτρης Καραμήτρος',
+    isActive: true,
+  },
+  {
+    id: '20202020-2020-4020-8020-202020202024',
+    email: 'ioanna.professor@academic-hub.local',
+    fullName: 'Ιωάννα Σπύρου',
+    isActive: true,
+  },
+  {
+    id: '20202020-2020-4020-8020-202020202025',
+    email: 'andreas.inactive-professor@academic-hub.local',
+    fullName: 'Ανδρέας Βασιλείου',
+    isActive: false,
+  },
+] as const;
+
+const extraStudentUsers = [
+  {
+    id: '30303030-3030-4030-8030-303030303031',
+    email: 'eleni.student@academic-hub.local',
+    fullName: 'Ελένη Παπαγεωργίου',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303032',
+    email: 'petros.student@academic-hub.local',
+    fullName: 'Πέτρος Δημητρίου',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303033',
+    email: 'sofia.student@academic-hub.local',
+    fullName: 'Σοφία Καραγιάννη',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303034',
+    email: 'giorgos.student@academic-hub.local',
+    fullName: 'Γιώργος Σταύρου',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303035',
+    email: 'christina.student@academic-hub.local',
+    fullName: 'Χριστίνα Οικονόμου',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303036',
+    email: 'dimitra.student@academic-hub.local',
+    fullName: 'Δήμητρα Αλεξίου',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303037',
+    email: 'kostas.student@academic-hub.local',
+    fullName: 'Κώστας Θεοδώρου',
+    isActive: true,
+  },
+  {
+    id: '30303030-3030-4030-8030-303030303038',
+    email: 'alex.inactive-student@academic-hub.local',
+    fullName: 'Αλέξης Κούρης',
+    isActive: false,
+  },
+] as const;
+
+const extraCourses = [
+  {
+    id: '40404040-4040-4040-8040-404040404041',
+    code: 'CS-ALG-201',
+    title: 'Αλγόριθμοι και Πολυπλοκότητα',
+    description:
+      'Σχεδίαση αλγορίθμων, ασυμπτωτική ανάλυση και συμβιβασμοί πολυπλοκότητας.',
+    semester: 3,
+    ectsCredits: 6,
+    isActive: true,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404042',
+    code: 'CS-DB-301',
+    title: 'Συστήματα Βάσεων Δεδομένων',
+    description:
+      'Σχεσιακή μοντελοποίηση, SQL, συναλλαγές, ευρετήρια και σχεδιασμός ερωτημάτων.',
+    semester: 4,
+    ectsCredits: 6,
+    isActive: true,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404043',
+    code: 'CS-HCI-410',
+    title: 'Ανθρωποκεντρικά Συστήματα Μάθησης',
+    description:
+      'Σχεδίαση προσβάσιμου εκπαιδευτικού λογισμικού με πλούσια ανατροφοδότηση.',
+    semester: 7,
+    ectsCredits: 5,
+    isActive: false,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404044',
+    code: 'CS-DIST-501',
+    title: 'Κατανεμημένες Διαδικτυακές Πλατφόρμες',
+    description:
+      'Όρια υπηρεσιών, ασύγχρονες ροές εργασίας και ανθεκτικά διαδικτυακά συστήματα.',
+    semester: 6,
+    ectsCredits: 6,
+    isActive: true,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404045',
+    code: 'CS-RM-601',
+    title: 'Μεθοδολογία Έρευνας στην Πληροφορική',
+    description:
+      'Σχεδιασμός έρευνας, μέθοδοι αξιολόγησης, δεοντολογία και ακαδημαϊκή γραφή.',
+    semester: 8,
+    ectsCredits: 4,
+    isActive: true,
+  },
+  {
+    id: '40404040-4040-4040-8040-404040404046',
+    code: 'CS-ELECT-350',
+    title: 'Σύγχρονα Θέματα Ακαδημαϊκής Τεχνολογίας',
+    description:
+      'Σεμιναριακό μάθημα για δοκιμή καταστάσεων μαθημάτων χωρίς ανάθεση διδάσκοντα.',
+    semester: 5,
+    ectsCredits: 3,
+    isActive: true,
+  },
+] as const;
+
+type SeedDocumentInput = {
+  checksumSha256: string;
+  courseId: string;
+  createdById: string;
+  deletedAt?: Date | null;
+  description: string | null;
+  fileSizeBytes: bigint;
+  id: string;
+  mimeType: string;
+  objectKey: string;
+  originalFilename: string;
+  pageCount: number;
+  replacedAt?: Date | null;
+  status: DocumentStatus;
+  title: string;
+  updatedById?: string | null;
+  visibility: DocumentVisibility;
+};
+
+const extraDocuments: ReadonlyArray<SeedDocumentInput> = [
+  {
+    id: '70707070-7070-4070-8070-707070707071',
+    courseId: ids.course,
+    title: 'Εβδομάδα 2 - Εννοιολογικοί Χάρτες και Διαδρομές Μελέτης',
+    description:
+      'Συμπληρωματικό PDF που συνδέει έννοιες, προαπαιτούμενα και κόμβους χάρτη μάθησης.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-lms-101/εβδομαδα-2-εννοιολογικοι-χαρτες.pdf',
+    originalFilename: 'εβδομαδα-2-εννοιολογικοι-χαρτες.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 1_568_000n,
+    checksumSha256:
+      '62df86819993dc26dcf97f1d5542528cf636d18e8e636f55608404477d7c51b5',
+    pageCount: 22,
+    createdById: ids.professor,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707072',
+    courseId: ids.course,
+    title: 'Σημειώσεις Διδάσκοντα - Ανασκόπηση Σημάτων Σύγχυσης',
+    description:
+      'Ιδιωτικές σημειώσεις διδάσκοντα για προετοιμασία παρεμβάσεων από σήματα μαθητών.',
+    status: 'active',
+    visibility: 'hidden_from_students',
+    objectKey: 'courses/cs-lms-101/σημειωσεις-διδασκοντα-σηματα-συγχυσης.pdf',
+    originalFilename: 'σημειωσεις-διδασκοντα-σηματα-συγχυσης.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 836_000n,
+    checksumSha256:
+      '4d9f1eb3075fc9a6a6fd998d7515bd52d6a4038a1a940646e7c4835c16fc13b8',
+    pageCount: 11,
+    createdById: ids.professor,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707073',
+    courseId: ids.course,
+    title: 'Εβδομάδα 0 - Διαφάνειες Εισαγωγής',
+    description:
+      'Αντικατεστημένο εισαγωγικό υλικό για δοκιμή ιστορικών καταστάσεων εγγράφων.',
+    status: 'replaced',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-lms-101/εβδομαδα-0-εισαγωγη-v1.pdf',
+    originalFilename: 'εβδομαδα-0-εισαγωγη-v1.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 624_000n,
+    checksumSha256:
+      '93017d5f61e4f0cf74d77d06c23201000dcbf2ae48d63c78e56c8b3c4d8cd978',
+    pageCount: 9,
+    replacedAt: new Date('2026-08-25T10:15:00.000Z'),
+    createdById: ids.professor,
+    updatedById: extraProfessorUsers[0].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707074',
+    courseId: ids.course,
+    title: 'Εξαγωγή Παλαιού Φόρουμ',
+    description:
+      'Διαγραμμένο τεκμήριο εισαγωγής για δοκιμή μεταδεδομένων διαχειριστή και διδάσκοντα.',
+    status: 'deleted',
+    visibility: 'hidden_from_students',
+    objectKey: 'courses/cs-lms-101/εξαγωγη-παλαιου-φορουμ.pdf',
+    originalFilename: 'εξαγωγη-παλαιου-φορουμ.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 402_000n,
+    checksumSha256:
+      '1ca7a347d3ff420d8feb26452e920b7dbf40315d1eab9ce9a23ba1614b99a7f3',
+    pageCount: 5,
+    deletedAt: new Date('2026-08-28T08:40:00.000Z'),
+    createdById: ids.professor,
+    updatedById: ids.professor,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707075',
+    courseId: extraCourses[0].id,
+    title: 'Σύνοψη Ασυμπτωτικής Ανάλυσης',
+    description: 'Σύντομη αναφορά για Big-O, Big-Omega και Big-Theta.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-alg-201/συνοψη-ασυμπτωτικης-αναλυσης.pdf',
+    originalFilename: 'συνοψη-ασυμπτωτικης-αναλυσης.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 318_000n,
+    checksumSha256:
+      '95f6f0393534689c58263ee5d1fc412a8ee3b6e0a12966dbb7ccf00f9fb17264',
+    pageCount: 4,
+    createdById: ids.professor,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707076',
+    courseId: extraCourses[0].id,
+    title: 'Φύλλο Εργασίας Τεχνικών Απόδειξης',
+    description: 'Ασκήσεις διδάσκοντα για επαγωγή και επιχειρήματα ανταλλαγής.',
+    status: 'active',
+    visibility: 'hidden_from_students',
+    objectKey: 'courses/cs-alg-201/φυλλο-εργασιας-τεχνικων-αποδειξης.pdf',
+    originalFilename: 'φυλλο-εργασιας-τεχνικων-αποδειξης.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 1_104_000n,
+    checksumSha256:
+      '74ce92d30ed31812ee5810924e7f3b7b58ca329a2cf9f0dbb03b2cbe2644493e',
+    pageCount: 16,
+    createdById: extraProfessorUsers[1].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707077',
+    courseId: extraCourses[1].id,
+    title: 'Παραδείγματα Απομόνωσης Συναλλαγών',
+    description: 'Λυμένα παραδείγματα για ανωμαλίες και επίπεδα απομόνωσης.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-db-301/παραδειγματα-απομονωσης-συναλλαγων.pdf',
+    originalFilename: 'παραδειγματα-απομονωσης-συναλλαγων.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 742_000n,
+    checksumSha256:
+      'ec67a38d26f176ee7f2171ee7a14d66eb37e1ec82c71310f28b97d35ea5fe65a',
+    pageCount: 12,
+    createdById: extraProfessorUsers[2].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707078',
+    courseId: extraCourses[1].id,
+    title: 'Οδηγίες Εργαστηρίου Ευρετηρίων',
+    description:
+      'Πρακτικές οδηγίες εργαστηρίου για πλάνα ερωτημάτων και επιλογή ευρετηρίων.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-db-301/οδηγιες-εργαστηριου-ευρετηριων.pdf',
+    originalFilename: 'οδηγιες-εργαστηριου-ευρετηριων.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 511_000n,
+    checksumSha256:
+      '2c9250790cf2bf4f8d0c745451edc3f25d27fe4456203047bd81afcbdb946d6d',
+    pageCount: 7,
+    createdById: extraProfessorUsers[2].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707079',
+    courseId: extraCourses[2].id,
+    title: 'Ευρετικές Προσβασιμότητας για Εργαλεία Μάθησης',
+    description:
+      'Υλικό μελέτης για ανενεργό μάθημα, χρήσιμο για μετρήσεις λίστας διαχειριστή.',
+    status: 'active',
+    visibility: 'hidden_from_students',
+    objectKey: 'courses/cs-hci-410/ευρετικες-προσβασιμοτητας.pdf',
+    originalFilename: 'ευρετικες-προσβασιμοτητας.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 679_000n,
+    checksumSha256:
+      'd8137c275e80f98cef87817b2ca898c68672c5b657ca9f34c6aa2fd4f250b6e2',
+    pageCount: 10,
+    createdById: extraProfessorUsers[3].id,
+  },
+  {
+    id: '70707070-7070-4070-8070-707070707080',
+    courseId: extraCourses[3].id,
+    title: 'Λίστα Ελέγχου Ανθεκτικών Ορίων Υπηρεσιών',
+    description:
+      'Λίστα ελέγχου για όρια API, επαναλήψεις αιτημάτων και διαχείριση αποτυχιών.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-dist-501/λιστα-ελεγχου-οριων-υπηρεσιων.pdf',
+    originalFilename: 'λιστα-ελεγχου-οριων-υπηρεσιων.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 289_000n,
+    checksumSha256:
+      'b1a8d2c41ebad193513285c2c30fa21b6203d90e3fab3e2d65fd220b40a1d063',
+    pageCount: 6,
+    createdById: extraProfessorUsers[0].id,
+  },
+];
+
+type SeedUserInput = {
+  email: string;
+  fullName: string;
+  id: string;
+  isActive?: boolean;
+  role: 'admin' | 'professor' | 'student';
+};
+
+async function upsertSeedUser(user: SeedUserInput): Promise<void> {
+  const passwordHash = await hashPassword(demoPassword);
 
   await prisma.user.upsert({
-    where: { id: ids.admin },
+    where: { id: user.id },
     update: {
-      email: 'admin@academic-hub.local',
-      fullName: 'Demo Admin',
-      passwordHash: adminPasswordHash,
-      role: 'admin',
-      isActive: true,
+      email: user.email,
+      fullName: user.fullName,
+      passwordHash,
+      role: user.role,
+      isActive: user.isActive ?? true,
     },
     create: {
+      id: user.id,
+      email: user.email,
+      passwordHash,
+      fullName: user.fullName,
+      role: user.role,
+      isActive: user.isActive ?? true,
+    },
+  });
+}
+
+async function seedUsers(): Promise<void> {
+  for (const user of [
+    {
       id: ids.admin,
       email: 'admin@academic-hub.local',
-      passwordHash: adminPasswordHash,
-      fullName: 'Demo Admin',
-      role: 'admin',
+      fullName: 'Διαχειριστής Επίδειξης',
+      role: 'admin' as const,
     },
-  });
-
-  await prisma.user.upsert({
-    where: { id: ids.professor },
-    update: {
-      email: 'professor@academic-hub.local',
-      fullName: 'Dr. Eleni Papadopoulou',
-      passwordHash: professorPasswordHash,
-      role: 'professor',
-      isActive: true,
-    },
-    create: {
+    {
       id: ids.professor,
       email: 'professor@academic-hub.local',
-      passwordHash: professorPasswordHash,
-      fullName: 'Dr. Eleni Papadopoulou',
-      role: 'professor',
+      fullName: 'Ελένη Παπαδοπούλου',
+      role: 'professor' as const,
     },
-  });
-
-  await prisma.user.upsert({
-    where: { id: ids.studentMaria },
-    update: {
-      email: 'maria.student@academic-hub.local',
-      fullName: 'Maria Antoniou',
-      passwordHash: studentMariaPasswordHash,
-      role: 'student',
-      isActive: true,
-    },
-    create: {
+    {
       id: ids.studentMaria,
       email: 'maria.student@academic-hub.local',
-      passwordHash: studentMariaPasswordHash,
-      fullName: 'Maria Antoniou',
-      role: 'student',
+      fullName: 'Μαρία Αντωνίου',
+      role: 'student' as const,
     },
-  });
-
-  await prisma.user.upsert({
-    where: { id: ids.studentNikos },
-    update: {
-      email: 'nikos.student@academic-hub.local',
-      fullName: 'Nikos Georgiou',
-      passwordHash: studentNikosPasswordHash,
-      role: 'student',
-      isActive: true,
-    },
-    create: {
+    {
       id: ids.studentNikos,
       email: 'nikos.student@academic-hub.local',
-      passwordHash: studentNikosPasswordHash,
-      fullName: 'Nikos Georgiou',
-      role: 'student',
+      fullName: 'Νίκος Γεωργίου',
+      role: 'student' as const,
     },
-  });
+  ] satisfies SeedUserInput[]) {
+    await upsertSeedUser(user);
+  }
+
+  for (const professor of extraProfessorUsers) {
+    await upsertSeedUser({
+      ...professor,
+      role: 'professor',
+    });
+  }
+
+  for (const student of extraStudentUsers) {
+    await upsertSeedUser({
+      ...student,
+      role: 'student',
+    });
+  }
 }
 
 async function seedCourse(): Promise<void> {
@@ -144,106 +485,268 @@ async function seedCourse(): Promise<void> {
     where: { id: ids.course },
     update: {
       code: 'CS-LMS-101',
-      title: 'Interactive Academic Content',
+      title: 'Διαδραστικό Ακαδημαϊκό Περιεχόμενο',
       description:
-        'Demo course for the content-centered and feedback-driven LMS prototype.',
+        'Μάθημα επίδειξης για το πρωτότυπο LMS με επίκεντρο το περιεχόμενο και την ανατροφοδότηση.',
+      semester: 1,
+      ectsCredits: 6,
       isActive: true,
     },
     create: {
       id: ids.course,
       code: 'CS-LMS-101',
-      title: 'Interactive Academic Content',
+      title: 'Διαδραστικό Ακαδημαϊκό Περιεχόμενο',
       description:
-        'Demo course for the content-centered and feedback-driven LMS prototype.',
+        'Μάθημα επίδειξης για το πρωτότυπο LMS με επίκεντρο το περιεχόμενο και την ανατροφοδότηση.',
+      semester: 1,
+      ectsCredits: 6,
     },
   });
 
-  await prisma.courseInstructor.upsert({
-    where: { id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a5a' },
-    update: {
-      instructorRole: 'owner',
-    },
-    create: {
+  for (const course of extraCourses) {
+    await prisma.course.upsert({
+      where: { id: course.id },
+      update: course,
+      create: course,
+    });
+  }
+
+  for (const assignment of [
+    {
       id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a5a',
       courseId: ids.course,
       instructorId: ids.professor,
-      instructorRole: 'owner',
+      instructorRole: 'owner' as const,
     },
-  });
-
-  for (const [id, studentId] of [
-    ['6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a61', ids.studentMaria],
-    ['6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a62', ids.studentNikos],
-  ] as const) {
-    await prisma.enrollment.upsert({
-      where: { id },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a5b',
+      courseId: ids.course,
+      instructorId: extraProfessorUsers[0].id,
+      instructorRole: 'assistant' as const,
+    },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a61',
+      courseId: extraCourses[0].id,
+      instructorId: ids.professor,
+      instructorRole: 'owner' as const,
+    },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a62',
+      courseId: extraCourses[0].id,
+      instructorId: extraProfessorUsers[1].id,
+      instructorRole: 'assistant' as const,
+    },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a63',
+      courseId: extraCourses[1].id,
+      instructorId: extraProfessorUsers[2].id,
+      instructorRole: 'owner' as const,
+    },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a64',
+      courseId: extraCourses[2].id,
+      instructorId: extraProfessorUsers[3].id,
+      instructorRole: 'owner' as const,
+    },
+    {
+      id: '5a5a5a5a-5a5a-45a5-85a5-5a5a5a5a5a65',
+      courseId: extraCourses[3].id,
+      instructorId: extraProfessorUsers[0].id,
+      instructorRole: 'owner' as const,
+    },
+  ]) {
+    await prisma.courseInstructor.upsert({
+      where: {
+        courseId_instructorId: {
+          courseId: assignment.courseId,
+          instructorId: assignment.instructorId,
+        },
+      },
       update: {
-        status: 'active',
+        instructorRole: assignment.instructorRole,
+      },
+      create: assignment,
+    });
+  }
+
+  for (const enrollment of [
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a61',
+      studentId: ids.studentMaria,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a62',
+      studentId: ids.studentNikos,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a63',
+      studentId: extraStudentUsers[0].id,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a64',
+      studentId: extraStudentUsers[1].id,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a65',
+      studentId: extraStudentUsers[2].id,
+      status: 'completed' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a66',
+      studentId: extraStudentUsers[3].id,
+      status: 'inactive' as const,
+      courseId: ids.course,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a67',
+      courseId: extraCourses[0].id,
+      studentId: ids.studentMaria,
+      status: 'completed' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a68',
+      courseId: extraCourses[0].id,
+      studentId: extraStudentUsers[4].id,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a69',
+      courseId: extraCourses[1].id,
+      studentId: ids.studentNikos,
+      status: 'active' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a70',
+      courseId: extraCourses[1].id,
+      studentId: extraStudentUsers[5].id,
+      status: 'inactive' as const,
+    },
+    {
+      id: '6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a71',
+      courseId: extraCourses[3].id,
+      studentId: extraStudentUsers[6].id,
+      status: 'active' as const,
+    },
+  ]) {
+    const courseId = enrollment.courseId ?? ids.course;
+
+    await prisma.enrollment.upsert({
+      where: {
+        courseId_studentId: {
+          courseId,
+          studentId: enrollment.studentId,
+        },
+      },
+      update: {
+        status: enrollment.status,
       },
       create: {
-        id,
-        courseId: ids.course,
-        studentId,
-        status: 'active',
+        id: enrollment.id,
+        courseId,
+        studentId: enrollment.studentId,
+        status: enrollment.status,
       },
     });
   }
 }
 
-async function seedDocumentsAndRoadmap(): Promise<void> {
+async function upsertSeedDocument(document: SeedDocumentInput): Promise<void> {
+  const deletedAt = document.deletedAt ?? null;
+  const replacedAt = document.replacedAt ?? null;
+  const updatedById = document.updatedById ?? document.createdById;
+
   await prisma.document.upsert({
-    where: { id: ids.document },
+    where: { id: document.id },
     update: {
-      title: 'Week 1 - Active Reading and Feedback Loops',
-      visibility: 'visible_to_students',
-      status: 'active',
-      pageCount: 18,
+      checksumSha256: document.checksumSha256,
+      deletedAt,
+      description: document.description,
+      fileSizeBytes: document.fileSizeBytes,
+      mimeType: document.mimeType,
+      objectKey: document.objectKey,
+      originalFilename: document.originalFilename,
+      pageCount: document.pageCount,
+      replacedAt,
+      status: document.status,
+      title: document.title,
+      updatedById,
+      visibility: document.visibility,
     },
     create: {
-      id: ids.document,
-      courseId: ids.course,
-      title: 'Week 1 - Active Reading and Feedback Loops',
-      description: 'Introductory PDF used by the demo course.',
-      status: 'active',
-      visibility: 'visible_to_students',
-      objectKey: 'courses/cs-lms-101/week-1-active-reading.pdf',
-      originalFilename: 'week-1-active-reading.pdf',
-      mimeType: 'application/pdf',
-      fileSizeBytes: 1_284_000n,
-      checksumSha256:
-        '77e3b7f79f5a6ebfb7cb5d7737d921c0b5e14f7c9ad1f3eacb2e8a92ef8cc001',
-      pageCount: 18,
-      createdById: ids.professor,
+      checksumSha256: document.checksumSha256,
+      courseId: document.courseId,
+      createdById: document.createdById,
+      deletedAt,
+      description: document.description,
+      fileSizeBytes: document.fileSizeBytes,
+      id: document.id,
+      mimeType: document.mimeType,
+      objectKey: document.objectKey,
+      originalFilename: document.originalFilename,
+      pageCount: document.pageCount,
+      replacedAt,
+      status: document.status,
+      title: document.title,
+      updatedById,
+      visibility: document.visibility,
     },
   });
+}
+
+async function seedDocumentsAndRoadmap(): Promise<void> {
+  await upsertSeedDocument({
+    id: ids.document,
+    courseId: ids.course,
+    title: 'Εβδομάδα 1 - Ενεργή Ανάγνωση και Βρόχοι Ανατροφοδότησης',
+    description: 'Εισαγωγικό PDF που χρησιμοποιείται στο μάθημα επίδειξης.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    objectKey: 'courses/cs-lms-101/εβδομαδα-1-ενεργη-αναγνωση.pdf',
+    originalFilename: 'εβδομαδα-1-ενεργη-αναγνωση.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 1_284_000n,
+    checksumSha256:
+      '77e3b7f79f5a6ebfb7cb5d7737d921c0b5e14f7c9ad1f3eacb2e8a92ef8cc001',
+    pageCount: 18,
+    createdById: ids.professor,
+  });
+
+  for (const document of extraDocuments) {
+    await upsertSeedDocument(document);
+  }
 
   const concepts = [
     {
       id: ids.conceptActiveReading,
       slug: 'active-reading',
-      title: 'Active reading',
+      title: 'Ενεργή ανάγνωση',
       description:
-        'Studying directly on learning material with anchored notes.',
+        'Μελέτη απευθείας πάνω στο μαθησιακό υλικό με αγκυρωμένες σημειώσεις.',
       learningObjective:
-        'Explain how highlights, notes, and questions stay connected to PDF context.',
+        'Να εξηγείται πώς οι επισημάνσεις, οι σημειώσεις και οι ερωτήσεις παραμένουν συνδεδεμένες με το πλαίσιο του PDF.',
       orderIndex: 1,
     },
     {
       id: ids.conceptRoadmaps,
       slug: 'conceptual-roadmaps',
-      title: 'Conceptual roadmaps',
-      description: 'Course structure based on concepts and prerequisites.',
+      title: 'Εννοιολογικοί χάρτες',
+      description: 'Δομή μαθήματος βασισμένη σε έννοιες και προαπαιτούμενα.',
       learningObjective:
-        'Describe how roadmap nodes connect concepts, resources, and progress.',
+        'Να περιγράφεται πώς οι κόμβοι χάρτη συνδέουν έννοιες, πόρους και πρόοδο.',
       orderIndex: 2,
     },
     {
       id: ids.conceptAnalytics,
       slug: 'teaching-intelligence',
-      title: 'Teaching intelligence',
-      description: 'Analytics that produce actionable teaching signals.',
+      title: 'Διδακτική νοημοσύνη',
+      description:
+        'Αναλυτικά στοιχεία που παράγουν αξιοποιήσιμα διδακτικά σήματα.',
       learningObjective:
-        'Identify confusion signals and translate them into teaching interventions.',
+        'Να αναγνωρίζονται σήματα σύγχυσης και να μετατρέπονται σε διδακτικές παρεμβάσεις.',
       orderIndex: 3,
     },
   ] as const;
@@ -264,9 +767,11 @@ async function seedDocumentsAndRoadmap(): Promise<void> {
     {
       id: ids.nodeActiveReading,
       conceptId: ids.conceptActiveReading,
-      title: 'Annotate learning material',
-      description: 'Practice anchored highlights, notes, and questions.',
-      learningObjective: 'Create an annotation that preserves context.',
+      title: 'Σχολιασμός μαθησιακού υλικού',
+      description:
+        'Πρακτική σε αγκυρωμένες επισημάνσεις, σημειώσεις και ερωτήσεις.',
+      learningObjective:
+        'Δημιουργία σχολίου που διατηρεί το πλαίσιο του υλικού.',
       estimatedMinutes: 25,
       difficulty: 'low' as const,
       completionRule: 'view_resource' as const,
@@ -275,9 +780,11 @@ async function seedDocumentsAndRoadmap(): Promise<void> {
     {
       id: ids.nodeRoadmaps,
       conceptId: ids.conceptRoadmaps,
-      title: 'Follow prerequisite-aware roadmap nodes',
-      description: 'Understand how concepts guide study order.',
-      learningObjective: 'Read a roadmap dependency and pick the next node.',
+      title: 'Μελέτη κόμβων με προαπαιτούμενα',
+      description:
+        'Κατανόηση του τρόπου με τον οποίο οι έννοιες καθοδηγούν τη σειρά μελέτης.',
+      learningObjective:
+        'Ανάγνωση μιας εξάρτησης χάρτη και επιλογή του επόμενου κόμβου.',
       estimatedMinutes: 35,
       difficulty: 'medium' as const,
       completionRule: 'self_check' as const,
@@ -286,10 +793,11 @@ async function seedDocumentsAndRoadmap(): Promise<void> {
     {
       id: ids.nodeAnalytics,
       conceptId: ids.conceptAnalytics,
-      title: 'Interpret confusion signals',
-      description: 'Use learner interactions to decide a teaching action.',
+      title: 'Ερμηνεία σημάτων σύγχυσης',
+      description:
+        'Χρήση αλληλεπιδράσεων μαθητών για επιλογή διδακτικής ενέργειας.',
       learningObjective:
-        'Explain why a repeated question should appear in the teaching queue.',
+        'Να εξηγείται γιατί μια επαναλαμβανόμενη ερώτηση πρέπει να εμφανίζεται στη διδακτική ουρά.',
       estimatedMinutes: 45,
       difficulty: 'high' as const,
       completionRule: 'manual' as const,
@@ -322,7 +830,12 @@ async function seedDocumentsAndRoadmap(): Promise<void> {
     },
   ] as const) {
     await prisma.roadmapEdge.upsert({
-      where: { id: edge.id },
+      where: {
+        fromNodeId_toNodeId: {
+          fromNodeId: edge.fromNodeId,
+          toNodeId: edge.toNodeId,
+        },
+      },
       update: edge,
       create: {
         ...edge,
@@ -337,7 +850,7 @@ async function seedDocumentsAndRoadmap(): Promise<void> {
       resourceType: 'document_page',
       pageStart: 2,
       pageEnd: 5,
-      title: 'Active reading overview',
+      title: 'Επισκόπηση ενεργής ανάγνωσης',
     },
     create: {
       id: ids.resourceReading,
@@ -346,7 +859,7 @@ async function seedDocumentsAndRoadmap(): Promise<void> {
       documentId: ids.document,
       pageStart: 2,
       pageEnd: 5,
-      title: 'Active reading overview',
+      title: 'Επισκόπηση ενεργής ανάγνωσης',
       orderIndex: 1,
     },
   });
@@ -357,8 +870,8 @@ async function seedDocumentsAndRoadmap(): Promise<void> {
       resourceType: 'document_section',
       pageStart: 6,
       pageEnd: 10,
-      sectionLabel: 'Concept roadmap examples',
-      title: 'Roadmap examples',
+      sectionLabel: 'Παραδείγματα εννοιολογικών χαρτών',
+      title: 'Παραδείγματα χάρτη',
     },
     create: {
       id: ids.resourceRoadmaps,
@@ -367,8 +880,8 @@ async function seedDocumentsAndRoadmap(): Promise<void> {
       documentId: ids.document,
       pageStart: 6,
       pageEnd: 10,
-      sectionLabel: 'Concept roadmap examples',
-      title: 'Roadmap examples',
+      sectionLabel: 'Παραδείγματα εννοιολογικών χαρτών',
+      title: 'Παραδείγματα χάρτη',
       orderIndex: 1,
     },
   });
@@ -378,24 +891,26 @@ async function seedForumAndAnnotations(): Promise<void> {
   for (const category of [
     {
       id: ids.categoryDocument,
-      name: 'Document discussions',
+      name: 'Συζητήσεις εγγράφων',
       kind: 'document_discussion' as const,
       description:
-        'Threads created from public or instructor-only annotations.',
+        'Νήματα που δημιουργούνται από δημόσια ή μόνο προς διδάσκοντες σχόλια.',
       orderIndex: 1,
     },
     {
       id: ids.categoryGeneral,
-      name: 'General course questions',
+      name: 'Γενικές ερωτήσεις μαθήματος',
       kind: 'general' as const,
-      description: 'General discussion space kept outside the MVP focus.',
+      description:
+        'Γενικός χώρος συζήτησης που παραμένει εκτός της εστίασης του ελάχιστου βιώσιμου προϊόντος.',
       orderIndex: 2,
     },
     {
       id: ids.categoryArchived,
-      name: 'Archived document discussions',
+      name: 'Αρχειοθετημένες συζητήσεις εγγράφων',
       kind: 'archived_document_discussion' as const,
-      description: 'Preserved threads for replaced or deleted documents.',
+      description:
+        'Διατηρημένα νήματα για αντικατεστημένα ή διαγραμμένα έγγραφα.',
       orderIndex: 3,
     },
   ]) {
@@ -413,21 +928,24 @@ async function seedForumAndAnnotations(): Promise<void> {
     where: { id: ids.targetQuestion },
     update: {
       pageNumber: 4,
-      selectedText: 'feedback loop',
-      documentTitleSnapshot: 'Week 1 - Active Reading and Feedback Loops',
+      selectedText: 'βρόχος ανατροφοδότησης',
+      documentTitleSnapshot:
+        'Εβδομάδα 1 - Ενεργή Ανάγνωση και Βρόχοι Ανατροφοδότησης',
     },
     create: {
       id: ids.targetQuestion,
       documentId: ids.document,
       pageNumber: 4,
-      selectedText: 'feedback loop',
-      textQuoteExact: 'feedback loop',
-      textQuotePrefix: 'The platform closes the ',
-      textQuoteSuffix: ' between student activity and instructor action.',
+      selectedText: 'βρόχος ανατροφοδότησης',
+      textQuoteExact: 'βρόχος ανατροφοδότησης',
+      textQuotePrefix: 'Η πλατφόρμα κλείνει τον ',
+      textQuoteSuffix:
+        ' ανάμεσα στη δραστηριότητα των φοιτητών και την ενέργεια του διδάσκοντα.',
       normalizedRects: [{ x: 0.18, y: 0.42, width: 0.34, height: 0.03 }],
       selectorMetadata: { source: 'seed', selector: 'text-quote' },
-      documentTitleSnapshot: 'Week 1 - Active Reading and Feedback Loops',
-      documentFilenameSnapshot: 'week-1-active-reading.pdf',
+      documentTitleSnapshot:
+        'Εβδομάδα 1 - Ενεργή Ανάγνωση και Βρόχοι Ανατροφοδότησης',
+      documentFilenameSnapshot: 'εβδομαδα-1-ενεργη-αναγνωση.pdf',
       documentChecksumSnapshot:
         '77e3b7f79f5a6ebfb7cb5d7737d921c0b5e14f7c9ad1f3eacb2e8a92ef8cc001',
     },
@@ -437,21 +955,23 @@ async function seedForumAndAnnotations(): Promise<void> {
     where: { id: ids.targetConfusing },
     update: {
       pageNumber: 8,
-      selectedText: 'confusion heatmap',
-      documentTitleSnapshot: 'Week 1 - Active Reading and Feedback Loops',
+      selectedText: 'θερμικός χάρτης σύγχυσης',
+      documentTitleSnapshot:
+        'Εβδομάδα 1 - Ενεργή Ανάγνωση και Βρόχοι Ανατροφοδότησης',
     },
     create: {
       id: ids.targetConfusing,
       documentId: ids.document,
       pageNumber: 8,
-      selectedText: 'confusion heatmap',
-      textQuoteExact: 'confusion heatmap',
-      textQuotePrefix: 'Repeated signals are summarized as a ',
-      textQuoteSuffix: ' for instructors.',
+      selectedText: 'θερμικός χάρτης σύγχυσης',
+      textQuoteExact: 'θερμικός χάρτης σύγχυσης',
+      textQuotePrefix: 'Τα επαναλαμβανόμενα σήματα συνοψίζονται ως ',
+      textQuoteSuffix: ' για τους διδάσκοντες.',
       normalizedRects: [{ x: 0.22, y: 0.36, width: 0.29, height: 0.03 }],
       selectorMetadata: { source: 'seed', selector: 'text-quote' },
-      documentTitleSnapshot: 'Week 1 - Active Reading and Feedback Loops',
-      documentFilenameSnapshot: 'week-1-active-reading.pdf',
+      documentTitleSnapshot:
+        'Εβδομάδα 1 - Ενεργή Ανάγνωση και Βρόχοι Ανατροφοδότησης',
+      documentFilenameSnapshot: 'εβδομαδα-1-ενεργη-αναγνωση.pdf',
       documentChecksumSnapshot:
         '77e3b7f79f5a6ebfb7cb5d7737d921c0b5e14f7c9ad1f3eacb2e8a92ef8cc001',
     },
@@ -460,7 +980,7 @@ async function seedForumAndAnnotations(): Promise<void> {
   await prisma.annotation.upsert({
     where: { id: ids.annotationQuestion },
     update: {
-      body: 'How does the system decide that a repeated question needs instructor action?',
+      body: 'Πώς αποφασίζει το σύστημα ότι μια επαναλαμβανόμενη ερώτηση χρειάζεται ενέργεια από τον διδάσκοντα;',
       visibility: 'public',
     },
     create: {
@@ -473,14 +993,14 @@ async function seedForumAndAnnotations(): Promise<void> {
       roadmapNodeId: ids.nodeActiveReading,
       type: 'question',
       visibility: 'public',
-      body: 'How does the system decide that a repeated question needs instructor action?',
+      body: 'Πώς αποφασίζει το σύστημα ότι μια επαναλαμβανόμενη ερώτηση χρειάζεται ενέργεια από τον διδάσκοντα;',
     },
   });
 
   await prisma.annotation.upsert({
     where: { id: ids.annotationConfusing },
     update: {
-      body: 'The difference between raw activity and a confusion signal is still unclear.',
+      body: 'Η διαφορά ανάμεσα στην ακατέργαστη δραστηριότητα και σε ένα σήμα σύγχυσης δεν είναι ακόμη σαφής.',
       visibility: 'instructor_only',
     },
     create: {
@@ -493,7 +1013,7 @@ async function seedForumAndAnnotations(): Promise<void> {
       roadmapNodeId: ids.nodeAnalytics,
       type: 'confusing',
       visibility: 'instructor_only',
-      body: 'The difference between raw activity and a confusion signal is still unclear.',
+      body: 'Η διαφορά ανάμεσα στην ακατέργαστη δραστηριότητα και σε ένα σήμα σύγχυσης δεν είναι ακόμη σαφής.',
     },
   });
 
@@ -501,7 +1021,7 @@ async function seedForumAndAnnotations(): Promise<void> {
     where: { id: ids.threadQuestion },
     update: {
       status: 'verified',
-      title: 'When does a repeated question become a teaching action?',
+      title: 'Πότε μια επαναλαμβανόμενη ερώτηση γίνεται διδακτική ενέργεια;',
     },
     create: {
       id: ids.threadQuestion,
@@ -513,12 +1033,13 @@ async function seedForumAndAnnotations(): Promise<void> {
       authorId: ids.studentMaria,
       conceptId: ids.conceptActiveReading,
       roadmapNodeId: ids.nodeActiveReading,
-      title: 'When does a repeated question become a teaching action?',
+      title: 'Πότε μια επαναλαμβανόμενη ερώτηση γίνεται διδακτική ενέργεια;',
       status: 'verified',
       visibility: 'public',
       pageNumberSnapshot: 4,
-      selectedTextSnapshot: 'feedback loop',
-      documentTitleSnapshot: 'Week 1 - Active Reading and Feedback Loops',
+      selectedTextSnapshot: 'βρόχος ανατροφοδότησης',
+      documentTitleSnapshot:
+        'Εβδομάδα 1 - Ενεργή Ανάγνωση και Βρόχοι Ανατροφοδότησης',
       resolvedAt: new Date('2026-08-27T12:00:00.000Z'),
     },
   });
@@ -527,7 +1048,7 @@ async function seedForumAndAnnotations(): Promise<void> {
     where: { id: ids.threadConfusing },
     update: {
       status: 'open',
-      title: 'Confusion heatmap interpretation',
+      title: 'Ερμηνεία θερμικού χάρτη σύγχυσης',
     },
     create: {
       id: ids.threadConfusing,
@@ -539,39 +1060,40 @@ async function seedForumAndAnnotations(): Promise<void> {
       authorId: ids.studentNikos,
       conceptId: ids.conceptAnalytics,
       roadmapNodeId: ids.nodeAnalytics,
-      title: 'Confusion heatmap interpretation',
+      title: 'Ερμηνεία θερμικού χάρτη σύγχυσης',
       status: 'open',
       visibility: 'instructor_only',
       pageNumberSnapshot: 8,
-      selectedTextSnapshot: 'confusion heatmap',
-      documentTitleSnapshot: 'Week 1 - Active Reading and Feedback Loops',
+      selectedTextSnapshot: 'θερμικός χάρτης σύγχυσης',
+      documentTitleSnapshot:
+        'Εβδομάδα 1 - Ενεργή Ανάγνωση και Βρόχοι Ανατροφοδότησης',
     },
   });
 
   await prisma.forumPost.upsert({
     where: { id: ids.postQuestion },
     update: {
-      body: 'I understand the annotation, but not the threshold for escalation.',
+      body: 'Καταλαβαίνω το σχόλιο, αλλά όχι το όριο για την κλιμάκωση.',
     },
     create: {
       id: ids.postQuestion,
       threadId: ids.threadQuestion,
       authorId: ids.studentMaria,
-      body: 'I understand the annotation, but not the threshold for escalation.',
+      body: 'Καταλαβαίνω το σχόλιο, αλλά όχι το όριο για την κλιμάκωση.',
     },
   });
 
   await prisma.forumPost.upsert({
     where: { id: ids.postAnswer },
     update: {
-      body: 'The queue uses transparent rules: repeated unresolved questions, recent activity, and concept importance.',
+      body: 'Η ουρά χρησιμοποιεί διαφανείς κανόνες: επαναλαμβανόμενες άλυτες ερωτήσεις, πρόσφατη δραστηριότητα και σημασία της έννοιας.',
       isVerified: true,
     },
     create: {
       id: ids.postAnswer,
       threadId: ids.threadQuestion,
       authorId: ids.professor,
-      body: 'The queue uses transparent rules: repeated unresolved questions, recent activity, and concept importance.',
+      body: 'Η ουρά χρησιμοποιεί διαφανείς κανόνες: επαναλαμβανόμενες άλυτες ερωτήσεις, πρόσφατη δραστηριότητα και σημασία της έννοιας.',
       isVerified: true,
     },
   });
@@ -584,7 +1106,13 @@ async function seedForumAndAnnotations(): Promise<void> {
   });
 
   await prisma.threadLink.upsert({
-    where: { id: ids.threadLink },
+    where: {
+      sourceThreadId_targetThreadId_linkType: {
+        sourceThreadId: ids.threadConfusing,
+        targetThreadId: ids.threadQuestion,
+        linkType: 'related',
+      },
+    },
     update: {
       linkType: 'related',
     },
@@ -602,7 +1130,8 @@ async function seedProgressAndSignals(): Promise<void> {
   await prisma.selfCheck.upsert({
     where: { id: ids.selfCheck },
     update: {
-      prompt: 'Which signal is strongest evidence for a teaching intervention?',
+      prompt:
+        'Ποιο σήμα αποτελεί την ισχυρότερη ένδειξη για διδακτική παρέμβαση;',
       passingScore: 100,
     },
     create: {
@@ -611,11 +1140,12 @@ async function seedProgressAndSignals(): Promise<void> {
       roadmapNodeId: ids.nodeRoadmaps,
       conceptId: ids.conceptRoadmaps,
       type: 'single_choice',
-      prompt: 'Which signal is strongest evidence for a teaching intervention?',
+      prompt:
+        'Ποιο σήμα αποτελεί την ισχυρότερη ένδειξη για διδακτική παρέμβαση;',
       options: [
-        { id: 'a', label: 'A single page view' },
-        { id: 'b', label: 'Repeated unresolved contextual questions' },
-        { id: 'c', label: 'A private note from one student' },
+        { id: 'a', label: 'Μία μεμονωμένη προβολή σελίδας' },
+        { id: 'b', label: 'Επαναλαμβανόμενες άλυτες ερωτήσεις με πλαίσιο' },
+        { id: 'c', label: 'Μία ιδιωτική σημείωση από έναν φοιτητή' },
       ],
       correctAnswer: { optionId: 'b' },
       passingScore: 100,
@@ -650,11 +1180,17 @@ async function seedProgressAndSignals(): Promise<void> {
       status: 'needs_review' as const,
       startedAt: new Date('2026-08-27T08:45:00.000Z'),
       completedAt: null,
-      needsReviewReason: 'Marked confusion on the analytics explanation.',
+      needsReviewReason:
+        'Σημείωσε σύγχυση στην επεξήγηση των αναλυτικών στοιχείων.',
     },
   ]) {
     await prisma.roadmapProgress.upsert({
-      where: { id: progress.id },
+      where: {
+        roadmapNodeId_studentId: {
+          roadmapNodeId: progress.roadmapNodeId,
+          studentId: progress.studentId,
+        },
+      },
       update: progress,
       create: progress,
     });
@@ -699,7 +1235,8 @@ async function seedProgressAndSignals(): Promise<void> {
   await prisma.teachingIntervention.upsert({
     where: { id: ids.intervention },
     update: {
-      title: 'Clarify how the teaching queue ranks confusion signals',
+      title:
+        'Αποσαφήνιση του τρόπου κατάταξης σημάτων σύγχυσης στη διδακτική ουρά',
       sourceAction: 'verified_answer',
     },
     create: {
@@ -707,9 +1244,10 @@ async function seedProgressAndSignals(): Promise<void> {
       courseId: ids.course,
       createdById: ids.professor,
       type: 'answer_thread',
-      title: 'Clarify how the teaching queue ranks confusion signals',
+      title:
+        'Αποσαφήνιση του τρόπου κατάταξης σημάτων σύγχυσης στη διδακτική ουρά',
       description:
-        'Verified answer added to a repeated question about escalation rules.',
+        'Προστέθηκε επαληθευμένη απάντηση σε επαναλαμβανόμενη ερώτηση για τους κανόνες κλιμάκωσης.',
       sourceAction: 'verified_answer',
       sourceEntityType: 'forum_post',
       sourceEntityId: ids.postAnswer,
@@ -850,7 +1388,9 @@ async function seedEventsAndAuditLogs(): Promise<void> {
       action: 'document_uploaded' as const,
       entityType: 'document',
       entityId: ids.document,
-      metadata: { objectKey: 'courses/cs-lms-101/week-1-active-reading.pdf' },
+      metadata: {
+        objectKey: 'courses/cs-lms-101/εβδομαδα-1-ενεργη-αναγνωση.pdf',
+      },
     },
     {
       id: ids.auditEnrollment,
@@ -883,11 +1423,11 @@ async function main(): Promise<void> {
 
 main()
   .then(async () => {
-    console.log('Seeded demo Academic Hub course data.');
+    console.log('Τα δεδομένα επίδειξης του Academic Hub δημιουργήθηκαν.');
     await prisma.$disconnect();
   })
   .catch(async (error: unknown) => {
-    console.error('Failed to seed demo data.', error);
+    console.error('Αποτυχία δημιουργίας δεδομένων επίδειξης.', error);
     await prisma.$disconnect();
     process.exit(1);
   });

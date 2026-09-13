@@ -15,6 +15,8 @@ const AUDIT_ACTION_TO_PRISMA: Record<AuditAction, PrismaAuditAction> = {
   'auth.login': 'auth_login',
   'auth.logout': 'auth_logout',
   'course.created': 'course_created',
+  'course.deactivated': 'course_deactivated',
+  'course.updated': 'course_updated',
   'document.deleted': 'document_deleted',
   'document.replaced': 'document_replaced',
   'document.uploaded': 'document_uploaded',

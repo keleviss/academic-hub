@@ -2,14 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
   BarChart3,
-  Bell,
   BookOpen,
   CalendarDays,
   ChevronDown,
   Home,
   LogOut,
   Mail,
-  Menu,
   Search,
   Settings,
   ShieldCheck,
@@ -22,11 +20,13 @@ import {
 import type { CurrentUser } from '@web-app/contracts';
 
 import { appPath, roleLabels } from '../auth/session';
+import { getInitials } from './Avatar';
+import { normalizeSearch } from '../lib/normalize-search';
 import type {
   WorkspaceNavIcon,
   WorkspaceNavItem,
   WorkspaceRoute,
-} from '../modules/workspace/workspaceRoutes';
+} from '../modules/workspace/routing/workspaceRoutes';
 
 const iconMap: Record<WorkspaceNavIcon, LucideIcon> = {
   activity: BarChart3,
@@ -78,14 +78,6 @@ function BrandLockup({
   );
 }
 
-function normalizeSearch(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('el-GR')
-    .trim();
-}
-
 function navTarget(path: string): string {
   return path ? `${appPath}/${path}` : appPath;
 }
@@ -128,13 +120,7 @@ function isActivePath(path: string, currentPath: string): boolean {
 }
 
 function initialsFor(user: CurrentUser): string {
-  const initials = user.fullName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('');
-  return (initials || user.email[0] || 'U').toLocaleUpperCase('el-GR');
+  return getInitials(user.fullName, user.email[0] || 'U');
 }
 
 function NavItem({
@@ -145,36 +131,57 @@ function NavItem({
   onNavigate?: () => void;
 }): React.JSX.Element {
   const location = useLocation();
-  const currentPath = `${location.pathname}${location.search}`;
+  const currentPath = location.pathname;
+  const currentHref = `${location.pathname}${location.search}`;
   const Icon = item.icon ? iconMap[item.icon] : Home;
-  const childActive = item.children?.some(
-    (child) => navTarget(child.path) === currentPath,
+  const children = item.children ?? [];
+  const hasChildren = children.length > 0;
+  const subnavId = `sidebar-subnav-${item.path || 'index'}`;
+  const childActive = children.some(
+    (child) => navTarget(child.path) === currentHref,
   );
   const active = childActive || isActivePath(item.path, currentPath);
 
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <li>
-      <Link
-        to={navTarget(item.path)}
-        className={active ? 'sidebar-nav-link is-active' : 'sidebar-nav-link'}
-        aria-current={active ? 'page' : undefined}
-        onClick={onNavigate}
+      <div
+        className={
+          active ? 'sidebar-nav-row is-active' : 'sidebar-nav-row'
+        }
       >
-        <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
-        <span>{item.label}</span>
-        {!!item.children?.length && (
-          <ChevronDown
-            aria-hidden="true"
-            className="sidebar-nav-chevron"
-            size={15}
-          />
+        <Link
+          to={navTarget(item.path)}
+          className="sidebar-nav-link"
+          aria-current={active ? 'page' : undefined}
+          onClick={onNavigate}
+        >
+          <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
+          <span>{item.label}</span>
+        </Link>
+        {hasChildren && (
+          <button
+            type="button"
+            className="sidebar-nav-toggle"
+            aria-label={`${expanded ? 'Απόκρυψη' : 'Εμφάνιση'} υποστοιχείων ${item.label}`}
+            aria-controls={subnavId}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+          >
+            <ChevronDown
+              aria-hidden="true"
+              className="sidebar-nav-chevron"
+              size={15}
+            />
+          </button>
         )}
-      </Link>
-      {!!item.children?.length && (
-        <ul className="sidebar-subnav">
-          {item.children.map((child) => {
+      </div>
+      {hasChildren && expanded && (
+        <ul className="sidebar-subnav" id={subnavId}>
+          {children.map((child) => {
             const childTarget = navTarget(child.path);
-            const childIsActive = childTarget === currentPath;
+            const childIsActive = childTarget === currentHref;
             return (
               <li key={`${child.path}-${child.label}`}>
                 <Link
@@ -236,8 +243,24 @@ function LoggedSidebar({
       if (event.key === 'Escape') setProfileOpen(false);
     }
 
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        profileOpen &&
+        !(
+          (event.target as HTMLElement).closest('.profile-popover') ||
+          (event.target as HTMLElement).closest('.sidebar-profile')
+        )
+      ) {
+        setProfileOpen(false);
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('click', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleClickOutside);
+    };
   }, [profileOpen]);
 
   function closeAfterNavigate() {
@@ -329,42 +352,6 @@ function LoggedSidebar({
         </button>
       </div>
     </aside>
-  );
-}
-
-export function MobileWorkspaceHeader({
-  onOpenSidebar,
-}: {
-  onOpenSidebar: () => void;
-}): React.JSX.Element {
-  return (
-    <header className="mobile-workspace-header">
-      <button
-        type="button"
-        className="mobile-icon-button"
-        aria-label="Άνοιγμα sidebar"
-        onClick={onOpenSidebar}
-      >
-        <Menu aria-hidden="true" size={21} />
-      </button>
-      <BrandLockup compact />
-      <div className="mobile-header-actions">
-        <button
-          type="button"
-          className="mobile-icon-button"
-          aria-label="Ειδοποιήσεις"
-        >
-          <Bell aria-hidden="true" size={20} />
-        </button>
-        <Link
-          to={`${appPath}/profile`}
-          className="mobile-icon-button"
-          aria-label="Προφίλ"
-        >
-          <UserCircle aria-hidden="true" size={20} />
-        </Link>
-      </div>
-    </header>
   );
 }
 

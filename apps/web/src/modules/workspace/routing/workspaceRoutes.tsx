@@ -1,6 +1,9 @@
 import type { UserRole } from '@web-app/contracts';
 
-import { roleLabels } from '../../auth/session';
+import { roleLabels } from '../../../auth/session';
+import { ProfessorCoursesPage } from '../../professor/courses/pages/ProfessorCoursesPage';
+import { StudentCoursesPage } from '../../student/courses/pages/StudentCoursesPage';
+import { AdminCoursesPage } from '../../admin/courses/pages/AdminCoursesPage';
 
 export type WorkspaceNavIcon =
   | 'activity'
@@ -133,35 +136,7 @@ const studentRoutes: WorkspaceRoute[] = [
     label: 'Μαθήματα',
     icon: 'courses',
     keywords: ['courses', 'υλικό', 'roadmap', 'concepts'],
-    children: [
-      {
-        path: 'courses?course=algorithms',
-        label: 'Αλγόριθμοι και Πολυπλοκότητα',
-        keywords: ['algorithms', 'complexity'],
-      },
-      {
-        path: 'courses?course=electronics',
-        label: 'Ηλεκτρονική',
-        keywords: ['electronics'],
-      },
-      {
-        path: 'courses?course=thesis',
-        label: 'Διπλωματική εργασία',
-        keywords: ['thesis'],
-      },
-    ],
-    element: (
-      <WorkspacePanel
-        eyebrow="Φοιτητής"
-        title="Τα μαθήματά μου"
-        body="Πρόσβαση στα ενεργά μαθήματα, στο υλικό και στην πρόοδο ανά μαθησιακή έννοια."
-        items={[
-          'Visible εκπαιδευτικό υλικό',
-          'Roadmap nodes και prerequisites',
-          'Συνδεδεμένες απορίες και απαντήσεις',
-        ]}
-      />
-    ),
+    element: <StudentCoursesPage />,
     nav: true,
   },
   {
@@ -200,35 +175,7 @@ const professorRoutes: WorkspaceRoute[] = [
     label: 'Μαθήματα',
     icon: 'courses',
     keywords: ['courses', 'υλικό', 'roadmap', 'concepts'],
-    children: [
-      {
-        path: 'courses?course=algorithms',
-        label: 'Αλγόριθμοι και Πολυπλοκότητα',
-        keywords: ['algorithms', 'complexity'],
-      },
-      {
-        path: 'courses?course=electronics',
-        label: 'Ηλεκτρονική',
-        keywords: ['electronics'],
-      },
-      {
-        path: 'courses?course=thesis',
-        label: 'Διπλωματική εργασία',
-        keywords: ['thesis'],
-      },
-    ],
-    element: (
-      <WorkspacePanel
-        eyebrow="Διδάσκων"
-        title="Διδασκόμενα μαθήματα"
-        body="Οργάνωση υλικού γύρω από concepts, visibility και contextual Q&A."
-        items={[
-          'Ορατότητα documents',
-          'Roadmap και learning objectives',
-          'Ερωτήσεις συνδεδεμένες με υλικό',
-        ]}
-      />
-    ),
+    element: <ProfessorCoursesPage />,
     nav: true,
   },
   {
@@ -284,33 +231,22 @@ const adminRoutes: WorkspaceRoute[] = [
     keywords: ['courses', 'enrollments', 'assignments'],
     children: [
       {
-        path: 'courses?scope=active',
+        path: 'courses',
+        label: 'Όλα τα μαθήματα',
+        keywords: ['all courses'],
+      },
+      {
+        path: 'courses?status=active',
         label: 'Ενεργά μαθήματα',
         keywords: ['active courses'],
       },
       {
-        path: 'courses?scope=enrollments',
-        label: 'Εγγραφές φοιτητών',
-        keywords: ['enrollments'],
-      },
-      {
-        path: 'courses?scope=audit',
-        label: 'Audit μαθημάτων',
-        keywords: ['audit'],
+        path: 'courses?status=inactive',
+        label: 'Ανενεργά μαθήματα',
+        keywords: ['inactive courses'],
       },
     ],
-    element: (
-      <WorkspacePanel
-        eyebrow="Διαχειριστής"
-        title="Μαθήματα και εγγραφές"
-        body="Διαχειριστική εποπτεία μαθημάτων, αναθέσεων καθηγητών και εγγραφών φοιτητών."
-        items={[
-          'Δημιουργία και ενημέρωση μαθημάτων',
-          'Αναθέσεις διδασκόντων',
-          'Εγγραφές φοιτητών',
-        ]}
-      />
-    ),
+    element: <AdminCoursesPage />,
     nav: true,
   },
 ];
