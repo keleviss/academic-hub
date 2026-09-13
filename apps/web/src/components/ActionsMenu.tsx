@@ -18,9 +18,10 @@ export function ActionsMenu({
   items: ActionMenuItem[];
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(
-    null,
-  );
+  const [position, setPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -122,4 +123,3 @@ export function ActionsMenu({
     </>
   );
 }
-

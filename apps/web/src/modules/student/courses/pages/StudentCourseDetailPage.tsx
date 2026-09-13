@@ -166,7 +166,8 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                               {
                                 label: 'Κατέβασμα',
                                 icon: Download,
-                                onSelect: () => downloadMutation.mutate(document),
+                                onSelect: () =>
+                                  downloadMutation.mutate(document),
                               },
                             ]}
                           />

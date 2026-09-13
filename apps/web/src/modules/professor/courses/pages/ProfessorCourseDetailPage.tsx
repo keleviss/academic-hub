@@ -100,7 +100,8 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
   ];
 
   const createMutation = useNotifyingMutation({
-    mutationFn: (formData: FormData) => uploadCourseDocument(courseId, formData),
+    mutationFn: (formData: FormData) =>
+      uploadCourseDocument(courseId, formData),
     invalidateKeys,
     successMessage: 'Το έγγραφο δημιουργήθηκε.',
     onSuccess: () => {
@@ -319,7 +320,8 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                               {
                                 label: 'Κατέβασμα',
                                 icon: Download,
-                                onSelect: () => downloadMutation.mutate(document),
+                                onSelect: () =>
+                                  downloadMutation.mutate(document),
                               },
                             ]}
                           />
