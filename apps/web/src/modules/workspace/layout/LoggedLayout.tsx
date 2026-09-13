@@ -1,4 +1,11 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   Navigate,
   Route,
@@ -177,4 +184,3 @@ export function LoggedLayout(): React.JSX.Element {
     </WorkspaceBreadcrumbProvider>
   );
 }
-
