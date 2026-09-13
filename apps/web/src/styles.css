@@ -966,7 +966,6 @@ select {
 .member-row,
 .course-pagination {
   display: flex;
-  align-items: center;
   gap: 1rem;
   justify-content: space-between;
 }
@@ -977,10 +976,13 @@ select {
   font-weight: 750;
   letter-spacing: -0.035em;
 }
+.page-header-sub-title {
+  color: var(--color-hub-muted);
+  font-size: 0.875rem;
+}
 .course-detail-header .status-badge {
   font-size: 13px;
 }
-.course-page-header > div > p:last-child,
 .danger-row p,
 .member-row span,
 .course-summary dt,
@@ -1043,7 +1045,7 @@ select {
   color: var(--color-hub-teal);
 }
 .course-filter-row {
-  padding: var(--hub-space-3) 0;
+  padding: var(--hub-space-3) var(--hub-space-4);
 }
 .course-filter-row input,
 .course-filter-row select,

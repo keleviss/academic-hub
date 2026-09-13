@@ -17,18 +17,18 @@ import {
   updateCourseEnrollmentStatus,
 } from '../../../../api/client';
 import { messageFor } from '../utils/AdminCoursesUtils';
-import { BackLink } from '../../../../components/BackLink';
 import { Dialog } from '../../../../components/Dialog';
 import { ErrorNotice } from '../../../../components/feedback';
 import { EmptyState } from '../../../../components/EmptyState';
 import { QueryState } from '../../../../components/QueryState';
-import { StatusBadge } from '../../../../components/StatusBadge';
 import { Tabs } from '../../../../components/Tabs';
 import { useDialogState } from '../../../../hooks/useDialogState';
 import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
 import { useParams } from 'react-router';
 import { courseListKey } from '../utils/AdminCourses.const';
 import { CourseForm } from '../components/AdminCourseForm';
+import { PageLayout } from '../../../../components/PageLayout';
+import { StatusBadge } from '../../../../components/StatusBadge';
 
 
 function MemberPicker({
@@ -267,278 +267,288 @@ export function AdminCourseDetailPage(): React.JSX.Element {
               .includes(normalizedStudentSearch),
         );
         return (
-    <section className="admin-courses-page course-detail-page">
-      <BackLink to="/app/courses">Όλα τα μαθήματα</BackLink>
-      <header className="course-detail-header">
-        <div>
-          <p className="auth-kicker">
-            {detail.code} · {detail.semester}ο εξάμηνο
-          </p>
-          <h1>{detail.title}</h1>
-        </div>
-        <StatusBadge
-          active={detail.isActive}
-          activeLabel="Ενεργό"
-          inactiveLabel="Ανενεργό"
-        />
-      </header>
-      <div className="course-detail-layout">
-        <div className="course-list-card">
-          <Tabs
-            value={tab}
-            onChange={setTab}
-            items={[
-              { value: 'details', label: 'Στοιχεία' },
-              {
-                value: 'instructors',
-                label: `Διδάσκοντες (${detail.instructors.length})`,
-              },
-              {
-                value: 'students',
-                label: `Φοιτητές (${detail.enrollments.length})`,
-              },
-            ]}
-          />
-          {tab === 'details' && (
-            <div className="course-details">
-              <div className="course-section-heading">
-                <h2>Βασικά στοιχεία</h2>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => openDialog('edit')}
-                >
-                  Επεξεργασία
-                </button>
+          <PageLayout
+            title={detail.title}
+            subtitle={
+              <div className="flex items-center gap-2">
+                <StatusBadge
+                  active={detail.isActive}
+                  activeLabel='Ενεργό'
+                  inactiveLabel='Ανενεργό' />
+                <span>
+                  {`${detail.code} · ${detail.semester}ο εξάμηνο`}
+                </span>
               </div>
-              <dl>
-                <div>
-                  <dt>Τίτλος μαθήματος</dt>
-                  <dd>{detail.title}</dd>
-                </div>
-                <div>
-                  <dt>Κωδικός</dt>
-                  <dd>{detail.code}</dd>
-                </div>
-                <div>
-                  <dt>Εξάμηνο</dt>
-                  <dd>{detail.semester}ο εξάμηνο</dd>
-                </div>
-                <div>
-                  <dt>Πιστωτικές μονάδες</dt>
-                  <dd>{detail.ectsCredits} ECTS</dd>
-                </div>
-              </dl>
-              <section
-                className="course-description-section"
-                aria-labelledby="course-description-heading"
-              >
-                <h2 id="course-description-heading">Περιγραφή</h2>
-                <p>{detail.description ?? 'Δεν έχει προστεθεί περιγραφή.'}</p>
-              </section>
-              <div className="danger-row">
-                <div>
-                  <h2>Κατάσταση μαθήματος</h2>
-                  <p>
-                    {detail.isActive
-                      ? 'Η απενεργοποίηση διατηρεί τις εγγραφές, τις αναθέσεις και τα στοιχεία του μαθήματος.'
-                      : 'Η ενεργοποίηση επαναφέρει το μάθημα στη διαθέσιμη κατάσταση, χωρίς να αλλάξει τις εγγραφές ή τις αναθέσεις.'}
-                  </p>
-                </div>
-                <button
-                  className={
-                    detail.isActive ? 'danger-button' : 'primary-button'
-                  }
-                  type="button"
-                  onClick={() => openDialog('activation')}
-                >
-                  {detail.isActive ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
-                </button>
-              </div>
-            </div>
-          )}
-          {tab === 'instructors' && (
-            <div className="course-members">
-              <div className="course-section-heading">
-                <h2>Διδάσκοντες μαθήματος</h2>
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={() => openDialog('instructor')}
-                >
-                  + Ανάθεση διδάσκοντα
-                </button>
-              </div>
-              {detail.instructors.length === 0 ? (
-                <EmptyState message="Δεν έχουν ανατεθεί διδάσκοντες." />
-              ) : (
-                detail.instructors.map((item) => (
-                  <div className="member-row" key={item.userId}>
-                    <div>
-                      <strong>{item.fullName}</strong>
-                      <span>
-                        {item.role === 'owner'
-                          ? 'Υπεύθυνος μαθήματος'
-                          : 'Συνεργάτης διδάσκων'}{' '}
-                        · {item.email}
-                      </span>
-                    </div>
-                    <button
-                      className="text-danger-button"
-                      type="button"
-                      onClick={() => removeInstructorMutation.mutate(item.userId)}
-                    >
-                      Αφαίρεση
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-          {tab === 'students' && (
-            <div className="course-members">
-              <div className="course-section-heading">
-                <h2>Εγγραφές φοιτητών</h2>
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={() => openDialog('student')}
-                >
-                  + Εγγραφή φοιτητή
-                </button>
-              </div>
-              {detail.enrollments.length === 0 ? (
-                <EmptyState message="Δεν υπάρχουν εγγεγραμμένοι φοιτητές." />
-              ) : (
-                <>
-                  <label className="course-member-search">
-                    <span className="sr-only">
-                      Αναζήτηση εγγεγραμμένων φοιτητών
-                    </span>
-                    <input
-                      value={studentSearch}
-                      placeholder="Αναζήτηση ονόματος ή email…"
-                      onChange={(event) => setStudentSearch(event.target.value)}
-                    />
-                  </label>
-                  {visibleEnrollments.length === 0 ? (
-                    <EmptyState message="Δεν βρέθηκαν φοιτητές με αυτά τα στοιχεία." />
-                  ) : (
-                    visibleEnrollments.map((item) => (
-                      <div className="member-row" key={item.studentId}>
-                        <div>
-                          <strong>{item.fullName}</strong>
-                          <span>{item.email}</span>
-                        </div>
-                        <label
-                          className="sr-only"
-                          htmlFor={`enrollment-${item.studentId}`}
-                        >
-                          Κατάσταση εγγραφής {item.fullName}
-                        </label>
-                        <select
-                          id={`enrollment-${item.studentId}`}
-                          value={item.status}
-                          onChange={(event) => {
-                            event.currentTarget.blur();
-                            updateEnrollmentMutation.mutate({
-                              userId: item.studentId,
-                              status: event.target.value as EnrollmentStatus,
-                            });
-                          }}
-                        >
-                          <option value="active">Ενεργή</option>
-                          <option value="inactive">Ανενεργή</option>
-                          <option value="completed">Ολοκληρωμένη</option>
-                        </select>
-                      </div>
-                    ))
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-        <Summary course={detail} />
-      </div>
-      {dialog === 'edit' && (
-        <CourseForm
-          title="Επεξεργασία μαθήματος"
-          initial={detail}
-          submitLabel="Αποθήκευση αλλαγών"
-          pending={update.isPending}
-          error={update.isError ? messageFor(update.error) : null}
-          onCancel={closeDialog}
-          onSubmit={(value) => update.mutate(value)}
-        />
-      )}
-      {dialog === 'activation' && (
-        <Dialog
-          title={
-            detail.isActive
-              ? 'Απενεργοποίηση μαθήματος'
-              : 'Ενεργοποίηση μαθήματος'
-          }
-          onClose={closeDialog}
-        >
-          <div className="confirm-dialog">
-            <p>
-              {detail.isActive
-                ? 'Το μάθημα θα πάψει να είναι ενεργό. Οι εγγραφές, οι αναθέσεις και τα στοιχεία του θα διατηρηθούν.'
-                : 'Το μάθημα θα γίνει ξανά ενεργό. Οι εγγραφές, οι αναθέσεις και τα στοιχεία του θα διατηρηθούν.'}
-            </p>
-            {update.isError && (
-              <ErrorNotice>{messageFor(update.error)}</ErrorNotice>
-            )}
-            <footer className="course-dialog-actions">
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={closeDialog}
-              >
-                Ακύρωση
-              </button>
+            }
+            actions={
               <button
                 className="primary-button"
-                disabled={update.isPending}
                 type="button"
-                onClick={() => update.mutate({ isActive: !detail.isActive })}
+                onClick={() => openDialog('edit')}
               >
-                Επιβεβαίωση
+                Επεξεργασία
               </button>
-            </footer>
-          </div>
-        </Dialog>
-      )}
-      {dialog === 'instructor' && (
-        <MemberDialog
-          title="Ανάθεση διδάσκοντα"
-          courseId={courseId}
-          role="professor"
-          pending={assign.isPending}
-          error={assign.isError ? messageFor(assign.error) : null}
-          onClose={closeDialog}
-          onSubmit={(candidate, instructorRole) =>
-            assign.mutate({ instructorId: candidate.id, role: instructorRole })
-          }
-        />
-      )}
-      {dialog === 'student' && (
-        <MemberDialog
-          title="Εγγραφή φοιτητή"
-          courseId={courseId}
-          role="student"
-          pending={enroll.isPending}
-          error={enroll.isError ? messageFor(enroll.error) : null}
-          onClose={closeDialog}
-          onSubmit={(candidate) =>
-            enroll.mutate({ studentId: candidate.id, status: 'active' })
-          }
-        />
-      )}
-    </section>
+            }
+            backlink={{ href: "/app/courses", text: "Όλα τα μαθήματα" }}
+          >
+            <div className="course-detail-layout">
+              <div className="course-list-card">
+                <Tabs
+                  value={tab}
+                  onChange={setTab}
+                  items={[
+                    { value: 'details', label: 'Στοιχεία' },
+                    {
+                      value: 'instructors',
+                      label: `Διδάσκοντες (${detail.instructors.length})`,
+                    },
+                    {
+                      value: 'students',
+                      label: `Φοιτητές (${detail.enrollments.length})`,
+                    },
+                  ]}
+                />
+                {tab === 'details' && (
+                  <div className="course-details">
+                    <div className="course-section-heading">
+                      <h2>Βασικά στοιχεία</h2>
+                    </div>
+                    <dl>
+                      <div>
+                        <dt>Τίτλος μαθήματος</dt>
+                        <dd>{detail.title}</dd>
+                      </div>
+                      <div>
+                        <dt>Κωδικός</dt>
+                        <dd>{detail.code}</dd>
+                      </div>
+                      <div>
+                        <dt>Εξάμηνο</dt>
+                        <dd>{detail.semester}ο εξάμηνο</dd>
+                      </div>
+                      <div>
+                        <dt>Πιστωτικές μονάδες</dt>
+                        <dd>{detail.ectsCredits} ECTS</dd>
+                      </div>
+                    </dl>
+                    <section
+                      className="course-description-section"
+                      aria-labelledby="course-description-heading"
+                    >
+                      <h2 id="course-description-heading">Περιγραφή</h2>
+                      <p>{detail.description ?? 'Δεν έχει προστεθεί περιγραφή.'}</p>
+                    </section>
+                    <div className="danger-row">
+                      <div>
+                        <h2>Κατάσταση μαθήματος</h2>
+                        <p>
+                          {detail.isActive
+                            ? 'Η απενεργοποίηση διατηρεί τις εγγραφές, τις αναθέσεις και τα στοιχεία του μαθήματος.'
+                            : 'Η ενεργοποίηση επαναφέρει το μάθημα στη διαθέσιμη κατάσταση, χωρίς να αλλάξει τις εγγραφές ή τις αναθέσεις.'}
+                        </p>
+                      </div>
+                      <button
+                        className={
+                          detail.isActive ? 'danger-button' : 'primary-button'
+                        }
+                        type="button"
+                        onClick={() => openDialog('activation')}
+                      >
+                        {detail.isActive ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {tab === 'instructors' && (
+                  <div className="course-members">
+                    <div className="course-section-heading">
+                      <h2>Διδάσκοντες μαθήματος</h2>
+                      <button
+                        className="primary-button"
+                        type="button"
+                        onClick={() => openDialog('instructor')}
+                      >
+                        + Ανάθεση διδάσκοντα
+                      </button>
+                    </div>
+                    {detail.instructors.length === 0 ? (
+                      <EmptyState message="Δεν έχουν ανατεθεί διδάσκοντες." />
+                    ) : (
+                      detail.instructors.map((item) => (
+                        <div className="member-row" key={item.userId}>
+                          <div>
+                            <strong>{item.fullName}</strong>
+                            <span>
+                              {item.role === 'owner'
+                                ? 'Υπεύθυνος μαθήματος'
+                                : 'Συνεργάτης διδάσκων'}{' '}
+                              · {item.email}
+                            </span>
+                          </div>
+                          <button
+                            className="text-danger-button"
+                            type="button"
+                            onClick={() => removeInstructorMutation.mutate(item.userId)}
+                          >
+                            Αφαίρεση
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                {tab === 'students' && (
+                  <div className="course-members">
+                    <div className="course-section-heading">
+                      <h2>Εγγραφές φοιτητών</h2>
+                      <button
+                        className="primary-button"
+                        type="button"
+                        onClick={() => openDialog('student')}
+                      >
+                        + Εγγραφή φοιτητή
+                      </button>
+                    </div>
+                    {detail.enrollments.length === 0 ? (
+                      <EmptyState message="Δεν υπάρχουν εγγεγραμμένοι φοιτητές." />
+                    ) : (
+                      <>
+                        <label className="course-member-search">
+                          <span className="sr-only">
+                            Αναζήτηση εγγεγραμμένων φοιτητών
+                          </span>
+                          <input
+                            value={studentSearch}
+                            placeholder="Αναζήτηση ονόματος ή email…"
+                            onChange={(event) => setStudentSearch(event.target.value)}
+                          />
+                        </label>
+                        {visibleEnrollments.length === 0 ? (
+                          <EmptyState message="Δεν βρέθηκαν φοιτητές με αυτά τα στοιχεία." />
+                        ) : (
+                          visibleEnrollments.map((item) => (
+                            <div className="member-row" key={item.studentId}>
+                              <div>
+                                <strong>{item.fullName}</strong>
+                                <span>{item.email}</span>
+                              </div>
+                              <label
+                                className="sr-only"
+                                htmlFor={`enrollment-${item.studentId}`}
+                              >
+                                Κατάσταση εγγραφής {item.fullName}
+                              </label>
+                              <select
+                                id={`enrollment-${item.studentId}`}
+                                value={item.status}
+                                onChange={(event) => {
+                                  event.currentTarget.blur();
+                                  updateEnrollmentMutation.mutate({
+                                    userId: item.studentId,
+                                    status: event.target.value as EnrollmentStatus,
+                                  });
+                                }}
+                              >
+                                <option value="active">Ενεργή</option>
+                                <option value="inactive">Ανενεργή</option>
+                                <option value="completed">Ολοκληρωμένη</option>
+                              </select>
+                            </div>
+                          ))
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Summary course={detail} />
+            </div>
+            {
+              dialog === 'edit' && (
+                <CourseForm
+                  title="Επεξεργασία μαθήματος"
+                  initial={detail}
+                  submitLabel="Αποθήκευση αλλαγών"
+                  pending={update.isPending}
+                  error={update.isError ? messageFor(update.error) : null}
+                  onCancel={closeDialog}
+                  onSubmit={(value) => update.mutate(value)}
+                />
+              )
+            }
+            {
+              dialog === 'activation' && (
+                <Dialog
+                  title={
+                    detail.isActive
+                      ? 'Απενεργοποίηση μαθήματος'
+                      : 'Ενεργοποίηση μαθήματος'
+                  }
+                  onClose={closeDialog}
+                >
+                  <div className="confirm-dialog">
+                    <p>
+                      {detail.isActive
+                        ? 'Το μάθημα θα πάψει να είναι ενεργό. Οι εγγραφές, οι αναθέσεις και τα στοιχεία του θα διατηρηθούν.'
+                        : 'Το μάθημα θα γίνει ξανά ενεργό. Οι εγγραφές, οι αναθέσεις και τα στοιχεία του θα διατηρηθούν.'}
+                    </p>
+                    {update.isError && (
+                      <ErrorNotice>{messageFor(update.error)}</ErrorNotice>
+                    )}
+                    <footer className="course-dialog-actions">
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={closeDialog}
+                      >
+                        Ακύρωση
+                      </button>
+                      <button
+                        className="primary-button"
+                        disabled={update.isPending}
+                        type="button"
+                        onClick={() => update.mutate({ isActive: !detail.isActive })}
+                      >
+                        Επιβεβαίωση
+                      </button>
+                    </footer>
+                  </div>
+                </Dialog>
+              )
+            }
+            {
+              dialog === 'instructor' && (
+                <MemberDialog
+                  title="Ανάθεση διδάσκοντα"
+                  courseId={courseId}
+                  role="professor"
+                  pending={assign.isPending}
+                  error={assign.isError ? messageFor(assign.error) : null}
+                  onClose={closeDialog}
+                  onSubmit={(candidate, instructorRole) =>
+                    assign.mutate({ instructorId: candidate.id, role: instructorRole })
+                  }
+                />
+              )
+            }
+            {
+              dialog === 'student' && (
+                <MemberDialog
+                  title="Εγγραφή φοιτητή"
+                  courseId={courseId}
+                  role="student"
+                  pending={enroll.isPending}
+                  error={enroll.isError ? messageFor(enroll.error) : null}
+                  onClose={closeDialog}
+                  onSubmit={(candidate) =>
+                    enroll.mutate({ studentId: candidate.id, status: 'active' })
+                  }
+                />
+              )
+            }
+          </PageLayout>
         );
       }}
-    </QueryState>
+    </QueryState >
   );
 }

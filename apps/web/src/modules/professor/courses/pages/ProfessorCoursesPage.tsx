@@ -10,26 +10,9 @@ import { StatusBadge } from '../../../../components/StatusBadge';
 import { useUrlFilters } from '../../../../hooks/useUrlFilters';
 import { getAcademicYearLabel } from '../../../../lib/academic-year';
 import { normalizeSearch } from '../../../../lib/normalize-search';
-
-export const professorCoursesKey = ['professor', 'courses'] as const;
-
-const instructorRoleLabels: Record<
-  ProfessorCourseListItem['instructorRole'],
-  string
-> = {
-  owner: 'Υπεύθυνος μαθήματος',
-  assistant: 'Συνεργάτης διδάσκων',
-};
-
-function compareCourses(
-  a: ProfessorCourseListItem,
-  b: ProfessorCourseListItem,
-  direction: 'asc' | 'desc',
-): number {
-  const diff = (a.semester - b.semester) * (direction === 'asc' ? 1 : -1);
-  if (diff !== 0) return diff;
-  return a.title.localeCompare(b.title, 'el');
-}
+import { PageLayout } from '../../../../components/PageLayout';
+import { instructorRoleLabels, professorCoursesKey } from '../utils/ProfessorCourses.const';
+import { compareCourses } from '../utils/ProfessorCoursesUtils';
 
 function CourseCounts({
   course,
@@ -137,16 +120,20 @@ export function ProfessorCoursesPage(): React.JSX.Element {
   const clearFilters = () => setFilter({ search: undefined, semester: undefined });
 
   return (
-    <section className="professor-courses-page">
-      <header className="course-page-header">
-        <div>
-          <p className="auth-kicker">
-            Ακαδημαϊκό έτος {getAcademicYearLabel()}
+    <PageLayout
+      title="Τα μαθήματά μου"
+      subtitle="Πρόσβαση στα μαθήματα που σου έχουν ανατεθεί και στο υλικό τους."
+      actions={
+        <div className="flex flex-col items-end">
+          <p className="text-hub-muted text-xs">
+            Ακαδημαϊκό έτος
           </p>
-          <h1>Τα μαθήματά μου</h1>
-          <p>Πρόσβαση στα μαθήματα που σου έχουν ανατεθεί και στο υλικό τους.</p>
+          <p className='text-hub-teal-dark text-[15px] font-semibold'>
+            {getAcademicYearLabel()}
+          </p>
         </div>
-      </header>
+      }
+    >
       <QueryState
         query={query}
         loadingLabel="Φόρτωση μαθημάτων…"
@@ -245,7 +232,6 @@ export function ProfessorCoursesPage(): React.JSX.Element {
       <p className="course-page-footnote">
         Οι αναθέσεις μαθημάτων ορίζονται από τον διαχειριστή.
       </p>
-    </section>
-  );
+    </PageLayout>);
 }
 

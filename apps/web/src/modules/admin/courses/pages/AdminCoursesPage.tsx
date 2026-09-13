@@ -17,6 +17,7 @@ import { useUrlFilters } from '../../../../hooks/useUrlFilters';
 import { messageFor } from '../utils/AdminCoursesUtils';
 import { courseListKey, semesters } from '../utils/AdminCourses.const';
 import { CourseForm } from '../components/AdminCourseForm';
+import { PageLayout } from '../../../../components/PageLayout';
 
 export function AdminCoursesPage(): React.JSX.Element {
   const navigate = useNavigate();
@@ -59,13 +60,10 @@ export function AdminCoursesPage(): React.JSX.Element {
   });
 
   return (
-    <section className="admin-courses-page">
-      <header className="course-page-header">
-        <div>
-          <p className="auth-kicker">Ακαδημαϊκή διαχείριση</p>
-          <h1>Μαθήματα</h1>
-          <p>Οργάνωση μαθημάτων, διδασκόντων και εγγραφών φοιτητών.</p>
-        </div>
+    <PageLayout
+      title="Μαθήματα"
+      subtitle="Οργάνωση μαθημάτων, διδασκόντων και εγγραφών φοιτητών."
+      actions={[
         <button
           className="primary-button"
           type="button"
@@ -73,7 +71,8 @@ export function AdminCoursesPage(): React.JSX.Element {
         >
           + Νέο μάθημα
         </button>
-      </header>
+      ]}
+    >
       <QueryState
         query={list}
         loadingLabel="Φόρτωση μαθημάτων…"
@@ -153,7 +152,12 @@ export function AdminCoursesPage(): React.JSX.Element {
                       {data.data.map((course) => (
                         <tr key={course.id}>
                           <td data-label="Μάθημα">
-                            <strong>{course.title}</strong>
+                            <Link
+                              className="font-semibold hover:underline"
+                              to={`/app/courses/${course.id}`}
+                            >
+                              {course.title}
+                            </Link>
                             <span>
                               {course.code} · {course.ectsCredits} ECTS
                             </span>
@@ -208,6 +212,6 @@ export function AdminCoursesPage(): React.JSX.Element {
           onSubmit={(value) => create.mutate(value)}
         />
       )}
-    </section>
+    </PageLayout >
   );
 }
