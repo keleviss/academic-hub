@@ -50,17 +50,19 @@ function CourseListRow({
   course: StudentCourseListItem;
 }): React.JSX.Element {
   return (
-    <Link className="course-list-row justify-between" to={`/app/courses/${course.id}`}>
+    <div className="course-list-row justify-between">
       <div className="flex flex-col gap-1">
         <div className="flex items-baseline gap-1">
-          <strong>{course.title}</strong>
+          <Link to={`/app/courses/${course.id}`} className="hover:underline">
+            <strong>{course.title}</strong>
+          </Link>
           <span className="course-card-code">
             · {course.code} · {course.semester}ο εξάμηνο
           </span>
         </div>
         <PrimaryInstructor course={course} />
       </div>
-    </Link>
+    </div>
   );
 }
 

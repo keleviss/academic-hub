@@ -66,11 +66,13 @@ function CourseListRow({
   course: ProfessorCourseListItem;
 }): React.JSX.Element {
   return (
-    <Link className="course-list-row" to={`/app/courses/${course.id}`}>
+    <div className="course-list-row">
       <span className="course-card-code">
         {course.code} · {course.semester}ο εξάμηνο
       </span>
-      <strong>{course.title}</strong>
+      <Link to={`/app/courses/${course.id}`} className="hover:underline">
+        <strong>{course.title}</strong>
+      </Link>
       <span className="course-card-role">
         {instructorRoleLabels[course.instructorRole]}
       </span>
@@ -80,7 +82,7 @@ function CourseListRow({
         inactiveLabel="Ανενεργό"
       />
       <CourseCounts course={course} />
-    </Link>
+    </div>
   );
 }
 
