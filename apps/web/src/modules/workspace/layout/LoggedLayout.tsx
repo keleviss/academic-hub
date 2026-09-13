@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Navigate,
   Route,
@@ -17,10 +17,16 @@ import { appPath, useLogoutMutation } from '../../../auth/session';
 import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
 import { ProfessorCourseDetailPage } from '../../professor/courses/pages/ProfessorCourseDetailPage';
 import { StudentCourseDetailPage } from '../../student/courses/pages/StudentCourseDetailPage';
-import { DocumentViewerPage } from '../documents/pages/DocumentViewerPage';
 import { workspaceRoutesByRole } from '../routing/workspaceRoutes';
 import { WorkspaceToolbar } from '../../../components/WorkspaceToolbar';
 import { AdminCourseDetailPage } from '../../admin/courses/pages/AdminCourseDetailPage';
+
+// Pulls in pdfjs-dist, which is heavy; keep it out of the main bundle.
+const DocumentViewerPage = lazy(() =>
+  import('../documents/pages/DocumentViewerPage').then((module) => ({
+    default: module.DocumentViewerPage,
+  })),
+);
 
 export function LoggedLayout(): React.JSX.Element {
   const user = useAuthenticatedUser();
@@ -154,7 +160,11 @@ export function LoggedLayout(): React.JSX.Element {
             {(user.role === 'professor' || user.role === 'student') && (
               <Route
                 path="courses/:courseId/documents/:documentId"
-                element={<DocumentViewerPage />}
+                element={
+                  <Suspense fallback={<p role="status">Φόρτωση προβολέα…</p>}>
+                    <DocumentViewerPage />
+                  </Suspense>
+                }
               />
             )}
             <Route path="*" element={<Navigate to={appPath} replace />} />
