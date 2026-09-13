@@ -263,9 +263,9 @@ describe('student course routes', () => {
       .set('Cookie', authCookie())
       .expect(200);
 
-    expect(StudentCourseListResponseSchema.parse(response.body).data).toHaveLength(
-      0,
-    );
+    expect(
+      StudentCourseListResponseSchema.parse(response.body).data,
+    ).toHaveLength(0);
   });
 
   it.each(['admin', 'professor'] as const)(

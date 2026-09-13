@@ -171,9 +171,7 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                       className="course-description-section"
                       aria-labelledby="student-course-description-heading"
                     >
-                      <h2 id="student-course-description-heading">
-                        Περιγραφή
-                      </h2>
+                      <h2 id="student-course-description-heading">Περιγραφή</h2>
                       <p>
                         {detail.description ?? 'Δεν έχει προστεθεί περιγραφή.'}
                       </p>
@@ -215,8 +213,8 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                 <div className="visibility-explainer">
                   <h2>Roadmap &amp; Πρόοδος</h2>
                   <p>
-                    Σύντομα εδώ θα εμφανίζεται η μαθησιακή σου πορεία ανά
-                    έννοια πάνω στο υλικό του μαθήματος.
+                    Σύντομα εδώ θα εμφανίζεται η μαθησιακή σου πορεία ανά έννοια
+                    πάνω στο υλικό του μαθήματος.
                   </p>
                 </div>
               </div>

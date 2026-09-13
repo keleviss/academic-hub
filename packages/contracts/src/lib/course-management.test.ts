@@ -198,25 +198,23 @@ describe('course management contracts', () => {
 
   it('validates route params and rejects invalid UUIDs', () => {
     expect(CourseIdParamsSchema.parse({ courseId })).toEqual({ courseId });
-    expect(CourseDocumentIdParamsSchema.parse({ courseId, documentId })).toEqual(
-      { courseId, documentId },
-    );
+    expect(
+      CourseDocumentIdParamsSchema.parse({ courseId, documentId }),
+    ).toEqual({ courseId, documentId });
     expect(() =>
       CourseIdParamsSchema.parse({ courseId: 'not-a-uuid' }),
     ).toThrow();
   });
 
   it('validates assignment and enrollment requests against shared enums', () => {
-    expect(
-      AssignCourseInstructorRequestSchema.parse({ instructorId }),
-    ).toEqual({
-      instructorId,
-      role: 'owner',
-    });
+    expect(AssignCourseInstructorRequestSchema.parse({ instructorId })).toEqual(
+      {
+        instructorId,
+        role: 'owner',
+      },
+    );
 
-    expect(
-      EnrollStudentRequestSchema.parse({ studentId }),
-    ).toEqual({
+    expect(EnrollStudentRequestSchema.parse({ studentId })).toEqual({
       status: 'active',
       studentId,
     });

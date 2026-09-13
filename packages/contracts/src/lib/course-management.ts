@@ -21,11 +21,7 @@ export const CourseDocumentIdParamsSchema = CourseIdParamsSchema.extend({
   documentId: z.uuid(),
 });
 
-export const CourseStatusFilterSchema = z.enum([
-  'all',
-  'active',
-  'inactive',
-]);
+export const CourseStatusFilterSchema = z.enum(['all', 'active', 'inactive']);
 
 export const CourseSemesterSchema = z.coerce.number().int().min(1).max(12);
 
@@ -106,10 +102,7 @@ export const CourseListQuerySchema = PaginationQuerySchema.extend({
   status: CourseStatusFilterSchema.default('all'),
 });
 
-export const CourseMemberCandidateRoleSchema = z.enum([
-  'professor',
-  'student',
-]);
+export const CourseMemberCandidateRoleSchema = z.enum(['professor', 'student']);
 
 export const CourseMemberCandidatesQuerySchema = z.object({
   role: CourseMemberCandidateRoleSchema,
@@ -286,10 +279,12 @@ export const ProfessorCourseListResponseSchema = z.object({
   }),
 });
 
-export const ProfessorCourseDetailSchema = ProfessorCourseListItemSchema.extend({
-  studentCount: z.number().int().nonnegative(),
-  instructors: z.array(CourseInstructorSchema),
-});
+export const ProfessorCourseDetailSchema = ProfessorCourseListItemSchema.extend(
+  {
+    studentCount: z.number().int().nonnegative(),
+    instructors: z.array(CourseInstructorSchema),
+  },
+);
 
 export const ProfessorCourseDetailResponseSchema = z.object({
   data: ProfessorCourseDetailSchema,
@@ -338,9 +333,7 @@ export type CourseMemberCandidateRole = z.infer<
 export type CourseMemberCandidatesQuery = z.infer<
   typeof CourseMemberCandidatesQuerySchema
 >;
-export type CourseMemberCandidate = z.infer<
-  typeof CourseMemberCandidateSchema
->;
+export type CourseMemberCandidate = z.infer<typeof CourseMemberCandidateSchema>;
 export type CourseMemberCandidatesResponse = z.infer<
   typeof CourseMemberCandidatesResponseSchema
 >;

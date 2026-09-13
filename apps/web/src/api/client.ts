@@ -210,9 +210,13 @@ export function fetchAdminCourse(
   courseId: string,
   signal?: AbortSignal,
 ): Promise<CourseDetailResponse> {
-  return requestJson(`/api/admin/courses/${courseId}`, CourseDetailResponseSchema, {
-    signal,
-  });
+  return requestJson(
+    `/api/admin/courses/${courseId}`,
+    CourseDetailResponseSchema,
+    {
+      signal,
+    },
+  );
 }
 
 export function fetchCourseMemberCandidates(
