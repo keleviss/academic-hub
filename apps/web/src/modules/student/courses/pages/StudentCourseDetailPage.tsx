@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { FileText } from 'lucide-react';
+import { Download, Eye } from 'lucide-react';
 
 import {
+  fetchCourseDocumentContent,
   fetchCourseDocuments,
   fetchStudentCourse,
 } from '../../../../api/client';
+import { ActionsMenu } from '../../../../components/ActionsMenu';
 import { Avatar } from '../../../../components/Avatar';
+import { DocumentsTable } from '../../../../components/DocumentsTable';
 import { EmptyState } from '../../../../components/EmptyState';
 import { QueryState } from '../../../../components/QueryState';
 import { Tabs } from '../../../../components/Tabs';
+import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
+import { downloadBlob } from '../../../../lib/download-file';
 import { normalizeSearch } from '../../../../lib/normalize-search';
 import { PageLayout } from '../../../../components/PageLayout';
 
@@ -31,6 +36,7 @@ function studentCourseKey(courseId: string) {
 
 export function StudentCourseDetailPage(): React.JSX.Element {
   const { courseId = '' } = useParams();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('documents');
   const [docSearch, setDocSearch] = useState('');
 
@@ -54,6 +60,19 @@ export function StudentCourseDetailPage(): React.JSX.Element {
 
   const documents = documentsQuery.data?.data ?? [];
   const totalDocuments = documents.length;
+
+  const downloadMutation = useNotifyingMutation({
+    mutationFn: (document: (typeof documents)[number]) =>
+      fetchCourseDocumentContent(courseId, document.id).then((buffer) =>
+        downloadBlob(
+          buffer,
+          document.mimeType ?? 'application/pdf',
+          document.originalFilename ?? document.title,
+        ),
+      ),
+    successMessage: 'Το έγγραφο κατέβηκε.',
+    notifyOnError: true,
+  });
 
   const filteredDocuments = useMemo(() => {
     const sorted = [...documents].sort(
@@ -122,35 +141,37 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                         }}
                       />
                     ) : (
-                      <ul className="document-list">
-                        {filteredDocuments.map((document) => (
-                          <li className="document-row" key={document.id}>
-                            <FileText aria-hidden="true" size={20} />
-                            <div className="document-row-main">
-                              <span className="document-row-title">
-                                {document.title}
-                              </span>
-                              <span>{document.originalFilename}</span>
-                            </div>
-                            <span className="document-row-date">
-                              {new Date(document.updatedAt).toLocaleDateString(
-                                'el-GR',
-                                {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                },
-                              )}
+                      <DocumentsTable
+                        documents={filteredDocuments}
+                        renderName={(document) => (
+                          <div className="document-row-main">
+                            <span className="document-row-title">
+                              {document.title}
                             </span>
-                            <Link
-                              className="secondary-button"
-                              to={`/app/courses/${courseId}/documents/${document.id}`}
-                            >
-                              Άνοιγμα
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                            <span>{document.originalFilename}</span>
+                          </div>
+                        )}
+                        renderActions={(document) => (
+                          <ActionsMenu
+                            label={`Ενέργειες για ${document.title}`}
+                            items={[
+                              {
+                                label: 'Προβολή',
+                                icon: Eye,
+                                onSelect: () =>
+                                  navigate(
+                                    `/app/courses/${courseId}/documents/${document.id}`,
+                                  ),
+                              },
+                              {
+                                label: 'Κατέβασμα',
+                                icon: Download,
+                                onSelect: () => downloadMutation.mutate(document),
+                              },
+                            ]}
+                          />
+                        )}
+                      />
                     )}
                   </div>
                 )}

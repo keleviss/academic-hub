@@ -1,21 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { FileText } from 'lucide-react';
+import { Download, Eye, Pencil } from 'lucide-react';
 import type {
   CourseDocumentMetadata,
   UpdateCourseDocumentMetadataRequest,
 } from '@web-app/contracts';
 
 import {
+  fetchCourseDocumentContent,
   fetchCourseDocuments,
   fetchProfessorCourse,
   updateCourseDocumentMetadata,
   uploadCourseDocument,
 } from '../../../../api/client';
 import { useAuthenticatedUser } from '../../../../auth/authenticatedUser';
+import { ActionsMenu } from '../../../../components/ActionsMenu';
 import { Avatar } from '../../../../components/Avatar';
 import { Dialog } from '../../../../components/Dialog';
+import { DocumentsTable } from '../../../../components/DocumentsTable';
 import { EmptyState } from '../../../../components/EmptyState';
 import { ErrorNotice } from '../../../../components/feedback';
 import { QueryState } from '../../../../components/QueryState';
@@ -23,6 +26,7 @@ import { StatusBadge } from '../../../../components/StatusBadge';
 import { Tabs } from '../../../../components/Tabs';
 import { useDialogState } from '../../../../hooks/useDialogState';
 import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
+import { downloadBlob } from '../../../../lib/download-file';
 import { getErrorMessage } from '../../../../lib/api-error';
 import { normalizeSearch } from '../../../../lib/normalize-search';
 import {
@@ -63,6 +67,7 @@ function professorCourseKey(courseId: string) {
 
 export function ProfessorCourseDetailPage(): React.JSX.Element {
   const { courseId = '' } = useParams();
+  const navigate = useNavigate();
   const user = useAuthenticatedUser();
   const [tab, setTab] = useState<Tab>('documents');
   const { dialog, openDialog, closeDialog } = useDialogState<DialogState>();
@@ -134,6 +139,18 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
     successMessage: 'Η ορατότητα του εγγράφου ενημερώθηκε.',
     onSuccess: closeDialog,
   });
+  const downloadMutation = useNotifyingMutation({
+    mutationFn: (document: CourseDocumentMetadata) =>
+      fetchCourseDocumentContent(courseId, document.id).then((buffer) =>
+        downloadBlob(
+          buffer,
+          document.mimeType ?? 'application/pdf',
+          document.originalFilename ?? document.title,
+        ),
+      ),
+    successMessage: 'Το έγγραφο κατέβηκε.',
+    notifyOnError: true,
+  });
 
   const documents = documentsQuery.data?.data ?? [];
   const totalDocuments = documents.length;
@@ -171,6 +188,8 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
     openDialog({ type: 'edit', document });
   const toggleVisibility = (document: CourseDocumentMetadata) =>
     openDialog({ type: 'visibility', document });
+  const viewDocument = (document: CourseDocumentMetadata) =>
+    navigate(`/app/courses/${courseId}/documents/${document.id}`);
 
   return (
     <QueryState
@@ -254,59 +273,58 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                         }}
                       />
                     ) : (
-                      <ul className="document-list">
-                        {filteredDocuments.map((document) => (
-                          <li className="document-row" key={document.id}>
-                            <FileText aria-hidden="true" size={20} />
-                            <div className="document-row-main">
-                              <button
-                                className="document-row-title"
-                                type="button"
-                                onClick={() => openEdit(document)}
-                              >
-                                {document.title}
-                              </button>
-                              <span>{document.originalFilename}</span>
-                            </div>
-                            <span className="document-row-date">
-                              {new Date(document.updatedAt).toLocaleDateString(
-                                'el-GR',
-                                {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                },
-                              )}
-                            </span>
+                      <DocumentsTable
+                        documents={filteredDocuments}
+                        renderName={(document) => (
+                          <div className="document-row-main">
                             <button
-                              className={
-                                document.visibility === 'visible_to_students'
-                                  ? 'status-badge is-active document-visibility-badge'
-                                  : 'status-badge is-inactive document-visibility-badge'
-                              }
-                              type="button"
-                              onClick={() => toggleVisibility(document)}
-                            >
-                              {document.visibility === 'visible_to_students'
-                                ? 'Ορατό'
-                                : 'Κρυφό'}
-                            </button>
-                            <button
-                              className="secondary-button"
+                              className="document-row-title"
                               type="button"
                               onClick={() => openEdit(document)}
                             >
-                              Επεξεργασία
+                              {document.title}
                             </button>
-                            <Link
-                              className="secondary-button"
-                              to={`/app/courses/${courseId}/documents/${document.id}`}
-                            >
-                              Άνοιγμα
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                            <span>{document.originalFilename}</span>
+                          </div>
+                        )}
+                        renderVisibility={(document) => (
+                          <button
+                            className={
+                              document.visibility === 'visible_to_students'
+                                ? 'status-badge is-active document-visibility-badge'
+                                : 'status-badge is-inactive document-visibility-badge'
+                            }
+                            type="button"
+                            onClick={() => toggleVisibility(document)}
+                          >
+                            {document.visibility === 'visible_to_students'
+                              ? 'Ορατό'
+                              : 'Κρυφό'}
+                          </button>
+                        )}
+                        renderActions={(document) => (
+                          <ActionsMenu
+                            label={`Ενέργειες για ${document.title}`}
+                            items={[
+                              {
+                                label: 'Προβολή',
+                                icon: Eye,
+                                onSelect: () => viewDocument(document),
+                              },
+                              {
+                                label: 'Επεξεργασία',
+                                icon: Pencil,
+                                onSelect: () => openEdit(document),
+                              },
+                              {
+                                label: 'Κατέβασμα',
+                                icon: Download,
+                                onSelect: () => downloadMutation.mutate(document),
+                              },
+                            ]}
+                          />
+                        )}
+                      />
                     )}
                   </div>
                 )}
