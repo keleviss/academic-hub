@@ -27,6 +27,8 @@ export type ApiRouterOptions = AuthRouteOptions &
   HealthRouteOptions &
   ReadinessRouteOptions & {
     courseDocumentsPrisma?: CourseDocumentsRouteOptions['prisma'];
+    courseDocumentsMaxUploadBytes?: CourseDocumentsRouteOptions['maxUploadBytes'];
+    courseDocumentsStorage?: CourseDocumentsRouteOptions['storageService'];
     coursesPrisma?: AdminCoursesRouteOptions['prisma'];
     professorCoursesPrisma?: ProfessorCoursesRouteOptions['prisma'];
     studentCoursesPrisma?: StudentCoursesRouteOptions['prisma'];
@@ -42,8 +44,10 @@ export function createApiRouter(options: ApiRouterOptions = {}): Router {
     '/courses/:courseId/documents',
     createCourseDocumentsRouter({
       auditLogger: options.auditLogger,
+      maxUploadBytes: options.courseDocumentsMaxUploadBytes,
       prisma: options.courseDocumentsPrisma,
       sessionService: options.sessionService,
+      storageService: options.courseDocumentsStorage,
     }),
   );
   router.use(

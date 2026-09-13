@@ -14,7 +14,9 @@ import type { StudentCoursesRouteOptions } from './routes/student-courses.js';
 export interface CreateAppOptions {
   auditLogger?: AuthRouteOptions['auditLogger'];
   authPrisma?: AuthRouteOptions['prisma'];
+  courseDocumentsMaxUploadBytes?: CourseDocumentsRouteOptions['maxUploadBytes'];
   courseDocumentsPrisma?: CourseDocumentsRouteOptions['prisma'];
+  courseDocumentsStorage?: CourseDocumentsRouteOptions['storageService'];
   corsOrigin?: boolean | string | string[];
   coursesPrisma?: AdminCoursesRouteOptions['prisma'];
   databaseCheck?: ReadinessRouteOptions['databaseCheck'];
@@ -43,7 +45,9 @@ export function createApp(options: CreateAppOptions = {}): Express {
     '/api',
     createApiRouter({
       auditLogger: options.auditLogger,
+      courseDocumentsMaxUploadBytes: options.courseDocumentsMaxUploadBytes,
       courseDocumentsPrisma: options.courseDocumentsPrisma,
+      courseDocumentsStorage: options.courseDocumentsStorage,
       coursesPrisma: options.coursesPrisma,
       databaseCheck: options.databaseCheck,
       prisma: options.authPrisma,

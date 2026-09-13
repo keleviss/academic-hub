@@ -1,4 +1,5 @@
 import type { PrismaClient, UserRole } from '@prisma/client';
+import { PDFDocument } from 'pdf-lib';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -9,7 +10,14 @@ import {
 import { createApp } from '../app.js';
 import type { AuditLogger } from '../auth/audit-log.js';
 import type { SessionService } from '../auth/session.js';
+import type { StorageService } from '../storage/storage-service.js';
 import { env } from '../config/env.js';
+
+async function buildValidPdfBuffer(): Promise<Buffer> {
+  const pdfDocument = await PDFDocument.create();
+  pdfDocument.addPage([200, 200]);
+  return Buffer.from(await pdfDocument.save());
+}
 
 const courseId = '11111111-1111-4111-8111-111111111111';
 const missingCourseId = '99999999-9999-4999-8999-999999999999';
@@ -53,11 +61,20 @@ function createTestApp(
   options: {
     activeEnrollment?: boolean;
     assignedProfessor?: boolean;
+    maxUploadBytes?: number;
     visibilityFixtures?: boolean;
   } = {},
 ) {
   const auditLogger: AuditLogger = {
     logAuditEvent: vi.fn().mockResolvedValue(undefined),
+  };
+  const storageService: StorageService = {
+    checkBucketReadiness: vi.fn(),
+    deleteObject: vi.fn().mockResolvedValue(undefined),
+    ensureBucketReady: vi.fn(),
+    getObject: vi.fn(),
+    headObject: vi.fn(),
+    putObject: vi.fn().mockResolvedValue(undefined),
   };
   const documents = options.visibilityFixtures
     ? [
@@ -120,11 +137,14 @@ function createTestApp(
         data,
       }: {
         data: {
+          checksumSha256: string;
           courseId: string;
           createdById: string;
           description: string | null;
           fileSizeBytes: bigint | null;
+          id: string;
           mimeType: string | null;
+          objectKey: string;
           originalFilename: string | null;
           pageCount: number | null;
           title: string;
@@ -133,7 +153,7 @@ function createTestApp(
         };
       }) => {
         const record = {
-          id: secondDocumentId,
+          id: data.id,
           title: data.title,
           description: data.description,
           status: 'active',
@@ -235,6 +255,7 @@ function createTestApp(
 
   const app = createApp({
     auditLogger,
+    courseDocumentsMaxUploadBytes: options.maxUploadBytes,
     courseDocumentsPrisma: {
       course: courseDelegate,
       courseInstructor,
@@ -244,10 +265,11 @@ function createTestApp(
       PrismaClient,
       'course' | 'courseInstructor' | 'document' | 'enrollment'
     >,
+    courseDocumentsStorage: storageService,
     sessionService,
   });
 
-  return { app, courseDelegate, courseInstructor, document };
+  return { app, courseDelegate, courseInstructor, document, storageService };
 }
 
 function documentMatchesWhere(
@@ -296,38 +318,95 @@ describe('course document routes', () => {
   });
 
   it('creates hidden document metadata by default', async () => {
-    const { app, document } = createTestApp('admin');
+    const { app, document, storageService } = createTestApp('admin');
+    const pdfBuffer = await buildValidPdfBuffer();
 
     const response = await request(app)
       .post(`/api/courses/${courseId}/documents`)
       .set('Cookie', authCookie())
-      .send({
-        title: 'Lecture 1',
-        originalFilename: 'lecture-1.pdf',
-        mimeType: 'application/pdf',
-        fileSizeBytes: 2048,
-        pageCount: 12,
+      .field('title', 'Lecture 1')
+      .attach('file', pdfBuffer, {
+        contentType: 'application/pdf',
+        filename: 'lecture-1.pdf',
       })
       .expect(201);
 
     const body = CourseDocumentResponseSchema.parse(response.body);
     expect(body.data).toMatchObject({
-      id: secondDocumentId,
       title: 'Lecture 1',
       visibility: 'hidden_from_students',
-      fileSizeBytes: 2048,
+      originalFilename: 'lecture-1.pdf',
+      mimeType: 'application/pdf',
+      fileSizeBytes: pdfBuffer.byteLength,
+      pageCount: 1,
     });
     expect(document.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           courseId,
           createdById: adminId,
-          fileSizeBytes: 2048n,
+          fileSizeBytes: BigInt(pdfBuffer.byteLength),
+          mimeType: 'application/pdf',
           title: 'Lecture 1',
           visibility: 'hidden_from_students',
         }),
       }),
     );
+    expect(storageService.putObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentType: 'application/pdf',
+        key: expect.stringContaining(`courses/${courseId}/documents/`),
+      }),
+    );
+  });
+
+  it('rejects uploads that are not real PDF files', async () => {
+    const { app, document, storageService } = createTestApp('admin');
+
+    const response = await request(app)
+      .post(`/api/courses/${courseId}/documents`)
+      .set('Cookie', authCookie())
+      .field('title', 'Not a PDF')
+      .attach('file', Buffer.from('just some text'), {
+        contentType: 'application/pdf',
+        filename: 'fake.pdf',
+      })
+      .expect(400);
+
+    expect(response.body.error.code).toBe('DOCUMENT_FILE_INVALID');
+    expect(document.create).not.toHaveBeenCalled();
+    expect(storageService.putObject).not.toHaveBeenCalled();
+  });
+
+  it('rejects document creation without an uploaded file', async () => {
+    const { app, document } = createTestApp('admin');
+
+    const response = await request(app)
+      .post(`/api/courses/${courseId}/documents`)
+      .set('Cookie', authCookie())
+      .field('title', 'Missing file')
+      .expect(400);
+
+    expect(response.body.error.code).toBe('DOCUMENT_FILE_REQUIRED');
+    expect(document.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects uploads larger than the configured limit', async () => {
+    const { app, document } = createTestApp('admin', { maxUploadBytes: 10 });
+    const pdfBuffer = await buildValidPdfBuffer();
+
+    const response = await request(app)
+      .post(`/api/courses/${courseId}/documents`)
+      .set('Cookie', authCookie())
+      .field('title', 'Too large')
+      .attach('file', pdfBuffer, {
+        contentType: 'application/pdf',
+        filename: 'large.pdf',
+      })
+      .expect(413);
+
+    expect(response.body.error.code).toBe('DOCUMENT_FILE_TOO_LARGE');
+    expect(document.create).not.toHaveBeenCalled();
   });
 
   it('updates document metadata for an assigned professor', async () => {
@@ -338,7 +417,6 @@ describe('course document routes', () => {
       .set('Cookie', authCookie())
       .send({
         description: 'Updated description',
-        pageCount: 9,
         visibility: 'visible_to_students',
       })
       .expect(200);
@@ -347,7 +425,6 @@ describe('course document routes', () => {
     expect(body.data).toMatchObject({
       id: documentId,
       description: 'Updated description',
-      pageCount: 9,
       visibility: 'visible_to_students',
     });
     expect(document.findFirst).toHaveBeenCalledWith(
@@ -358,7 +435,6 @@ describe('course document routes', () => {
     expect(document.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          pageCount: 9,
           updatedById: professorId,
           visibility: 'visible_to_students',
         }),

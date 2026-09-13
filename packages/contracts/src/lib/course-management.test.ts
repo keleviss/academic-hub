@@ -263,19 +263,11 @@ describe('course management contracts', () => {
         title: '  Lecture 1  ',
         description: '  Introductory material.  ',
         visibility: 'visible_to_students',
-        originalFilename: '  lecture-1.pdf  ',
-        mimeType: '  application/pdf  ',
-        fileSizeBytes: '2048',
-        pageCount: '12',
       }),
     ).toEqual({
       title: 'Lecture 1',
       description: 'Introductory material.',
       visibility: 'visible_to_students',
-      originalFilename: 'lecture-1.pdf',
-      mimeType: 'application/pdf',
-      fileSizeBytes: 2048,
-      pageCount: 12,
     });
 
     expect(

@@ -50,36 +50,6 @@ export const CourseDocumentDescriptionInputSchema = z
   .nullable()
   .optional();
 
-export const CourseDocumentFilenameInputSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(255)
-  .nullable()
-  .optional();
-
-export const CourseDocumentMimeTypeInputSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(127)
-  .nullable()
-  .optional();
-
-export const CourseDocumentFileSizeInputSchema = z.coerce
-  .number()
-  .int()
-  .nonnegative()
-  .nullable()
-  .optional();
-
-export const CourseDocumentPageCountInputSchema = z.coerce
-  .number()
-  .int()
-  .nonnegative()
-  .nullable()
-  .optional();
-
 export const CourseCreateRequestSchema = z.object({
   code: CourseCodeSchema,
   title: z.string().trim().min(1).max(160),
@@ -208,26 +178,23 @@ export const CourseDocumentMetadataSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+// The uploaded PDF's filename, MIME type, size, and page count are derived
+// server-side from the actual file, never trusted from client-supplied fields.
 export const CreateCourseDocumentRequestSchema = z.object({
   title: CourseDocumentTitleSchema,
   description: CourseDocumentDescriptionInputSchema,
   visibility: DocumentVisibilitySchema.default('hidden_from_students'),
-  originalFilename: CourseDocumentFilenameInputSchema,
-  mimeType: CourseDocumentMimeTypeInputSchema,
-  fileSizeBytes: CourseDocumentFileSizeInputSchema,
-  pageCount: CourseDocumentPageCountInputSchema,
 });
 
+export const MAX_COURSE_DOCUMENT_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+// originalFilename/mimeType/fileSizeBytes/pageCount are derived from the stored file and are not client-editable.
 export const UpdateCourseDocumentMetadataRequestSchema = z
   .object({
     title: CourseDocumentTitleSchema.optional(),
-    description: CourseDocumentDescriptionInputSchema,
+    description: CourseDocumentDescriptionInputSchema.optional(),
     status: DocumentStatusSchema.optional(),
     visibility: DocumentVisibilitySchema.optional(),
-    originalFilename: CourseDocumentFilenameInputSchema,
-    mimeType: CourseDocumentMimeTypeInputSchema,
-    fileSizeBytes: CourseDocumentFileSizeInputSchema,
-    pageCount: CourseDocumentPageCountInputSchema,
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one document metadata field must be provided.',

@@ -1,4 +1,8 @@
+import { createHash, randomUUID } from 'node:crypto';
+
 import { Router, type Request } from 'express';
+import multer, { MulterError } from 'multer';
+import { PDFDocument } from 'pdf-lib';
 import type {
   DocumentStatus,
   DocumentVisibility,
@@ -12,6 +16,7 @@ import {
   CourseDocumentsResponseSchema,
   CourseIdParamsSchema,
   CreateCourseDocumentRequestSchema,
+  MAX_COURSE_DOCUMENT_UPLOAD_BYTES,
   UpdateCourseDocumentMetadataRequestSchema,
   type CourseDocumentMetadata,
   type CourseDocumentResponse,
@@ -35,6 +40,10 @@ import { HttpError } from '../lib/http-error.js';
 import { prisma as defaultPrisma } from '../lib/prisma.js';
 import { validateRequest } from '../lib/request-validation.js';
 import { sendJson } from '../lib/send-json.js';
+import {
+  createStorageService,
+  type StorageService,
+} from '../storage/storage-service.js';
 
 type CourseDocumentsPrismaClient = Pick<
   PrismaClient,
@@ -44,9 +53,13 @@ type CourseDocumentsPrismaClient = Pick<
 export interface CourseDocumentsRouteOptions {
   auditLogger?: AuditLogger;
   authorizationService?: AuthorizationService;
+  maxUploadBytes?: number;
   prisma?: CourseDocumentsPrismaClient;
   sessionService?: SessionService;
+  storageService?: StorageService;
 }
+
+const PDF_MAGIC_BYTES = Buffer.from('%PDF-', 'ascii');
 
 interface CourseDocumentRecord {
   createdAt: Date;
@@ -71,10 +84,17 @@ export function createCourseDocumentsRouter(
   const authorization =
     options.authorizationService ??
     createAuthorizationService({ auditLogger, prisma });
+  const storageService = options.storageService ?? createStorageService();
+  const maxUploadBytes =
+    options.maxUploadBytes ?? MAX_COURSE_DOCUMENT_UPLOAD_BYTES;
   const gateOptions: AuthorizationMiddlewareOptions = {
     auditLogger,
     sessionService: options.sessionService,
   };
+  const upload = multer({
+    limits: { fileSize: maxUploadBytes, files: 1 },
+    storage: multer.memoryStorage(),
+  });
 
   router.get(
     '/',
@@ -103,6 +123,7 @@ export function createCourseDocumentsRouter(
   router.post(
     '/',
     requireRole(['admin', 'professor'], gateOptions),
+    parseDocumentUpload(upload),
     validateRequest({
       body: CreateCourseDocumentRequestSchema,
       params: CourseIdParamsSchema,
@@ -110,6 +131,7 @@ export function createCourseDocumentsRouter(
     asyncHandler(async (request, response) => {
       const { courseId } = request.params as { courseId: string };
       const input = request.body as CreateCourseDocumentRequest;
+      const file = requireUploadedPdf(request);
       await authorization.assertCourseAccess(
         request.currentSession!.user,
         courseId,
@@ -118,10 +140,20 @@ export function createCourseDocumentsRouter(
 
       const document = await createCourseDocument(
         prisma,
+        storageService,
         courseId,
         request.currentSession!.user.id,
         input,
+        file,
       );
+
+      await auditLogger.logAuditEvent({
+        action: 'document.uploaded',
+        actorId: request.currentSession!.user.id,
+        entityId: document.id,
+        entityType: 'document',
+        metadata: { courseId, originalFilename: document.originalFilename },
+      });
 
       const payload: CourseDocumentResponse = {
         data: toCourseDocumentMetadata(document),
@@ -220,28 +252,142 @@ async function listCourseDocuments(
 
 async function createCourseDocument(
   prisma: CourseDocumentsPrismaClient,
+  storageService: StorageService,
   courseId: string,
   actorId: string,
   input: CreateCourseDocumentRequest,
+  file: Express.Multer.File,
 ): Promise<CourseDocumentRecord> {
-  return (await prisma.document.create({
-    data: {
-      courseId,
-      createdById: actorId,
-      description: input.description ?? null,
-      fileSizeBytes:
-        input.fileSizeBytes === undefined || input.fileSizeBytes === null
-          ? null
-          : BigInt(input.fileSizeBytes),
-      mimeType: input.mimeType ?? null,
-      originalFilename: input.originalFilename ?? null,
-      pageCount: input.pageCount ?? null,
-      title: input.title,
-      updatedById: actorId,
-      visibility: input.visibility,
-    },
-    select: courseDocumentSelect(),
-  })) as CourseDocumentRecord;
+  const documentId = randomUUID();
+  const objectKey = `courses/${courseId}/documents/${documentId}.pdf`;
+  const pageCount = await readPdfPageCount(file.buffer);
+  const checksumSha256 = createHash('sha256').update(file.buffer).digest('hex');
+
+  await storageService.putObject({
+    body: file.buffer,
+    contentLength: file.size,
+    contentType: 'application/pdf',
+    key: objectKey,
+  });
+
+  try {
+    return (await prisma.document.create({
+      data: {
+        id: documentId,
+        checksumSha256,
+        courseId,
+        createdById: actorId,
+        description: input.description ?? null,
+        fileSizeBytes: BigInt(file.size),
+        mimeType: 'application/pdf',
+        objectKey,
+        originalFilename: sanitizeOriginalFilename(file.originalname),
+        pageCount,
+        title: input.title,
+        updatedById: actorId,
+        visibility: input.visibility,
+      },
+      select: courseDocumentSelect(),
+    })) as CourseDocumentRecord;
+  } catch (error) {
+    // Avoid leaving an orphaned object in storage if the metadata write fails.
+    await storageService.deleteObject(objectKey).catch(() => undefined);
+    throw error;
+  }
+}
+
+function parseDocumentUpload(
+  upload: ReturnType<typeof multer>,
+): ReturnType<typeof asyncHandler> {
+  const middleware = upload.single('file');
+  return asyncHandler(
+    (request, response, next) =>
+      new Promise<void>((resolve) => {
+        middleware(request, response, (error: unknown) => {
+          if (error) {
+            next(translateUploadError(error));
+          } else {
+            next();
+          }
+          resolve();
+        });
+      }),
+  );
+}
+
+function translateUploadError(error: unknown): HttpError {
+  if (error instanceof MulterError && error.code === 'LIMIT_FILE_SIZE') {
+    return new HttpError(
+      413,
+      'The uploaded file exceeds the maximum allowed size.',
+      undefined,
+      'DOCUMENT_FILE_TOO_LARGE',
+    );
+  }
+
+  if (error instanceof MulterError) {
+    return new HttpError(
+      400,
+      'The uploaded file could not be processed.',
+      undefined,
+      'DOCUMENT_FILE_INVALID',
+    );
+  }
+
+  return new HttpError(
+    400,
+    'The uploaded file could not be processed.',
+    undefined,
+    'DOCUMENT_FILE_INVALID',
+  );
+}
+
+function requireUploadedPdf(request: Request): Express.Multer.File {
+  const file = request.file;
+
+  if (!file) {
+    throw new HttpError(
+      400,
+      'A PDF file is required.',
+      undefined,
+      'DOCUMENT_FILE_REQUIRED',
+    );
+  }
+
+  if (
+    file.mimetype !== 'application/pdf' ||
+    !file.buffer.subarray(0, PDF_MAGIC_BYTES.length).equals(PDF_MAGIC_BYTES)
+  ) {
+    throw new HttpError(
+      400,
+      'The uploaded file must be a PDF document.',
+      undefined,
+      'DOCUMENT_FILE_INVALID',
+    );
+  }
+
+  return file;
+}
+
+async function readPdfPageCount(buffer: Buffer): Promise<number> {
+  try {
+    const pdfDocument = await PDFDocument.load(buffer, {
+      updateMetadata: false,
+    });
+    return pdfDocument.getPageCount();
+  } catch {
+    throw new HttpError(
+      400,
+      'The uploaded file is not a valid PDF document.',
+      undefined,
+      'DOCUMENT_FILE_INVALID',
+    );
+  }
+}
+
+function sanitizeOriginalFilename(originalname: string): string {
+  const basename = originalname.split(/[/\\]/).pop() ?? originalname;
+  return basename.trim().slice(0, 255) || 'document.pdf';
 }
 
 async function getCourseDocumentOrThrow(
@@ -309,21 +455,6 @@ function normalizeCourseDocumentUpdateData(
   if (input.visibility !== undefined) data.visibility = input.visibility;
   if (Object.prototype.hasOwnProperty.call(input, 'description')) {
     data.description = input.description ?? null;
-  }
-  if (Object.prototype.hasOwnProperty.call(input, 'originalFilename')) {
-    data.originalFilename = input.originalFilename ?? null;
-  }
-  if (Object.prototype.hasOwnProperty.call(input, 'mimeType')) {
-    data.mimeType = input.mimeType ?? null;
-  }
-  if (Object.prototype.hasOwnProperty.call(input, 'fileSizeBytes')) {
-    data.fileSizeBytes =
-      input.fileSizeBytes === null || input.fileSizeBytes === undefined
-        ? null
-        : BigInt(input.fileSizeBytes);
-  }
-  if (Object.prototype.hasOwnProperty.call(input, 'pageCount')) {
-    data.pageCount = input.pageCount ?? null;
   }
 
   return data;
