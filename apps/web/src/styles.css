@@ -1072,6 +1072,11 @@ select {
 .course-filter-row select {
   width: auto;
 }
+.document-form-readonly-field {
+  background: var(--color-hub-surface);
+  color: var(--color-hub-muted);
+  cursor: not-allowed;
+}
 .course-table-wrap {
   overflow-x: auto;
 }

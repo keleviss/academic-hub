@@ -29,7 +29,6 @@ import {
   type CourseMemberCandidatesResponse,
   type CourseMutationResponse,
   type CourseUpdateRequest,
-  type CreateCourseDocumentRequest,
   type EnrollStudentRequest,
   type HealthResponse,
   type LoginRequest,
@@ -176,6 +175,49 @@ function requestMutation<T>(
   const result = mutationQueue.then(
     () => performMutation(path, schema, init),
     () => performMutation(path, schema, init),
+  );
+  mutationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+// FormData bodies must not get a manual Content-Type: the browser sets the
+// multipart boundary itself.
+async function performMultipartMutation<T>(
+  path: `/${string}`,
+  schema: z.ZodType<T>,
+  init: { body: FormData; method: string },
+): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    const { csrfToken } = await fetchCsrfToken();
+    try {
+      return await requestJson(path, schema, {
+        ...init,
+        headers: { 'x-csrf-token': csrfToken },
+      });
+    } catch (error) {
+      if (
+        attempt === 0 &&
+        error instanceof ApiClientError &&
+        error.status === 403 &&
+        error.code === 'CSRF_TOKEN_INVALID'
+      )
+        continue;
+      throw error;
+    }
+  }
+}
+
+function requestMultipartMutation<T>(
+  path: `/${string}`,
+  schema: z.ZodType<T>,
+  init: { body: FormData; method: string },
+): Promise<T> {
+  const result = mutationQueue.then(
+    () => performMultipartMutation(path, schema, init),
+    () => performMultipartMutation(path, schema, init),
   );
   mutationQueue = result.then(
     () => undefined,
@@ -349,15 +391,32 @@ export function fetchCourseDocuments(
   );
 }
 
-export function createCourseDocument(
+export function uploadCourseDocument(
   courseId: string,
-  input: CreateCourseDocumentRequest,
+  formData: FormData,
 ): Promise<CourseDocumentResponse> {
-  return requestMutation(
+  return requestMultipartMutation(
     `/api/courses/${courseId}/documents`,
     CourseDocumentResponseSchema,
-    { method: 'POST', body: JSON.stringify(input) },
+    { method: 'POST', body: formData },
   );
+}
+
+export async function fetchCourseDocumentContent(
+  courseId: string,
+  documentId: string,
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/courses/${courseId}/documents/${documentId}/content`,
+    { credentials: 'include', signal },
+  );
+
+  if (!response.ok) {
+    throw await readError(response);
+  }
+
+  return response.arrayBuffer();
 }
 
 export function updateCourseDocumentMetadata(

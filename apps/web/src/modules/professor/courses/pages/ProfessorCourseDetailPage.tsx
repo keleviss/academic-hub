@@ -4,15 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import type {
   CourseDocumentMetadata,
-  CreateCourseDocumentRequest,
   UpdateCourseDocumentMetadataRequest,
 } from '@web-app/contracts';
 
 import {
-  createCourseDocument,
   fetchCourseDocuments,
   fetchProfessorCourse,
   updateCourseDocumentMetadata,
+  uploadCourseDocument,
 } from '../../../../api/client';
 import { useAuthenticatedUser } from '../../../../auth/authenticatedUser';
 import { Avatar } from '../../../../components/Avatar';
@@ -96,8 +95,7 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
   ];
 
   const createMutation = useNotifyingMutation({
-    mutationFn: (input: CreateCourseDocumentRequest) =>
-      createCourseDocument(courseId, input),
+    mutationFn: (formData: FormData) => uploadCourseDocument(courseId, formData),
     invalidateKeys,
     successMessage: 'Το έγγραφο δημιουργήθηκε.',
     onSuccess: () => {
@@ -420,18 +418,25 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                 }
                 onCancel={closeDialog}
                 onSubmit={(values: DocumentFormValues) => {
-                  const input = {
-                    title: values.title,
-                    originalFilename: values.originalFilename,
-                    visibility: values.visibility,
-                    description: values.description.trim() || null,
-                  };
                   if (dialog.type === 'create') {
-                    createMutation.mutate(input);
+                    const formData = new FormData();
+                    formData.set('title', values.title);
+                    formData.set('visibility', values.visibility);
+                    const trimmedDescription = values.description.trim();
+                    if (trimmedDescription) {
+                      formData.set('description', trimmedDescription);
+                    }
+                    const file = values.file?.item(0);
+                    if (file) formData.set('file', file);
+                    createMutation.mutate(formData);
                   } else {
                     saveMutation.mutate({
                       documentId: dialog.document.id,
-                      input,
+                      input: {
+                        title: values.title,
+                        visibility: values.visibility,
+                        description: values.description.trim() || null,
+                      },
                     });
                   }
                 }}
