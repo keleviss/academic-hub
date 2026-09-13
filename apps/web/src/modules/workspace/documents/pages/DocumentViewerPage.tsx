@@ -8,6 +8,7 @@ import {
 import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
+import { DocumentAnnotationsPanel } from '../components/DocumentAnnotationsPanel';
 import { PdfCanvasViewer } from '../components/PdfCanvasViewer';
 
 function documentQueryKey(courseId: string, documentId: string) {
@@ -62,16 +63,23 @@ export function DocumentViewerPage(): React.JSX.Element {
             }}
           >
             <div className="document-viewer">
-              <QueryState
-                query={contentQuery}
-                loadingLabel="Φόρτωση περιεχομένου…"
-                errorOptions={accessErrorOptions}
-                onRetry={() => void contentQuery.refetch()}
-              >
-                {(buffer) => (
-                  <PdfCanvasViewer data={buffer} title={detail.title} />
-                )}
-              </QueryState>
+              <div className="document-viewer-canvas-area">
+                <QueryState
+                  query={contentQuery}
+                  loadingLabel="Φόρτωση περιεχομένου…"
+                  errorOptions={accessErrorOptions}
+                  onRetry={() => void contentQuery.refetch()}
+                >
+                  {(buffer) => (
+                    <PdfCanvasViewer data={buffer} title={detail.title} />
+                  )}
+                </QueryState>
+              </div>
+              <DocumentAnnotationsPanel
+                courseId={courseId}
+                documentId={documentId}
+                pageCount={detail.pageCount}
+              />
             </div>
           </PageLayout>
         );

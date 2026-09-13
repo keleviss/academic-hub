@@ -5,12 +5,15 @@ import {
   CourseCreateRequestSchema,
   CourseDetailResponseSchema,
   CourseDocumentIdParamsSchema,
+  CourseDocumentAnnotationResponseSchema,
+  CourseDocumentAnnotationsResponseSchema,
   CourseDocumentMetadataSchema,
   CourseDocumentResponseSchema,
   CourseIdParamsSchema,
   CourseListQuerySchema,
   CourseListResponseSchema,
   CourseUpdateRequestSchema,
+  CreateCourseDocumentAnnotationRequestSchema,
   CreateCourseDocumentRequestSchema,
   EnrollStudentRequestSchema,
   ProfessorCourseDetailResponseSchema,
@@ -75,6 +78,27 @@ const documentMetadata = {
   mimeType: 'application/pdf',
   fileSizeBytes: 1_024_000,
   pageCount: 18,
+  createdAt: now,
+  updatedAt: now,
+};
+
+const annotation = {
+  id: '88888888-8888-4888-8888-888888888888',
+  courseId,
+  documentId,
+  target: {
+    id: '99999999-9999-4999-8999-999999999999',
+    pageNumber: 3,
+    selectedText: 'βρόχος ανατροφοδότησης',
+  },
+  author: {
+    id: studentId,
+    fullName: 'Ιωάννα Δημητρίου',
+    role: 'student',
+  },
+  type: 'question',
+  visibility: 'public',
+  body: 'Μπορείτε να εξηγήσετε αυτό το σημείο;',
   createdAt: now,
   updatedAt: now,
 };
@@ -306,6 +330,63 @@ describe('course management contracts', () => {
 
     expect(response.data.id).toBe(documentId);
   });
+
+  it('validates document annotation requests and responses', () => {
+    expect(
+      CreateCourseDocumentAnnotationRequestSchema.parse({
+        pageNumber: '3',
+        type: 'question',
+        visibility: 'public',
+        body: '  Μπορείτε να εξηγήσετε αυτό το σημείο;  ',
+        selectedText: '  βρόχος ανατροφοδότησης  ',
+      }),
+    ).toEqual({
+      pageNumber: 3,
+      type: 'question',
+      visibility: 'public',
+      body: 'Μπορείτε να εξηγήσετε αυτό το σημείο;',
+      selectedText: 'βρόχος ανατροφοδότησης',
+    });
+
+    expect(
+      CourseDocumentAnnotationsResponseSchema.parse({ data: [annotation] })
+        .data[0]?.target.pageNumber,
+    ).toBe(3);
+    expect(
+      CourseDocumentAnnotationResponseSchema.parse({ data: annotation }).data
+        .author.role,
+    ).toBe('student');
+
+    expect(() =>
+      CreateCourseDocumentAnnotationRequestSchema.parse({
+        pageNumber: 0,
+        type: 'question',
+        visibility: 'public',
+      }),
+    ).toThrow();
+    expect(() =>
+      CreateCourseDocumentAnnotationRequestSchema.parse({
+        pageNumber: 1,
+        type: 'bookmark',
+        visibility: 'public',
+      }),
+    ).toThrow();
+    expect(() =>
+      CreateCourseDocumentAnnotationRequestSchema.parse({
+        pageNumber: 1,
+        type: 'note',
+        visibility: 'classroom',
+      }),
+    ).toThrow();
+    expect(() =>
+      CreateCourseDocumentAnnotationRequestSchema.parse({
+        pageNumber: 1,
+        type: 'note',
+        visibility: 'private',
+        body: 'x'.repeat(2_001),
+      }),
+    ).toThrow();
+  });
 });
 
 describe('professor course contracts', () => {
@@ -359,6 +440,9 @@ describe('student course contracts', () => {
     isActive: true,
     counts: {
       documentCount: 2,
+    },
+    primaryInstructor: {
+      fullName: 'Μαρία Δημητρίου',
     },
   };
 

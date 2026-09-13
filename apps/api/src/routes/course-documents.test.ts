@@ -3,6 +3,8 @@ import { PDFDocument } from 'pdf-lib';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  CourseDocumentAnnotationResponseSchema,
+  CourseDocumentAnnotationsResponseSchema,
   CourseDocumentResponseSchema,
   CourseDocumentsResponseSchema,
 } from '@web-app/contracts';
@@ -28,6 +30,7 @@ const deletedDocumentId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const professorId = '22222222-2222-4222-8222-222222222222';
 const adminId = '77777777-7777-4777-8777-777777777777';
 const studentId = '33333333-3333-4333-8333-333333333333';
+const otherStudentId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const now = new Date('2026-09-12T09:00:00.000Z');
 
 const course = {
@@ -43,6 +46,8 @@ const course = {
 };
 
 const documentRecord = {
+  checksumSha256: 'abc123',
+  courseId,
   id: documentId,
   title: 'Syllabus',
   description: null,
@@ -55,6 +60,32 @@ const documentRecord = {
   objectKey: `courses/${courseId}/documents/${documentId}.pdf`,
   createdAt: now,
   updatedAt: now,
+};
+
+const annotationTargetRecord = {
+  id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  pageNumber: 2,
+  selectedText: 'βασική έννοια',
+};
+
+const publicAnnotation = {
+  id: '88888888-8888-4888-8888-888888888888',
+  courseId,
+  documentId: visibleDocumentId,
+  targetId: annotationTargetRecord.id,
+  authorId: studentId,
+  type: 'question',
+  visibility: 'public',
+  body: 'Τι σημαίνει αυτό το σημείο;',
+  isDeleted: false,
+  createdAt: now,
+  updatedAt: now,
+  target: annotationTargetRecord,
+  author: {
+    id: studentId,
+    fullName: 'Test User',
+    role: 'student',
+  },
 };
 
 function createTestApp(
@@ -100,6 +131,72 @@ function createTestApp(
         },
       ]
     : [{ ...documentRecord }];
+  const annotationTargets = [{ ...annotationTargetRecord }];
+  const annotations = [
+    { ...publicAnnotation },
+    {
+      ...publicAnnotation,
+      id: '12121212-1212-4121-8121-121212121212',
+      authorId: studentId,
+      visibility: 'private',
+      body: 'Προσωπική σημείωση',
+      target: {
+        ...annotationTargetRecord,
+        id: 'abababab-abab-4aba-8aba-abababababab',
+        pageNumber: 1,
+        selectedText: 'προσωπικό σημείο',
+      },
+    },
+    {
+      ...publicAnnotation,
+      id: '13131313-1313-4131-8131-131313131313',
+      authorId: studentId,
+      visibility: 'instructor_only',
+      body: 'Ερώτηση μόνο προς τον διδάσκοντα',
+      target: {
+        ...annotationTargetRecord,
+        id: 'bcbcbcbc-bcbc-4bcb-8bcb-bcbcbcbcbcbc',
+        pageNumber: 3,
+        selectedText: 'δύσκολο σημείο',
+      },
+    },
+    {
+      ...publicAnnotation,
+      id: '14141414-1414-4141-8141-141414141414',
+      authorId: otherStudentId,
+      visibility: 'private',
+      body: 'Ιδιωτική σημείωση άλλου φοιτητή',
+      target: {
+        ...annotationTargetRecord,
+        id: 'cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd',
+        pageNumber: 4,
+        selectedText: 'κρυφό σημείο',
+      },
+      author: {
+        id: otherStudentId,
+        fullName: 'Other Student',
+        role: 'student',
+      },
+    },
+    {
+      ...publicAnnotation,
+      id: '15151515-1515-4151-8151-151515151515',
+      authorId: otherStudentId,
+      visibility: 'instructor_only',
+      body: 'Απορία άλλου φοιτητή προς τον διδάσκοντα',
+      target: {
+        ...annotationTargetRecord,
+        id: 'dededede-dede-4ded-8ded-dededededede',
+        pageNumber: 5,
+        selectedText: 'άλλη απορία',
+      },
+      author: {
+        id: otherStudentId,
+        fullName: 'Other Student',
+        role: 'student',
+      },
+    },
+  ];
   const courseDelegate = {
     findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
       where.id === courseId ? course : null,
@@ -187,10 +284,14 @@ function createTestApp(
         };
       }) =>
         where.courseId === courseId
-          ? documents.find((record) => documentMatchesWhere(record, where)) ??
-            null
+          ? (documents.find((record) => documentMatchesWhere(record, where)) ??
+            null)
           : null,
     ),
+    findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
+      const record = documents.find((item) => item.id === where.id);
+      return record ?? null;
+    }),
     findMany: vi.fn(
       async ({
         where,
@@ -233,6 +334,87 @@ function createTestApp(
       },
     ),
   };
+  const annotationTarget = {
+    create: vi.fn(
+      async ({
+        data,
+      }: {
+        data: {
+          documentId: string;
+          pageNumber: number;
+          selectedText?: string | null;
+        };
+      }) => {
+        const target = {
+          id: '16161616-1616-4161-8161-161616161616',
+          pageNumber: data.pageNumber,
+          selectedText: data.selectedText ?? null,
+        };
+        annotationTargets.push(target);
+        return target;
+      },
+    ),
+  };
+  const annotation = {
+    create: vi.fn(
+      async ({
+        data,
+      }: {
+        data: {
+          authorId: string;
+          body: string | null;
+          courseId: string;
+          documentId: string;
+          targetId: string;
+          type: 'highlight' | 'note' | 'question' | 'important' | 'confusing';
+          visibility: 'private' | 'public' | 'instructor_only';
+        };
+      }) => {
+        const target =
+          annotationTargets.find((item) => item.id === data.targetId) ??
+          annotationTargetRecord;
+        const record = {
+          id: '17171717-1717-4171-8171-171717171717',
+          ...data,
+          isDeleted: false,
+          createdAt: now,
+          updatedAt: now,
+          target,
+          author: {
+            id: data.authorId,
+            fullName: 'Test User',
+            role: role ?? 'student',
+          },
+        };
+        annotations.push(record);
+        return record;
+      },
+    ),
+    findMany: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          courseId: string;
+          documentId: string;
+          isDeleted: boolean;
+          OR: Array<{ authorId?: string; visibility: string }>;
+        };
+      }) =>
+        annotations.filter(
+          (record) =>
+            record.courseId === where.courseId &&
+            record.documentId === where.documentId &&
+            record.isDeleted === where.isDeleted &&
+            where.OR.some(
+              (condition) =>
+                record.visibility === condition.visibility &&
+                (condition.authorId === undefined ||
+                  record.authorId === condition.authorId),
+            ),
+        ),
+    ),
+  };
 
   const sessionService: SessionService = {
     createSession: vi.fn(),
@@ -263,19 +445,34 @@ function createTestApp(
     auditLogger,
     courseDocumentsMaxUploadBytes: options.maxUploadBytes,
     courseDocumentsPrisma: {
+      annotation,
+      annotationTarget,
       course: courseDelegate,
       courseInstructor,
       document,
       enrollment,
     } as unknown as Pick<
       PrismaClient,
-      'course' | 'courseInstructor' | 'document' | 'enrollment'
+      | 'annotation'
+      | 'annotationTarget'
+      | 'course'
+      | 'courseInstructor'
+      | 'document'
+      | 'enrollment'
     >,
     courseDocumentsStorage: storageService,
     sessionService,
   });
 
-  return { app, courseDelegate, courseInstructor, document, storageService };
+  return {
+    annotation,
+    annotationTarget,
+    app,
+    courseDelegate,
+    courseInstructor,
+    document,
+    storageService,
+  };
 }
 
 function documentMatchesWhere(
@@ -488,9 +685,9 @@ describe('course document routes', () => {
       .set('Cookie', authCookie())
       .expect(200);
 
-    expect(CourseDocumentResponseSchema.parse(visibleResponse.body).data.id).toBe(
-      visibleDocumentId,
-    );
+    expect(
+      CourseDocumentResponseSchema.parse(visibleResponse.body).data.id,
+    ).toBe(visibleDocumentId);
 
     const hiddenResponse = await request(app)
       .get(`/api/courses/${courseId}/documents/${documentId}`)
@@ -544,6 +741,150 @@ describe('course document routes', () => {
       .get(`/api/courses/${courseId}/documents/${visibleDocumentId}/content`)
       .set('Cookie', authCookie())
       .expect(200);
+  });
+
+  it('rejects unauthenticated annotation requests', async () => {
+    const { app } = createTestApp(null, { visibilityFixtures: true });
+
+    await request(app)
+      .get(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations`,
+      )
+      .expect(401);
+  });
+
+  it('lists public and own annotations for students', async () => {
+    const { app, annotation } = createTestApp('student', {
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .get(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations`,
+      )
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    const body = CourseDocumentAnnotationsResponseSchema.parse(response.body);
+    expect(body.data.map((item) => item.id)).toEqual([
+      '12121212-1212-4121-8121-121212121212',
+      publicAnnotation.id,
+      '13131313-1313-4131-8131-131313131313',
+    ]);
+    expect(annotation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          courseId,
+          documentId: visibleDocumentId,
+          isDeleted: false,
+        }),
+      }),
+    );
+  });
+
+  it('lists public and instructor-only annotations for professors', async () => {
+    const { app } = createTestApp('professor', { visibilityFixtures: true });
+
+    const response = await request(app)
+      .get(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations`,
+      )
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    const body = CourseDocumentAnnotationsResponseSchema.parse(response.body);
+    expect(body.data.map((item) => item.id)).toEqual([
+      publicAnnotation.id,
+      '13131313-1313-4131-8131-131313131313',
+      '15151515-1515-4151-8151-151515151515',
+    ]);
+  });
+
+  it('creates a page-level annotation target and annotation', async () => {
+    const { annotation, annotationTarget, app } = createTestApp('student', {
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .post(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations`,
+      )
+      .set('Cookie', authCookie())
+      .send({
+        pageNumber: 2,
+        type: 'note',
+        visibility: 'private',
+        body: '  Χρήσιμη σημείωση  ',
+        selectedText: '  βασική έννοια  ',
+      })
+      .expect(201);
+
+    const body = CourseDocumentAnnotationResponseSchema.parse(response.body);
+    expect(body.data).toMatchObject({
+      body: 'Χρήσιμη σημείωση',
+      documentId: visibleDocumentId,
+      type: 'note',
+      visibility: 'private',
+      target: {
+        pageNumber: 2,
+        selectedText: 'βασική έννοια',
+      },
+    });
+    expect(annotationTarget.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          documentId: visibleDocumentId,
+          normalizedRects: [],
+          pageNumber: 2,
+          selectedText: 'βασική έννοια',
+        }),
+      }),
+    );
+    expect(annotation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          authorId: studentId,
+          body: 'Χρήσιμη σημείωση',
+          courseId,
+          documentId: visibleDocumentId,
+          type: 'note',
+          visibility: 'private',
+        }),
+      }),
+    );
+  });
+
+  it('rejects annotations outside the document page range', async () => {
+    const { annotation, annotationTarget, app } = createTestApp('student', {
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .post(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations`,
+      )
+      .set('Cookie', authCookie())
+      .send({
+        pageNumber: 99,
+        type: 'confusing',
+        visibility: 'instructor_only',
+      })
+      .expect(400);
+
+    expect(response.body.error.code).toBe('ANNOTATION_PAGE_OUT_OF_RANGE');
+    expect(annotationTarget.create).not.toHaveBeenCalled();
+    expect(annotation.create).not.toHaveBeenCalled();
+  });
+
+  it('hides hidden document annotations from students', async () => {
+    const { app } = createTestApp('student', { visibilityFixtures: true });
+
+    const response = await request(app)
+      .get(`/api/courses/${courseId}/documents/${documentId}/annotations`)
+      .set('Cookie', authCookie())
+      .expect(404);
+
+    expect(response.body.error.code).toBe('DOCUMENT_NOT_FOUND');
   });
 
   it('returns a 502 when stored content cannot be read', async () => {

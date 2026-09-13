@@ -1,5 +1,7 @@
 import {
   CsrfResponseSchema,
+  CourseDocumentAnnotationResponseSchema,
+  CourseDocumentAnnotationsResponseSchema,
   CourseDetailResponseSchema,
   CourseDocumentResponseSchema,
   CourseDocumentsResponseSchema,
@@ -19,6 +21,8 @@ import {
   type AssignCourseInstructorRequest,
   type CourseCreateRequest,
   type CourseDetailResponse,
+  type CourseDocumentAnnotationResponse,
+  type CourseDocumentAnnotationsResponse,
   type CourseDocumentResponse,
   type CourseDocumentsResponse,
   type CourseEnrollmentsResponse,
@@ -29,6 +33,7 @@ import {
   type CourseMemberCandidatesResponse,
   type CourseMutationResponse,
   type CourseUpdateRequest,
+  type CreateCourseDocumentAnnotationRequest,
   type EnrollStudentRequest,
   type HealthResponse,
   type LoginRequest,
@@ -400,6 +405,30 @@ export function fetchCourseDocument(
     `/api/courses/${courseId}/documents/${documentId}`,
     CourseDocumentResponseSchema,
     { signal },
+  );
+}
+
+export function fetchCourseDocumentAnnotations(
+  courseId: string,
+  documentId: string,
+  signal?: AbortSignal,
+): Promise<CourseDocumentAnnotationsResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/documents/${documentId}/annotations`,
+    CourseDocumentAnnotationsResponseSchema,
+    { signal },
+  );
+}
+
+export function createCourseDocumentAnnotation(
+  courseId: string,
+  documentId: string,
+  input: CreateCourseDocumentAnnotationRequest,
+): Promise<CourseDocumentAnnotationResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/documents/${documentId}/annotations`,
+    CourseDocumentAnnotationResponseSchema,
+    { method: 'POST', body: JSON.stringify(input) },
   );
 }
 

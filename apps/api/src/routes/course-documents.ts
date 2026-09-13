@@ -4,6 +4,8 @@ import { Router, type Request } from 'express';
 import multer, { MulterError } from 'multer';
 import { PDFDocument } from 'pdf-lib';
 import type {
+  AnnotationType,
+  AnnotationVisibility,
   DocumentStatus,
   DocumentVisibility,
   Prisma,
@@ -12,15 +14,22 @@ import type {
 } from '@prisma/client';
 import {
   CourseDocumentIdParamsSchema,
+  CourseDocumentAnnotationResponseSchema,
+  CourseDocumentAnnotationsResponseSchema,
   CourseDocumentResponseSchema,
   CourseDocumentsResponseSchema,
   CourseIdParamsSchema,
+  CreateCourseDocumentAnnotationRequestSchema,
   CreateCourseDocumentRequestSchema,
   MAX_COURSE_DOCUMENT_UPLOAD_BYTES,
   UpdateCourseDocumentMetadataRequestSchema,
+  type CourseDocumentAnnotation,
+  type CourseDocumentAnnotationResponse,
+  type CourseDocumentAnnotationsResponse,
   type CourseDocumentMetadata,
   type CourseDocumentResponse,
   type CourseDocumentsResponse,
+  type CreateCourseDocumentAnnotationRequest,
   type CreateCourseDocumentRequest,
   type UpdateCourseDocumentMetadataRequest,
 } from '@web-app/contracts';
@@ -47,7 +56,12 @@ import {
 
 type CourseDocumentsPrismaClient = Pick<
   PrismaClient,
-  'course' | 'courseInstructor' | 'document' | 'enrollment'
+  | 'annotation'
+  | 'annotationTarget'
+  | 'course'
+  | 'courseInstructor'
+  | 'document'
+  | 'enrollment'
 >;
 
 export interface CourseDocumentsRouteOptions {
@@ -62,6 +76,8 @@ export interface CourseDocumentsRouteOptions {
 const PDF_MAGIC_BYTES = Buffer.from('%PDF-', 'ascii');
 
 interface CourseDocumentRecord {
+  checksumSha256?: string | null;
+  courseId?: string;
   createdAt: Date;
   description: string | null;
   fileSizeBytes: bigint | number | null;
@@ -73,6 +89,27 @@ interface CourseDocumentRecord {
   title: string;
   updatedAt: Date;
   visibility: DocumentVisibility;
+}
+
+interface CourseDocumentAnnotationRecord {
+  id: string;
+  courseId: string;
+  documentId: string;
+  type: AnnotationType;
+  visibility: AnnotationVisibility;
+  body: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  target: {
+    id: string;
+    pageNumber: number;
+    selectedText: string | null;
+  };
+  author: {
+    id: string;
+    fullName: string;
+    role: UserRole;
+  };
 }
 
 export function createCourseDocumentsRouter(
@@ -194,6 +231,84 @@ export function createCourseDocumentsRouter(
   );
 
   router.get(
+    '/:documentId/annotations',
+    requireRole(['admin', 'professor', 'student'], gateOptions),
+    validateRequest({ params: CourseDocumentIdParamsSchema }),
+    asyncHandler(async (request, response) => {
+      const { courseId, documentId } = request.params as {
+        courseId: string;
+        documentId: string;
+      };
+      await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+
+      const payload: CourseDocumentAnnotationsResponse = {
+        data: await listCourseDocumentAnnotations(
+          prisma,
+          courseId,
+          documentId,
+          request.currentSession!.user.id,
+          request.currentSession!.user.role,
+        ),
+      };
+
+      sendJson(response, 200, CourseDocumentAnnotationsResponseSchema, payload);
+    }),
+  );
+
+  router.post(
+    '/:documentId/annotations',
+    requireRole(['admin', 'professor', 'student'], gateOptions),
+    validateRequest({
+      body: CreateCourseDocumentAnnotationRequestSchema,
+      params: CourseDocumentIdParamsSchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { courseId, documentId } = request.params as {
+        courseId: string;
+        documentId: string;
+      };
+      const input = request.body as CreateCourseDocumentAnnotationRequest;
+      const document = await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+      validateAnnotationPage(input.pageNumber, document.pageCount);
+
+      const annotation = await createCourseDocumentAnnotation(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.id,
+        input,
+        document,
+      );
+
+      const payload: CourseDocumentAnnotationResponse = {
+        data: toCourseDocumentAnnotation(annotation),
+      };
+
+      sendJson(response, 201, CourseDocumentAnnotationResponseSchema, payload);
+    }),
+  );
+
+  router.get(
     '/:documentId/content',
     requireRole(['admin', 'professor', 'student'], gateOptions),
     validateRequest({ params: CourseDocumentIdParamsSchema }),
@@ -231,7 +346,10 @@ export function createCourseDocumentsRouter(
         );
       }
 
-      response.setHeader('Content-Type', document.mimeType ?? 'application/pdf');
+      response.setHeader(
+        'Content-Type',
+        document.mimeType ?? 'application/pdf',
+      );
       response.setHeader('Content-Length', String(object.body.byteLength));
       response.setHeader(
         'Content-Disposition',
@@ -298,6 +416,102 @@ async function listCourseDocuments(
   });
 
   return (documents as CourseDocumentRecord[]).map(toCourseDocumentMetadata);
+}
+
+async function listCourseDocumentAnnotations(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  actorId: string,
+  role: UserRole,
+): Promise<CourseDocumentAnnotation[]> {
+  const annotations = await prisma.annotation.findMany({
+    include: courseDocumentAnnotationInclude(),
+    orderBy: [{ createdAt: 'desc' }],
+    where: {
+      courseId,
+      documentId,
+      isDeleted: false,
+      OR: annotationVisibilityWhere(actorId, role),
+    },
+  });
+
+  return (annotations as CourseDocumentAnnotationRecord[])
+    .sort(
+      (first, second) =>
+        first.target.pageNumber - second.target.pageNumber ||
+        second.createdAt.getTime() - first.createdAt.getTime(),
+    )
+    .map(toCourseDocumentAnnotation);
+}
+
+async function createCourseDocumentAnnotation(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  actorId: string,
+  input: CreateCourseDocumentAnnotationRequest,
+  document: CourseDocumentRecord,
+): Promise<CourseDocumentAnnotationRecord> {
+  const normalizedBody = input.body?.trim() || null;
+  const selectedText = input.selectedText?.trim() || null;
+  const target = await prisma.annotationTarget.create({
+    data: {
+      documentId,
+      documentTitleSnapshot: document.title,
+      documentFilenameSnapshot: document.originalFilename,
+      documentChecksumSnapshot: document.checksumSha256 ?? null,
+      normalizedRects: [],
+      pageNumber: input.pageNumber,
+      selectedText,
+      textQuoteExact: selectedText,
+    },
+    select: {
+      id: true,
+      pageNumber: true,
+      selectedText: true,
+    },
+  });
+
+  return (await prisma.annotation.create({
+    data: {
+      authorId: actorId,
+      body: normalizedBody,
+      courseId,
+      documentId,
+      targetId: target.id,
+      type: input.type,
+      visibility: input.visibility,
+    },
+    include: courseDocumentAnnotationInclude(),
+  })) as CourseDocumentAnnotationRecord;
+}
+
+function annotationVisibilityWhere(
+  actorId: string,
+  role: UserRole,
+): Prisma.AnnotationWhereInput[] {
+  return [
+    { visibility: 'public' },
+    { authorId: actorId, visibility: 'private' },
+    ...(role === 'admin' || role === 'professor'
+      ? [{ visibility: 'instructor_only' as const }]
+      : [{ authorId: actorId, visibility: 'instructor_only' as const }]),
+  ];
+}
+
+function validateAnnotationPage(
+  pageNumber: number,
+  pageCount: number | null,
+): void {
+  if (pageCount !== null && pageNumber > pageCount) {
+    throw new HttpError(
+      400,
+      'Annotation page is outside the document page range.',
+      { pageCount, pageNumber },
+      'ANNOTATION_PAGE_OUT_OF_RANGE',
+    );
+  }
 }
 
 async function createCourseDocument(
@@ -501,11 +715,9 @@ async function getCourseDocumentContentOrThrow(
 
 // Provides both an ASCII-safe fallback and an RFC 5987 UTF-8 value for non-ASCII filenames.
 function buildContentDisposition(originalFilename: string | null): string {
-  const safeName = (originalFilename ?? 'document.pdf').replace(
-    /[\r\n"]/g,
-    '',
-  );
-  const asciiFallback = safeName.replace(/[^\x20-\x7E]/g, '_') || 'document.pdf';
+  const safeName = (originalFilename ?? 'document.pdf').replace(/[\r\n"]/g, '');
+  const asciiFallback =
+    safeName.replace(/[^\x20-\x7E]/g, '_') || 'document.pdf';
   return `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(safeName)}`;
 }
 
@@ -546,6 +758,8 @@ function normalizeCourseDocumentUpdateData(
 
 function courseDocumentSelect() {
   return {
+    checksumSha256: true,
+    courseId: true,
     createdAt: true,
     description: true,
     fileSizeBytes: true,
@@ -558,6 +772,25 @@ function courseDocumentSelect() {
     updatedAt: true,
     visibility: true,
   } satisfies Prisma.DocumentSelect;
+}
+
+function courseDocumentAnnotationInclude() {
+  return {
+    author: {
+      select: {
+        fullName: true,
+        id: true,
+        role: true,
+      },
+    },
+    target: {
+      select: {
+        id: true,
+        pageNumber: true,
+        selectedText: true,
+      },
+    },
+  } satisfies Prisma.AnnotationInclude;
 }
 
 function toCourseDocumentMetadata(
@@ -576,6 +809,31 @@ function toCourseDocumentMetadata(
     pageCount: document.pageCount,
     createdAt: document.createdAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),
+  };
+}
+
+function toCourseDocumentAnnotation(
+  annotation: CourseDocumentAnnotationRecord,
+): CourseDocumentAnnotation {
+  return {
+    id: annotation.id,
+    courseId: annotation.courseId,
+    documentId: annotation.documentId,
+    target: {
+      id: annotation.target.id,
+      pageNumber: annotation.target.pageNumber,
+      selectedText: annotation.target.selectedText,
+    },
+    author: {
+      id: annotation.author.id,
+      fullName: annotation.author.fullName,
+      role: annotation.author.role,
+    },
+    type: annotation.type,
+    visibility: annotation.visibility,
+    body: annotation.body,
+    createdAt: annotation.createdAt.toISOString(),
+    updatedAt: annotation.updatedAt.toISOString(),
   };
 }
 

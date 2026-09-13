@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { PaginationMetaSchema, PaginationQuerySchema } from './common.js';
 import {
+  AnnotationTypeSchema,
+  AnnotationVisibilitySchema,
   CourseInstructorRoleSchema,
   DocumentStatusSchema,
   DocumentVisibilitySchema,
@@ -208,6 +210,61 @@ export const CourseDocumentResponseSchema = z.object({
   data: CourseDocumentMetadataSchema,
 });
 
+export const CourseDocumentAnnotationBodySchema = z
+  .string()
+  .trim()
+  .max(2_000)
+  .nullable()
+  .optional();
+
+export const CourseDocumentAnnotationSelectedTextSchema = z
+  .string()
+  .trim()
+  .max(1_000)
+  .nullable()
+  .optional();
+
+export const CourseDocumentAnnotationTargetSchema = z.object({
+  id: z.uuid(),
+  pageNumber: z.number().int().min(1),
+  selectedText: z.string().nullable(),
+});
+
+export const CourseDocumentAnnotationAuthorSchema = z.object({
+  id: z.uuid(),
+  fullName: z.string().min(1),
+  role: UserRoleSchema,
+});
+
+export const CourseDocumentAnnotationSchema = z.object({
+  id: z.uuid(),
+  courseId: z.uuid(),
+  documentId: z.uuid(),
+  target: CourseDocumentAnnotationTargetSchema,
+  author: CourseDocumentAnnotationAuthorSchema,
+  type: AnnotationTypeSchema,
+  visibility: AnnotationVisibilitySchema,
+  body: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const CreateCourseDocumentAnnotationRequestSchema = z.object({
+  pageNumber: z.coerce.number().int().min(1).max(10_000),
+  type: AnnotationTypeSchema,
+  visibility: AnnotationVisibilitySchema,
+  body: CourseDocumentAnnotationBodySchema,
+  selectedText: CourseDocumentAnnotationSelectedTextSchema,
+});
+
+export const CourseDocumentAnnotationsResponseSchema = z.object({
+  data: z.array(CourseDocumentAnnotationSchema),
+});
+
+export const CourseDocumentAnnotationResponseSchema = z.object({
+  data: CourseDocumentAnnotationSchema,
+});
+
 export const CourseDetailSchema = CourseListItemSchema.extend({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -341,6 +398,18 @@ export type CourseDocumentsResponse = z.infer<
 >;
 export type CourseDocumentResponse = z.infer<
   typeof CourseDocumentResponseSchema
+>;
+export type CourseDocumentAnnotation = z.infer<
+  typeof CourseDocumentAnnotationSchema
+>;
+export type CreateCourseDocumentAnnotationRequest = z.infer<
+  typeof CreateCourseDocumentAnnotationRequestSchema
+>;
+export type CourseDocumentAnnotationsResponse = z.infer<
+  typeof CourseDocumentAnnotationsResponseSchema
+>;
+export type CourseDocumentAnnotationResponse = z.infer<
+  typeof CourseDocumentAnnotationResponseSchema
 >;
 export type CourseDetail = z.infer<typeof CourseDetailSchema>;
 export type CourseDetailResponse = z.infer<typeof CourseDetailResponseSchema>;
