@@ -391,6 +391,18 @@ export function fetchCourseDocuments(
   );
 }
 
+export function fetchCourseDocument(
+  courseId: string,
+  documentId: string,
+  signal?: AbortSignal,
+): Promise<CourseDocumentResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/documents/${documentId}`,
+    CourseDocumentResponseSchema,
+    { signal },
+  );
+}
+
 export function uploadCourseDocument(
   courseId: string,
   formData: FormData,

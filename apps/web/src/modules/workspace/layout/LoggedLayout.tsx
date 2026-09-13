@@ -17,6 +17,7 @@ import { appPath, useLogoutMutation } from '../../../auth/session';
 import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
 import { ProfessorCourseDetailPage } from '../../professor/courses/pages/ProfessorCourseDetailPage';
 import { StudentCourseDetailPage } from '../../student/courses/pages/StudentCourseDetailPage';
+import { DocumentViewerPage } from '../documents/pages/DocumentViewerPage';
 import { workspaceRoutesByRole } from '../routing/workspaceRoutes';
 import { WorkspaceToolbar } from '../../../components/WorkspaceToolbar';
 import { AdminCourseDetailPage } from '../../admin/courses/pages/AdminCourseDetailPage';
@@ -148,6 +149,12 @@ export function LoggedLayout(): React.JSX.Element {
               <Route
                 path="courses/:courseId"
                 element={<StudentCourseDetailPage />}
+              />
+            )}
+            {(user.role === 'professor' || user.role === 'student') && (
+              <Route
+                path="courses/:courseId/documents/:documentId"
+                element={<DocumentViewerPage />}
               />
             )}
             <Route path="*" element={<Navigate to={appPath} replace />} />

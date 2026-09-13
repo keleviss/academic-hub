@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import type {
@@ -298,6 +298,12 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                             >
                               Επεξεργασία
                             </button>
+                            <Link
+                              className="secondary-button"
+                              to={`/app/courses/${courseId}/documents/${document.id}`}
+                            >
+                              Άνοιγμα
+                            </Link>
                           </li>
                         ))}
                       </ul>
