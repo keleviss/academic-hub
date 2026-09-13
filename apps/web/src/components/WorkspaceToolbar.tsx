@@ -4,7 +4,11 @@ import { Menu, UserCircle } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 
 import { appPath } from '../auth/session';
-import { fetchAdminCourse, fetchProfessorCourse } from '../api/client';
+import {
+  fetchAdminCourse,
+  fetchProfessorCourse,
+  fetchStudentCourse,
+} from '../api/client';
 import { workspaceRoutesByRole } from '../modules/workspace/routing/workspaceRoutes';
 
 type Breadcrumb = {
@@ -26,7 +30,7 @@ function getBreadcrumbs(
   const root: Breadcrumb = { label: workspaceLabels[role], to: appPath };
   const courseDetail = pathname.match(/^\/app\/courses\/[^/]+$/);
 
-  if ((role === 'admin' || role === 'professor') && courseDetail) {
+  if (courseDetail) {
     return [
       root,
       { label: 'Μαθήματα', to: `${appPath}/courses` },
@@ -53,10 +57,9 @@ export function WorkspaceToolbar({
   onOpenSidebar: () => void;
 }): React.JSX.Element {
   const location = useLocation();
-  const courseId =
-    role === 'admin' || role === 'professor'
-      ? location.pathname.match(/^\/app\/courses\/([^/]+)$/)?.[1]
-      : undefined;
+  const courseId = location.pathname.match(
+    /^\/app\/courses\/([^/]+)$/,
+  )?.[1];
   const adminCourse = useQuery({
     queryKey: ['admin', 'courses', courseId],
     queryFn: ({ signal }) => fetchAdminCourse(courseId ?? '', signal),
@@ -69,7 +72,18 @@ export function WorkspaceToolbar({
     enabled: !!courseId && role === 'professor',
     staleTime: 30_000,
   });
-  const course = role === 'professor' ? professorCourse : adminCourse;
+  const studentCourse = useQuery({
+    queryKey: ['student', 'courses', courseId],
+    queryFn: ({ signal }) => fetchStudentCourse(courseId ?? '', signal),
+    enabled: !!courseId && role === 'student',
+    staleTime: 30_000,
+  });
+  const course =
+    role === 'professor'
+      ? professorCourse
+      : role === 'student'
+        ? studentCourse
+        : adminCourse;
   const breadcrumbs = getBreadcrumbs(
     role,
     location.pathname,
