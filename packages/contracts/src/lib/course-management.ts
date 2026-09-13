@@ -301,6 +301,11 @@ export const StudentCourseListItemSchema = z.object({
   counts: z.object({
     documentCount: z.number().int().nonnegative(),
   }),
+  primaryInstructor: z
+    .object({
+      fullName: z.string().min(1),
+    })
+    .nullable(),
 });
 
 export const StudentCourseListResponseSchema = z.object({

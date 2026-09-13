@@ -14,14 +14,14 @@ import { PageLayout } from '../../../../components/PageLayout';
 import { studentCoursesKey } from '../utils/StudentCourses.const';
 import { compareCourses } from '../utils/StudentCoursesUtils';
 
-function CourseCounts({
+function PrimaryInstructor({
   course,
 }: {
   course: StudentCourseListItem;
 }): React.JSX.Element {
   return (
-    <span className="course-card-counts">
-      <span>{course.counts.documentCount} διαθέσιμο υλικό</span>
+    <span className="course-card-role">
+      {course.primaryInstructor?.fullName ?? 'Δεν έχει οριστεί διδάσκων'}
     </span>
   );
 }
@@ -33,16 +33,13 @@ function CourseCard({
 }): React.JSX.Element {
   return (
     <Link className="course-card" to={`/app/courses/${course.id}`}>
+      <h2>{course.title}</h2>
+      <PrimaryInstructor course={course} />
       <div className="course-card-top">
         <span className="course-card-code">
           {course.code} · {course.semester}ο εξάμηνο
         </span>
       </div>
-      <h2>{course.title}</h2>
-      {course.description && (
-        <p className="course-card-description">{course.description}</p>
-      )}
-      <CourseCounts course={course} />
     </Link>
   );
 }
@@ -53,12 +50,16 @@ function CourseListRow({
   course: StudentCourseListItem;
 }): React.JSX.Element {
   return (
-    <Link className="course-list-row" to={`/app/courses/${course.id}`}>
-      <span className="course-card-code">
-        {course.code} · {course.semester}ο εξάμηνο
-      </span>
-      <strong>{course.title}</strong>
-      <CourseCounts course={course} />
+    <Link className="course-list-row justify-between" to={`/app/courses/${course.id}`}>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-baseline gap-1">
+          <strong>{course.title}</strong>
+          <span className="course-card-code">
+            · {course.code} · {course.semester}ο εξάμηνο
+          </span>
+        </div>
+        <PrimaryInstructor course={course} />
+      </div>
     </Link>
   );
 }

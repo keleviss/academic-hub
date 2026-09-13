@@ -77,13 +77,14 @@ export function createStudentCoursesRouter(
 
       const data = await Promise.all(
         enrollments.map(async (enrollment) => {
-          const documentCount = await visibleDocumentCountFor(
-            prisma,
-            enrollment.courseId,
-          );
+          const [documentCount, primaryInstructorName] = await Promise.all([
+            visibleDocumentCountFor(prisma, enrollment.courseId),
+            primaryInstructorNameFor(prisma, enrollment.courseId),
+          ]);
           return toStudentCourseListItem(
             enrollment.course as CourseRecord,
             documentCount,
+            primaryInstructorName,
           );
         }),
       );
@@ -120,10 +121,17 @@ export function createStudentCoursesRouter(
       ]);
 
       const instructors = instructorRecords.map(toCourseInstructor);
+      const owner = instructorRecords.find(
+        (record) => record.instructorRole === 'owner',
+      );
 
       const payload: StudentCourseDetailResponse = {
         data: {
-          ...toStudentCourseListItem(course as CourseRecord, documentCount),
+          ...toStudentCourseListItem(
+            course as CourseRecord,
+            documentCount,
+            owner?.instructor.fullName ?? null,
+          ),
           instructors,
         },
       };
@@ -144,9 +152,22 @@ async function visibleDocumentCountFor(
   });
 }
 
+async function primaryInstructorNameFor(
+  prisma: StudentCoursesPrismaClient,
+  courseId: string,
+): Promise<string | null> {
+  const owners = await prisma.courseInstructor.findMany({
+    include: { instructor: true },
+    orderBy: { createdAt: 'asc' },
+    where: { courseId, instructorRole: 'owner' },
+  });
+  return owners[0]?.instructor.fullName ?? null;
+}
+
 function toStudentCourseListItem(
   course: CourseRecord,
   documentCount: number,
+  primaryInstructorName: string | null,
 ): StudentCourseListItem {
   return {
     id: course.id,
@@ -157,6 +178,9 @@ function toStudentCourseListItem(
     ectsCredits: course.ectsCredits,
     isActive: course.isActive,
     counts: { documentCount },
+    primaryInstructor: primaryInstructorName
+      ? { fullName: primaryInstructorName }
+      : null,
   };
 }
 
