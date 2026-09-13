@@ -15,10 +15,10 @@ import { ErrorNotice } from '../../../components/feedback';
 import { NotificationProvider } from '../../../components/notifications';
 import { appPath, useLogoutMutation } from '../../../auth/session';
 import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
-import { AdminCourseDetailPage } from '../../admin-courses/pages/AdminCoursesPage';
-import { ProfessorCourseDetailPage } from '../../professor-courses/pages/ProfessorCourseDetailPage';
+import { ProfessorCourseDetailPage } from '../../professor/courses/pages/ProfessorCourseDetailPage';
 import { workspaceRoutesByRole } from '../routing/workspaceRoutes';
-import { WorkspaceToolbar } from './WorkspaceToolbar';
+import { WorkspaceToolbar } from '../../../components/WorkspaceToolbar';
+import { AdminCourseDetailPage } from '../../admin/courses/pages/AdminCourseDetailPage';
 
 export function LoggedLayout(): React.JSX.Element {
   const user = useAuthenticatedUser();

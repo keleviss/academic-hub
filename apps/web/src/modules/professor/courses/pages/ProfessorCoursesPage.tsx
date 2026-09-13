@@ -3,10 +3,10 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import type { ProfessorCourseListItem } from '@web-app/contracts';
 
-import { ApiClientError, fetchProfessorCourses } from '../../../api/client';
-import { ErrorNotice } from '../../../components/feedback';
-import { getAcademicYearLabel } from '../../../lib/academic-year';
-import { normalizeSearch } from '../../../lib/normalize-search';
+import { ApiClientError, fetchProfessorCourses } from '../../../../api/client';
+import { ErrorNotice } from '../../../../components/feedback';
+import { getAcademicYearLabel } from '../../../../lib/academic-year';
+import { normalizeSearch } from '../../../../lib/normalize-search';
 
 export const professorCoursesKey = ['professor', 'courses'] as const;
 
@@ -160,12 +160,6 @@ export function ProfessorCoursesPage(): React.JSX.Element {
           <p>Πρόσβαση στα μαθήματα που σου έχουν ανατεθεί και στο υλικό τους.</p>
         </div>
       </header>
-      <div className="course-stat-grid">
-        <article>
-          <span>Ανατεθειμένα μαθήματα</span>
-          <strong>{query.data?.summary.assignedCourseCount ?? 0}</strong>
-        </article>
-      </div>
       {query.isPending && <p role="status">Φόρτωση μαθημάτων…</p>}
       {query.isError && (
         <ErrorNotice>
@@ -180,7 +174,7 @@ export function ProfessorCoursesPage(): React.JSX.Element {
         </ErrorNotice>
       )}
       {!query.isPending && !query.isError && (
-        <div className="course-list-card professor-courses-card">
+        <section className="professor-courses-results">
           <div className="course-filter-row text-sm">
             <input
               aria-label="Αναζήτηση μαθημάτων"
@@ -230,6 +224,15 @@ export function ProfessorCoursesPage(): React.JSX.Element {
               </button>
             </div>
           </div>
+          <div className="professor-courses-results-header">
+            <p>Ανατεθειμένα μαθήματα</p>
+            <span>
+              {query.data?.summary.assignedCourseCount ?? 0}{' '}
+              {(query.data?.summary.assignedCourseCount ?? 0) === 1
+                ? 'μάθημα'
+                : 'μαθήματα'}
+            </span>
+          </div>
           {courses.length === 0 ? (
             <p className="course-empty">Δεν σου έχουν ανατεθεί μαθήματα.</p>
           ) : sorted.length === 0 ? (
@@ -258,7 +261,7 @@ export function ProfessorCoursesPage(): React.JSX.Element {
               ))}
             </div>
           )}
-        </div>
+        </section>
       )}
       <p className="course-page-footnote">
         Οι αναθέσεις μαθημάτων ορίζονται από τον διαχειριστή.

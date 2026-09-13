@@ -14,12 +14,12 @@ import {
   fetchCourseDocuments,
   fetchProfessorCourse,
   updateCourseDocumentMetadata,
-} from '../../../api/client';
-import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
-import { Dialog } from '../../../components/Dialog';
-import { ErrorNotice } from '../../../components/feedback';
-import { useNotification } from '../../../components/notifications';
-import { normalizeSearch } from '../../../lib/normalize-search';
+} from '../../../../api/client';
+import { useAuthenticatedUser } from '../../../../auth/authenticatedUser';
+import { Dialog } from '../../../../components/Dialog';
+import { ErrorNotice } from '../../../../components/feedback';
+import { useNotification } from '../../../../components/notifications';
+import { normalizeSearch } from '../../../../lib/normalize-search';
 import { DocumentFormDialog, type DocumentFormValues } from '../components/DocumentFormDialog';
 import { professorCoursesKey } from './ProfessorCoursesPage';
 
@@ -75,10 +75,12 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
   const [docFilter, setDocFilter] = useState<DocumentFilter>('all');
 
   useEffect(() => {
-    setDocSearch('');
-    setDocFilter('all');
-    setTab('documents');
-  }, [courseId]);
+    return () => {
+      setDocSearch('');
+      setDocFilter('all');
+      setTab('documents');
+    }
+  }, []);
 
   const courseQuery = useQuery({
     queryKey: professorCourseKey(courseId),
@@ -194,7 +196,7 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
       <Link className="back-link" to="/app/courses">
         ← Τα μαθήματά μου
       </Link>
-      <header className="course-detail-header">
+      <header className="course-detail-header mt-2">
         <div>
           <p className="auth-kicker">
             {detail.code} · {detail.semester}ο εξάμηνο

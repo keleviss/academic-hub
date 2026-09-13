@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ErrorNotice } from "apps/web/src/components/feedback";
+import { useQuery } from "node_modules/@tanstack/react-query/build/modern/useQuery";
+import { useState } from "react";
 import type {
-  CourseCreateRequest,
   CourseDetail,
   CourseInstructorRole,
   CourseMemberCandidate,
@@ -10,138 +9,22 @@ import type {
 } from '@web-app/contracts';
 
 import {
-  ApiClientError,
   assignCourseInstructor,
-  createAdminCourse,
   enrollCourseStudent,
   fetchAdminCourse,
-  fetchAdminCourses,
   fetchCourseMemberCandidates,
   removeCourseInstructor,
   updateAdminCourse,
   updateCourseEnrollmentStatus,
-} from '../../../api/client';
-import { Dialog } from '../../../components/Dialog';
-import { ErrorNotice } from '../../../components/feedback';
-import { useNotification } from '../../../components/notifications';
+} from '../../../../api/client';
+import { messageFor } from "../utils/AdminCoursesUtils";
+import { Dialog } from "apps/web/src/components/Dialog";
+import { Link, useParams } from "react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNotification } from "apps/web/src/components/notifications";
+import { courseListKey } from "../utils/AdminCourses.const";
+import { CourseForm } from "../components/AdminCourseForm";
 
-const courseListKey = ['admin', 'courses'] as const;
-const semesters = Array.from({ length: 12 }, (_, index) => index + 1);
-
-type CourseFormValue = CourseCreateRequest;
-
-function messageFor(error: unknown): string {
-  if (error instanceof ApiClientError) {
-    const messages: Record<string, string> = {
-      COURSE_CODE_ALREADY_EXISTS: 'Υπάρχει ήδη μάθημα με αυτόν τον κωδικό.',
-      COURSE_INSTRUCTOR_ALREADY_ASSIGNED: 'Ο διδάσκων είναι ήδη ανατεθειμένος.',
-      STUDENT_ALREADY_ENROLLED: 'Ο φοιτητής είναι ήδη εγγεγραμμένος.',
-    };
-    return messages[error.code ?? ''] ?? error.message;
-  }
-  return 'Η ενέργεια δεν ολοκληρώθηκε. Δοκίμασε ξανά.';
-}
-
-function CourseForm({
-  initial,
-  label,
-  pending,
-  error,
-  onCancel,
-  onSubmit,
-}: {
-  initial?: CourseDetail;
-  label: string;
-  pending: boolean;
-  error: string | null;
-  onCancel: () => void;
-  onSubmit: (value: CourseFormValue) => void;
-}): React.JSX.Element {
-  const [value, setValue] = useState<CourseFormValue>(() => ({
-    code: initial?.code ?? '',
-    title: initial?.title ?? '',
-    semester: initial?.semester ?? 1,
-    ectsCredits: initial?.ectsCredits ?? 6,
-    description: initial?.description ?? null,
-  }));
-  const set = <K extends keyof CourseFormValue>(
-    key: K,
-    next: CourseFormValue[K],
-  ) => setValue((previous) => ({ ...previous, [key]: next }));
-
-  return (
-    <form
-      className="course-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit({
-          ...value,
-          code: value.code.trim().toUpperCase(),
-          title: value.title.trim(),
-        });
-      }}
-    >
-      <label>
-        Τίτλος μαθήματος
-        <input
-          required
-          value={value.title}
-          onChange={(event) => set('title', event.target.value)}
-        />
-      </label>
-      <div className="course-form-grid">
-        <label>
-          Κωδικός μαθήματος
-          <input
-            required
-            value={value.code}
-            onChange={(event) => set('code', event.target.value)}
-          />
-        </label>
-        <label>
-          Εξάμηνο
-          <select
-            value={value.semester}
-            onChange={(event) => set('semester', Number(event.target.value))}
-          >
-            {semesters.map((semester) => (
-              <option key={semester} value={semester}>
-                {semester}ο εξάμηνο
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <label>
-        Πιστωτικές μονάδες (ECTS)
-        <input
-          min="1"
-          max="60"
-          required
-          type="number"
-          value={value.ectsCredits}
-          onChange={(event) => set('ectsCredits', Number(event.target.value))}
-        />
-      </label>
-      <label>
-        Περιγραφή <span className="field-optional">Προαιρετική</span>
-        <textarea
-          value={value.description ?? ''}
-          onChange={(event) => set('description', event.target.value || null)}
-        />
-      </label>
-      {error && <ErrorNotice>{error}</ErrorNotice>}
-      <footer className="course-dialog-actions">
-        <button className="secondary-button" type="button" onClick={onCancel}>
-          Ακύρωση
-        </button>
-        <button className="primary-button" disabled={pending} type="submit">
-          {pending ? 'Αποθήκευση…' : label}
-        </button>
-      </footer>
-    </form>
-  );
-}
 
 function MemberPicker({
   courseId,
@@ -227,266 +110,77 @@ function Summary({ course }: { course: CourseDetail }): React.JSX.Element {
   );
 }
 
-export function AdminCoursesPage(): React.JSX.Element {
-  const navigate = useNavigate();
-  const client = useQueryClient();
-  const { notify } = useNotification();
-  const [params, setParams] = useSearchParams();
-  const [createOpen, setCreateOpen] = useState(false);
-
-  const page = Number(params.get('page') ?? '1');
-  const requestedStatus = params.get('status');
-
-  const status: 'all' | 'active' | 'inactive' =
-    requestedStatus === 'active' || requestedStatus === 'inactive'
-      ? requestedStatus
-      : 'all';
-  const search = useMemo(() => params.get('search') ?? '', [params]);
-  const [searchDraftState, setSearchDraftState] = useState(() => ({
-    source: search,
-    value: search,
-  }));
-  const searchDraft =
-    searchDraftState.source === search ? searchDraftState.value : search;
-  const semester = params.get('semester')
-    ? Number(params.get('semester'))
-    : undefined;
-
-  const setFilter = useCallback(
-    (next: Record<string, string | undefined>) => {
-      const updated = new URLSearchParams(params);
-      Object.entries(next).forEach(([key, value]) =>
-        value ? updated.set(key, value) : updated.delete(key),
-      );
-      if (!('page' in next)) updated.delete('page');
-      setParams(updated);
-    },
-    [params, setParams],
+function MemberDialog({
+  title,
+  courseId,
+  role,
+  pending,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  title: string;
+  courseId: string;
+  role: 'professor' | 'student';
+  pending: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (
+    candidate: CourseMemberCandidate,
+    role: CourseInstructorRole,
+  ) => void;
+}): React.JSX.Element {
+  const [candidate, setCandidate] = useState<CourseMemberCandidate | null>(
+    null,
   );
-
-  useEffect(() => {
-    if (searchDraft === search) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setFilter({ search: searchDraft || undefined });
-    }, 300);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [search, searchDraft, setFilter]);
-
-  const list = useQuery({
-    queryKey: [...courseListKey, { page, search, semester, status }],
-    queryFn: ({ signal }) =>
-      fetchAdminCourses(
-        { page, search: search || undefined, semester, status },
-        signal,
-      ),
-    placeholderData: (previousData) => previousData,
-  });
-
-  const create = useMutation({
-    mutationFn: createAdminCourse,
-    onSuccess: ({ data }) => {
-      void client.invalidateQueries({ queryKey: courseListKey });
-      setCreateOpen(false);
-      notify({
-        kind: 'success',
-        message: 'Το νέο μάθημα δημιουργήθηκε.',
-      });
-      navigate(`/app/courses/${data.id}`);
-    },
-  });
-
+  const [instructorRole, setInstructorRole] =
+    useState<CourseInstructorRole>('owner');
   return (
-    <section className="admin-courses-page">
-      <header className="course-page-header">
-        <div>
-          <p className="auth-kicker">Ακαδημαϊκή διαχείριση</p>
-          <h1>Μαθήματα</h1>
-          <p>Οργάνωση μαθημάτων, διδασκόντων και εγγραφών φοιτητών.</p>
-        </div>
-        <button
-          className="primary-button"
-          type="button"
-          onClick={() => setCreateOpen(true)}
-        >
-          + Νέο μάθημα
-        </button>
-      </header>
-      {list.isError && <ErrorNotice>{messageFor(list.error)}</ErrorNotice>}
-      {list.isPending ? (
-        <p role="status">Φόρτωση μαθημάτων…</p>
-      ) : (
-        list.data && (
-          <>
-            <div className="course-stat-grid">
-              <article>
-                <span>Σύνολο μαθημάτων</span>
-                <strong>{list.data.summary.totalCourses}</strong>
-              </article>
-              <article>
-                <span>Ενεργά μαθήματα</span>
-                <strong>{list.data.summary.activeCourses}</strong>
-              </article>
-              <article>
-                <span>Χωρίς διδάσκοντα</span>
-                <strong>{list.data.summary.unassignedCourses}</strong>
-              </article>
-            </div>
-            <div className="course-list-card">
-              <div
-                className="course-filter-tabs"
-                role="tablist"
-                aria-label="Κατάσταση μαθημάτων"
-              >
-                {(
-                  [
-                    ['all', 'Όλα'],
-                    ['active', 'Ενεργά'],
-                    ['inactive', 'Ανενεργά'],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    className={status === value ? 'is-active' : ''}
-                    type="button"
-                    onClick={() =>
-                      setFilter({ status: value === 'all' ? undefined : value })
-                    }
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="course-filter-row text-sm">
-                <input
-                  aria-label="Αναζήτηση μαθημάτων"
-                  placeholder="Αναζήτηση τίτλου, κωδικού ή διδάσκοντα…"
-                  value={searchDraft}
-                  onChange={(event) =>
-                    setSearchDraftState({
-                      source: search,
-                      value: event.target.value,
-                    })
-                  }
-                />
-                <select
-                  aria-label="Φίλτρο εξαμήνου"
-                  value={semester ?? ''}
-                  onChange={(event) =>
-                    setFilter({ semester: event.target.value || undefined })
-                  }
-                >
-                  <option value="">Όλα τα εξάμηνα</option>
-                  {semesters.map((item) => (
-                    <option key={item} value={item}>
-                      {item}ο εξάμηνο
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {list.data.data.length === 0 ? (
-                <p className="course-empty">
-                  Δεν υπάρχουν μαθήματα για τα επιλεγμένα φίλτρα.
-                </p>
-              ) : (
-                <div className="course-table-wrap">
-                  <table>
-                    <thead>
-                      <tr className="course-table-header">
-                        <th>Μάθημα</th>
-                        <th>Εξάμηνο</th>
-                        <th>Διδάσκων</th>
-                        <th>Φοιτητές</th>
-                        <th>Κατάσταση</th>
-                        <th>
-                          <span className="sr-only">Ενέργειες</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {list.data.data.map((course) => (
-                        <tr key={course.id}>
-                          <td data-label="Μάθημα">
-                            <strong>{course.title}</strong>
-                            <span>
-                              {course.code} · {course.ectsCredits} ECTS
-                            </span>
-                          </td>
-                          <td data-label="Εξάμηνο">{course.semester}ο</td>
-                          <td data-label="Διδάσκων">
-                            {course.primaryInstructor?.fullName ?? '—'}
-                          </td>
-                          <td data-label="Φοιτητές">
-                            {course.counts.studentCount}
-                          </td>
-                          <td data-label="Κατάσταση">
-                            <span
-                              className={
-                                course.isActive
-                                  ? 'status-badge is-active'
-                                  : 'status-badge is-inactive'
-                              }
-                            >
-                              {course.isActive ? 'Ενεργό' : 'Ανενεργό'}
-                            </span>
-                          </td>
-                          <td data-label="Ενέργειες">
-                            <Link
-                              className="course-row-link"
-                              to={`/app/courses/${course.id}`}
-                            >
-                              Προβολή
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {list.data.meta.totalPages > 1 && (
-                <nav
-                  className="course-pagination"
-                  aria-label="Σελίδες μαθημάτων"
-                >
-                  <button
-                    disabled={page <= 1}
-                    type="button"
-                    onClick={() => setFilter({ page: String(page - 1) })}
-                  >
-                    Προηγούμενη
-                  </button>
-                  <span>
-                    Σελίδα {page} από {list.data.meta.totalPages}
-                  </span>
-                  <button
-                    disabled={page >= list.data.meta.totalPages}
-                    type="button"
-                    onClick={() => setFilter({ page: String(page + 1) })}
-                  >
-                    Επόμενη
-                  </button>
-                </nav>
-              )}
-            </div>
-          </>
-        )
-      )}
-      {createOpen && (
-        <Dialog title="Νέο μάθημα" onClose={() => setCreateOpen(false)}>
-          <CourseForm
-            label="Δημιουργία μαθήματος"
-            pending={create.isPending}
-            error={create.isError ? messageFor(create.error) : null}
-            onCancel={() => setCreateOpen(false)}
-            onSubmit={(value) => create.mutate(value)}
-          />
-        </Dialog>
-      )}
-    </section>
+    <Dialog title={title} onClose={onClose}>
+      <div className="member-dialog">
+        <MemberPicker courseId={courseId} role={role} onSelect={setCandidate} />
+        {candidate && (
+          <p className="selected-member">
+            Επιλογή: <strong>{candidate.fullName}</strong> · {candidate.email}
+          </p>
+        )}
+        {role === 'professor' && (
+          <label>
+            Ρόλος ανάθεσης
+            <select
+              value={instructorRole}
+              onChange={(event) =>
+                setInstructorRole(event.target.value as CourseInstructorRole)
+              }
+            >
+              <option value="owner">Υπεύθυνος μαθήματος</option>
+              <option value="assistant">Συνεργάτης διδάσκων</option>
+            </select>
+          </label>
+        )}
+        {error && <ErrorNotice>{error}</ErrorNotice>}
+        <footer className="course-dialog-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>
+            Ακύρωση
+          </button>
+          <button
+            className="primary-button"
+            disabled={!candidate || pending}
+            type="button"
+            onClick={() => candidate && onSubmit(candidate, instructorRole)}
+          >
+            {pending
+              ? 'Αποθήκευση…'
+              : role === 'professor'
+                ? 'Ανάθεση'
+                : 'Εγγραφή'}
+          </button>
+        </footer>
+      </div>
+    </Dialog>
   );
 }
+
 
 export function AdminCourseDetailPage(): React.JSX.Element {
   const { courseId = '' } = useParams();
@@ -879,76 +573,5 @@ export function AdminCourseDetailPage(): React.JSX.Element {
         />
       )}
     </section>
-  );
-}
-
-function MemberDialog({
-  title,
-  courseId,
-  role,
-  pending,
-  error,
-  onClose,
-  onSubmit,
-}: {
-  title: string;
-  courseId: string;
-  role: 'professor' | 'student';
-  pending: boolean;
-  error: string | null;
-  onClose: () => void;
-  onSubmit: (
-    candidate: CourseMemberCandidate,
-    role: CourseInstructorRole,
-  ) => void;
-}): React.JSX.Element {
-  const [candidate, setCandidate] = useState<CourseMemberCandidate | null>(
-    null,
-  );
-  const [instructorRole, setInstructorRole] =
-    useState<CourseInstructorRole>('owner');
-  return (
-    <Dialog title={title} onClose={onClose}>
-      <div className="member-dialog">
-        <MemberPicker courseId={courseId} role={role} onSelect={setCandidate} />
-        {candidate && (
-          <p className="selected-member">
-            Επιλογή: <strong>{candidate.fullName}</strong> · {candidate.email}
-          </p>
-        )}
-        {role === 'professor' && (
-          <label>
-            Ρόλος ανάθεσης
-            <select
-              value={instructorRole}
-              onChange={(event) =>
-                setInstructorRole(event.target.value as CourseInstructorRole)
-              }
-            >
-              <option value="owner">Υπεύθυνος μαθήματος</option>
-              <option value="assistant">Συνεργάτης διδάσκων</option>
-            </select>
-          </label>
-        )}
-        {error && <ErrorNotice>{error}</ErrorNotice>}
-        <footer className="course-dialog-actions">
-          <button className="secondary-button" type="button" onClick={onClose}>
-            Ακύρωση
-          </button>
-          <button
-            className="primary-button"
-            disabled={!candidate || pending}
-            type="button"
-            onClick={() => candidate && onSubmit(candidate, instructorRole)}
-          >
-            {pending
-              ? 'Αποθήκευση…'
-              : role === 'professor'
-                ? 'Ανάθεση'
-                : 'Εγγραφή'}
-          </button>
-        </footer>
-      </div>
-    </Dialog>
   );
 }

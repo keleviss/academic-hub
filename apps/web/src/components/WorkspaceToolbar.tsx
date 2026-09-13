@@ -3,9 +3,9 @@ import type { UserRole } from '@web-app/contracts';
 import { Menu, UserCircle } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 
-import { appPath } from '../../../auth/session';
-import { fetchAdminCourse, fetchProfessorCourse } from '../../../api/client';
-import { workspaceRoutesByRole } from '../routing/workspaceRoutes';
+import { appPath } from '../auth/session';
+import { fetchAdminCourse, fetchProfessorCourse } from '../api/client';
+import { workspaceRoutesByRole } from '../modules/workspace/routing/workspaceRoutes';
 
 type Breadcrumb = {
   label: string;

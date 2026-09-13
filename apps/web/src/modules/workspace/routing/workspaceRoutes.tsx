@@ -1,8 +1,8 @@
 import type { UserRole } from '@web-app/contracts';
 
 import { roleLabels } from '../../../auth/session';
-import { AdminCoursesPage } from '../../admin-courses/pages/AdminCoursesPage';
-import { ProfessorCoursesPage } from '../../professor-courses/pages/ProfessorCoursesPage';
+import { AdminCoursesPage } from '../../admin/pages/AdminCoursesPage';
+import { ProfessorCoursesPage } from '../../professor/courses/pages/ProfessorCoursesPage';
 
 export type WorkspaceNavIcon =
   | 'activity'
