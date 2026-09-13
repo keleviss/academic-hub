@@ -52,6 +52,7 @@ const documentRecord = {
   mimeType: 'application/pdf',
   fileSizeBytes: 1234n,
   pageCount: 8,
+  objectKey: `courses/${courseId}/documents/${documentId}.pdf`,
   createdAt: now,
   updatedAt: now,
 };
@@ -72,7 +73,12 @@ function createTestApp(
     checkBucketReadiness: vi.fn(),
     deleteObject: vi.fn().mockResolvedValue(undefined),
     ensureBucketReady: vi.fn(),
-    getObject: vi.fn(),
+    getObject: vi.fn(async (key: string) => ({
+      body: new TextEncoder().encode(`content-of-${key}`),
+      contentType: 'application/pdf',
+      key,
+      metadata: {},
+    })),
     headObject: vi.fn(),
     putObject: vi.fn().mockResolvedValue(undefined),
   };
@@ -497,6 +503,61 @@ describe('course document routes', () => {
       .set('Cookie', authCookie())
       .expect(404);
     expect(deletedResponse.body.error.code).toBe('DOCUMENT_NOT_FOUND');
+  });
+
+  it('streams document content for an assigned professor', async () => {
+    const { app, storageService } = createTestApp('professor');
+
+    const response = await request(app)
+      .get(`/api/courses/${courseId}/documents/${documentId}/content`)
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    expect(response.headers['content-type']).toBe('application/pdf');
+    expect(response.headers['content-disposition']).toContain(
+      'filename="syllabus.pdf"',
+    );
+    expect(response.headers['cache-control']).toBe('private, no-store');
+    expect(response.body.toString()).toBe(
+      `content-of-${documentRecord.objectKey}`,
+    );
+    expect(storageService.getObject).toHaveBeenCalledWith(
+      documentRecord.objectKey,
+    );
+  });
+
+  it('blocks students from reading hidden document content', async () => {
+    const { app } = createTestApp('student', { visibilityFixtures: true });
+
+    const response = await request(app)
+      .get(`/api/courses/${courseId}/documents/${documentId}/content`)
+      .set('Cookie', authCookie())
+      .expect(404);
+
+    expect(response.body.error.code).toBe('DOCUMENT_NOT_FOUND');
+  });
+
+  it('allows students to read visible document content', async () => {
+    const { app } = createTestApp('student', { visibilityFixtures: true });
+
+    await request(app)
+      .get(`/api/courses/${courseId}/documents/${visibleDocumentId}/content`)
+      .set('Cookie', authCookie())
+      .expect(200);
+  });
+
+  it('returns a 502 when stored content cannot be read', async () => {
+    const { app, storageService } = createTestApp('professor');
+    vi.mocked(storageService.getObject).mockRejectedValueOnce(
+      new Error('storage unavailable'),
+    );
+
+    const response = await request(app)
+      .get(`/api/courses/${courseId}/documents/${documentId}/content`)
+      .set('Cookie', authCookie())
+      .expect(502);
+
+    expect(response.body.error.code).toBe('DOCUMENT_CONTENT_UNAVAILABLE');
   });
 
   it('rejects unassigned professors before reading document rows', async () => {

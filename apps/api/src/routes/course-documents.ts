@@ -193,6 +193,56 @@ export function createCourseDocumentsRouter(
     }),
   );
 
+  router.get(
+    '/:documentId/content',
+    requireRole(['admin', 'professor', 'student'], gateOptions),
+    validateRequest({ params: CourseDocumentIdParamsSchema }),
+    asyncHandler(async (request, response) => {
+      const { courseId, documentId } = request.params as {
+        courseId: string;
+        documentId: string;
+      };
+      await authorization.assertCourseAccess(
+        request.currentSession!.user,
+        courseId,
+        requestContext(request),
+      );
+
+      const document = await getCourseDocumentContentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+
+      let object;
+      try {
+        object = await storageService.getObject(document.objectKey!);
+      } catch (error) {
+        console.error('Failed to read document content from storage', {
+          documentId,
+          error,
+        });
+        throw new HttpError(
+          502,
+          'Document content is currently unavailable.',
+          undefined,
+          'DOCUMENT_CONTENT_UNAVAILABLE',
+        );
+      }
+
+      response.setHeader('Content-Type', document.mimeType ?? 'application/pdf');
+      response.setHeader('Content-Length', String(object.body.byteLength));
+      response.setHeader(
+        'Content-Disposition',
+        buildContentDisposition(document.originalFilename),
+      );
+      response.setHeader('Cache-Control', 'private, no-store');
+      response.setHeader('X-Content-Type-Options', 'nosniff');
+      response.status(200).send(Buffer.from(object.body));
+    }),
+  );
+
   router.patch(
     '/:documentId',
     requireRole(['admin', 'professor'], gateOptions),
@@ -423,6 +473,40 @@ function courseDocumentWhere(
         }
       : {}),
   };
+}
+
+interface CourseDocumentContentRecord {
+  mimeType: string | null;
+  objectKey: string | null;
+  originalFilename: string | null;
+}
+
+async function getCourseDocumentContentOrThrow(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  role: UserRole,
+): Promise<CourseDocumentContentRecord> {
+  const document = (await prisma.document.findFirst({
+    select: { mimeType: true, objectKey: true, originalFilename: true },
+    where: courseDocumentWhere(courseId, role, documentId),
+  })) as CourseDocumentContentRecord | null;
+
+  if (!document || !document.objectKey) {
+    throw documentNotFound(courseId, documentId);
+  }
+
+  return document;
+}
+
+// Provides both an ASCII-safe fallback and an RFC 5987 UTF-8 value for non-ASCII filenames.
+function buildContentDisposition(originalFilename: string | null): string {
+  const safeName = (originalFilename ?? 'document.pdf').replace(
+    /[\r\n"]/g,
+    '',
+  );
+  const asciiFallback = safeName.replace(/[^\x20-\x7E]/g, '_') || 'document.pdf';
+  return `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(safeName)}`;
 }
 
 async function updateCourseDocumentMetadata(
