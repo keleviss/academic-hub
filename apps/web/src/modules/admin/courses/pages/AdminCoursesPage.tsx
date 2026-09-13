@@ -1,10 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import {
-  createAdminCourse,
-  fetchAdminCourses,
-} from '../../../../api/client';
+import { createAdminCourse, fetchAdminCourses } from '../../../../api/client';
 import { EmptyState } from '../../../../components/EmptyState';
 import { Pagination } from '../../../../components/Pagination';
 import { QueryState } from '../../../../components/QueryState';
@@ -22,7 +19,11 @@ import { PageLayout } from '../../../../components/PageLayout';
 export function AdminCoursesPage(): React.JSX.Element {
   const navigate = useNavigate();
   const { params, setFilter } = useUrlFilters({ resetKey: 'page' });
-  const { dialog: createOpen, openDialog, closeDialog } = useDialogState<true>();
+  const {
+    dialog: createOpen,
+    openDialog,
+    closeDialog,
+  } = useDialogState<true>();
 
   const page = Number(params.get('page') ?? '1');
   const requestedStatus = params.get('status');
@@ -70,7 +71,7 @@ export function AdminCoursesPage(): React.JSX.Element {
           onClick={() => openDialog(true)}
         >
           + Νέο μάθημα
-        </button>
+        </button>,
       ]}
     >
       <QueryState
@@ -212,6 +213,6 @@ export function AdminCoursesPage(): React.JSX.Element {
           onSubmit={(value) => create.mutate(value)}
         />
       )}
-    </PageLayout >
+    </PageLayout>
   );
 }

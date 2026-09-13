@@ -11,7 +11,10 @@ import { useUrlFilters } from '../../../../hooks/useUrlFilters';
 import { getAcademicYearLabel } from '../../../../lib/academic-year';
 import { normalizeSearch } from '../../../../lib/normalize-search';
 import { PageLayout } from '../../../../components/PageLayout';
-import { instructorRoleLabels, professorCoursesKey } from '../utils/ProfessorCourses.const';
+import {
+  instructorRoleLabels,
+  professorCoursesKey,
+} from '../utils/ProfessorCourses.const';
 import { compareCourses } from '../utils/ProfessorCoursesUtils';
 
 function CourseCounts({
@@ -45,7 +48,9 @@ function CourseCard({
         />
       </div>
       <h2>{course.title}</h2>
-      <p className="course-card-role">{instructorRoleLabels[course.instructorRole]}</p>
+      <p className="course-card-role">
+        {instructorRoleLabels[course.instructorRole]}
+      </p>
       {course.description && (
         <p className="course-card-description">{course.description}</p>
       )}
@@ -94,9 +99,10 @@ export function ProfessorCoursesPage(): React.JSX.Element {
   const courses = useMemo(() => query.data?.data ?? [], [query.data]);
 
   const semesterOptions = useMemo(
-    () => Array.from(new Set(courses.map((course) => course.semester))).sort(
-      (a, b) => a - b,
-    ),
+    () =>
+      Array.from(new Set(courses.map((course) => course.semester))).sort(
+        (a, b) => a - b,
+      ),
     [courses],
   );
 
@@ -117,7 +123,8 @@ export function ProfessorCoursesPage(): React.JSX.Element {
   );
 
   const hasFilters = !!search || !!semester;
-  const clearFilters = () => setFilter({ search: undefined, semester: undefined });
+  const clearFilters = () =>
+    setFilter({ search: undefined, semester: undefined });
 
   return (
     <PageLayout
@@ -125,10 +132,8 @@ export function ProfessorCoursesPage(): React.JSX.Element {
       subtitle="Πρόσβαση στα μαθήματα που σου έχουν ανατεθεί και στο υλικό τους."
       actions={
         <div className="flex flex-col items-end">
-          <p className="text-hub-muted text-xs">
-            Ακαδημαϊκό έτος
-          </p>
-          <p className='text-hub-teal-dark text-[15px] font-semibold'>
+          <p className="text-hub-muted text-xs">Ακαδημαϊκό έτος</p>
+          <p className="text-hub-teal-dark text-[15px] font-semibold">
             {getAcademicYearLabel()}
           </p>
         </div>
@@ -176,7 +181,11 @@ export function ProfessorCoursesPage(): React.JSX.Element {
               >
                 Εξάμηνο {sort === 'asc' ? '↑' : '↓'}
               </button>
-              <div className="view-toggle" role="group" aria-label="Προβολή μαθημάτων">
+              <div
+                className="view-toggle"
+                role="group"
+                aria-label="Προβολή μαθημάτων"
+              >
                 <button
                   type="button"
                   aria-pressed={view === 'cards'}
@@ -232,6 +241,6 @@ export function ProfessorCoursesPage(): React.JSX.Element {
       <p className="course-page-footnote">
         Οι αναθέσεις μαθημάτων ορίζονται από τον διαχειριστή.
       </p>
-    </PageLayout>);
+    </PageLayout>
+  );
 }
-

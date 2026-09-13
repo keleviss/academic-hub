@@ -1511,7 +1511,6 @@ select {
 .course-page-footnote {
   color: var(--color-hub-muted);
   font-size: 0.8125rem;
-  text-align: center;
 }
 .view-toggle {
   display: inline-flex;

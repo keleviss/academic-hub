@@ -30,7 +30,6 @@ import { CourseForm } from '../components/AdminCourseForm';
 import { PageLayout } from '../../../../components/PageLayout';
 import { StatusBadge } from '../../../../components/StatusBadge';
 
-
 function MemberPicker({
   courseId,
   role,
@@ -186,7 +185,6 @@ function MemberDialog({
   );
 }
 
-
 export function AdminCourseDetailPage(): React.JSX.Element {
   const { courseId = '' } = useParams();
   const [tab, setTab] = useState<'details' | 'instructors' | 'students'>(
@@ -273,11 +271,10 @@ export function AdminCourseDetailPage(): React.JSX.Element {
               <div className="flex items-center gap-2">
                 <StatusBadge
                   active={detail.isActive}
-                  activeLabel='Ενεργό'
-                  inactiveLabel='Ανενεργό' />
-                <span>
-                  {`${detail.code} · ${detail.semester}ο εξάμηνο`}
-                </span>
+                  activeLabel="Ενεργό"
+                  inactiveLabel="Ανενεργό"
+                />
+                <span>{`${detail.code} · ${detail.semester}ο εξάμηνο`}</span>
               </div>
             }
             actions={
@@ -289,7 +286,7 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                 Επεξεργασία
               </button>
             }
-            backlink={{ href: "/app/courses", text: "Όλα τα μαθήματα" }}
+            backlink={{ href: '/app/courses', text: 'Όλα τα μαθήματα' }}
           >
             <div className="course-detail-layout">
               <div className="course-list-card">
@@ -336,7 +333,9 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                       aria-labelledby="course-description-heading"
                     >
                       <h2 id="course-description-heading">Περιγραφή</h2>
-                      <p>{detail.description ?? 'Δεν έχει προστεθεί περιγραφή.'}</p>
+                      <p>
+                        {detail.description ?? 'Δεν έχει προστεθεί περιγραφή.'}
+                      </p>
                     </section>
                     <div className="danger-row">
                       <div>
@@ -388,7 +387,9 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                           <button
                             className="text-danger-button"
                             type="button"
-                            onClick={() => removeInstructorMutation.mutate(item.userId)}
+                            onClick={() =>
+                              removeInstructorMutation.mutate(item.userId)
+                            }
                           >
                             Αφαίρεση
                           </button>
@@ -420,7 +421,9 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                           <input
                             value={studentSearch}
                             placeholder="Αναζήτηση ονόματος ή email…"
-                            onChange={(event) => setStudentSearch(event.target.value)}
+                            onChange={(event) =>
+                              setStudentSearch(event.target.value)
+                            }
                           />
                         </label>
                         {visibleEnrollments.length === 0 ? (
@@ -445,7 +448,8 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                                   event.currentTarget.blur();
                                   updateEnrollmentMutation.mutate({
                                     userId: item.studentId,
-                                    status: event.target.value as EnrollmentStatus,
+                                    status: event.target
+                                      .value as EnrollmentStatus,
                                   });
                                 }}
                               >
@@ -463,92 +467,89 @@ export function AdminCourseDetailPage(): React.JSX.Element {
               </div>
               <Summary course={detail} />
             </div>
-            {
-              dialog === 'edit' && (
-                <CourseForm
-                  title="Επεξεργασία μαθήματος"
-                  initial={detail}
-                  submitLabel="Αποθήκευση αλλαγών"
-                  pending={update.isPending}
-                  error={update.isError ? messageFor(update.error) : null}
-                  onCancel={closeDialog}
-                  onSubmit={(value) => update.mutate(value)}
-                />
-              )
-            }
-            {
-              dialog === 'activation' && (
-                <Dialog
-                  title={
-                    detail.isActive
-                      ? 'Απενεργοποίηση μαθήματος'
-                      : 'Ενεργοποίηση μαθήματος'
-                  }
-                  onClose={closeDialog}
-                >
-                  <div className="confirm-dialog">
-                    <p>
-                      {detail.isActive
-                        ? 'Το μάθημα θα πάψει να είναι ενεργό. Οι εγγραφές, οι αναθέσεις και τα στοιχεία του θα διατηρηθούν.'
-                        : 'Το μάθημα θα γίνει ξανά ενεργό. Οι εγγραφές, οι αναθέσεις και τα στοιχεία του θα διατηρηθούν.'}
-                    </p>
-                    {update.isError && (
-                      <ErrorNotice>{messageFor(update.error)}</ErrorNotice>
-                    )}
-                    <footer className="course-dialog-actions">
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={closeDialog}
-                      >
-                        Ακύρωση
-                      </button>
-                      <button
-                        className="primary-button"
-                        disabled={update.isPending}
-                        type="button"
-                        onClick={() => update.mutate({ isActive: !detail.isActive })}
-                      >
-                        Επιβεβαίωση
-                      </button>
-                    </footer>
-                  </div>
-                </Dialog>
-              )
-            }
-            {
-              dialog === 'instructor' && (
-                <MemberDialog
-                  title="Ανάθεση διδάσκοντα"
-                  courseId={courseId}
-                  role="professor"
-                  pending={assign.isPending}
-                  error={assign.isError ? messageFor(assign.error) : null}
-                  onClose={closeDialog}
-                  onSubmit={(candidate, instructorRole) =>
-                    assign.mutate({ instructorId: candidate.id, role: instructorRole })
-                  }
-                />
-              )
-            }
-            {
-              dialog === 'student' && (
-                <MemberDialog
-                  title="Εγγραφή φοιτητή"
-                  courseId={courseId}
-                  role="student"
-                  pending={enroll.isPending}
-                  error={enroll.isError ? messageFor(enroll.error) : null}
-                  onClose={closeDialog}
-                  onSubmit={(candidate) =>
-                    enroll.mutate({ studentId: candidate.id, status: 'active' })
-                  }
-                />
-              )
-            }
+            {dialog === 'edit' && (
+              <CourseForm
+                title="Επεξεργασία μαθήματος"
+                initial={detail}
+                submitLabel="Αποθήκευση αλλαγών"
+                pending={update.isPending}
+                error={update.isError ? messageFor(update.error) : null}
+                onCancel={closeDialog}
+                onSubmit={(value) => update.mutate(value)}
+              />
+            )}
+            {dialog === 'activation' && (
+              <Dialog
+                title={
+                  detail.isActive
+                    ? 'Απενεργοποίηση μαθήματος'
+                    : 'Ενεργοποίηση μαθήματος'
+                }
+                onClose={closeDialog}
+              >
+                <div className="confirm-dialog">
+                  <p>
+                    {detail.isActive
+                      ? 'Το μάθημα θα πάψει να είναι ενεργό. Οι εγγραφές, οι αναθέσεις και τα στοιχεία του θα διατηρηθούν.'
+                      : 'Το μάθημα θα γίνει ξανά ενεργό. Οι εγγραφές, οι αναθέσεις και τα στοιχεία του θα διατηρηθούν.'}
+                  </p>
+                  {update.isError && (
+                    <ErrorNotice>{messageFor(update.error)}</ErrorNotice>
+                  )}
+                  <footer className="course-dialog-actions">
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={closeDialog}
+                    >
+                      Ακύρωση
+                    </button>
+                    <button
+                      className="primary-button"
+                      disabled={update.isPending}
+                      type="button"
+                      onClick={() =>
+                        update.mutate({ isActive: !detail.isActive })
+                      }
+                    >
+                      Επιβεβαίωση
+                    </button>
+                  </footer>
+                </div>
+              </Dialog>
+            )}
+            {dialog === 'instructor' && (
+              <MemberDialog
+                title="Ανάθεση διδάσκοντα"
+                courseId={courseId}
+                role="professor"
+                pending={assign.isPending}
+                error={assign.isError ? messageFor(assign.error) : null}
+                onClose={closeDialog}
+                onSubmit={(candidate, instructorRole) =>
+                  assign.mutate({
+                    instructorId: candidate.id,
+                    role: instructorRole,
+                  })
+                }
+              />
+            )}
+            {dialog === 'student' && (
+              <MemberDialog
+                title="Εγγραφή φοιτητή"
+                courseId={courseId}
+                role="student"
+                pending={enroll.isPending}
+                error={enroll.isError ? messageFor(enroll.error) : null}
+                onClose={closeDialog}
+                onSubmit={(candidate) =>
+                  enroll.mutate({ studentId: candidate.id, status: 'active' })
+                }
+              />
+            )}
           </PageLayout>
         );
       }}
-    </QueryState >
+    </QueryState>
   );
 }
