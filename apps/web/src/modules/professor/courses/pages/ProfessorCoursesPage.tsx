@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ProfessorCourseListItem } from '@web-app/contracts';
 
 import { fetchProfessorCourses } from '../../../../api/client';
+import { CourseResultsPanel } from '../../../../components/CourseResultsPanel';
 import { EmptyState } from '../../../../components/EmptyState';
 import { QueryState } from '../../../../components/QueryState';
 import { StatusBadge } from '../../../../components/StatusBadge';
@@ -148,94 +149,93 @@ export function ProfessorCoursesPage(): React.JSX.Element {
         onRetry={() => void query.refetch()}
       >
         {() => (
-          <section className="professor-courses-results">
-            <div className="course-filter-row text-sm">
-              <input
-                aria-label="Αναζήτηση μαθημάτων"
-                placeholder="Αναζήτηση τίτλου ή κωδικού…"
-                value={search}
-                onChange={(event) =>
-                  setFilter({ search: event.target.value || undefined })
-                }
-              />
-              <select
-                aria-label="Φίλτρο εξαμήνου"
-                value={semester ?? ''}
-                onChange={(event) =>
-                  setFilter({ semester: event.target.value || undefined })
-                }
-              >
-                <option value="">Όλα τα εξάμηνα</option>
-                {semesterOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}ο εξάμηνο
-                  </option>
-                ))}
-              </select>
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() =>
-                  setFilter({ sort: sort === 'asc' ? 'desc' : undefined })
-                }
-              >
-                Εξάμηνο {sort === 'asc' ? '↑' : '↓'}
-              </button>
-              <div
-                className="view-toggle"
-                role="group"
-                aria-label="Προβολή μαθημάτων"
-              >
-                <button
-                  type="button"
-                  aria-pressed={view === 'cards'}
-                  onClick={() => setFilter({ view: undefined })}
+          <CourseResultsPanel
+            view={view}
+            items={sorted}
+            getKey={(course) => course.id}
+            renderCard={(course) => <CourseCard course={course} />}
+            renderRow={(course) => <CourseListRow course={course} />}
+            filters={
+              <div className="course-filter-row text-sm">
+                <input
+                  aria-label="Αναζήτηση μαθημάτων"
+                  placeholder="Αναζήτηση τίτλου ή κωδικού…"
+                  value={search}
+                  onChange={(event) =>
+                    setFilter({ search: event.target.value || undefined })
+                  }
+                />
+                <select
+                  aria-label="Φίλτρο εξαμήνου"
+                  value={semester ?? ''}
+                  onChange={(event) =>
+                    setFilter({ semester: event.target.value || undefined })
+                  }
                 >
-                  Κάρτες
-                </button>
+                  <option value="">Όλα τα εξάμηνα</option>
+                  {semesterOptions.map((item) => (
+                    <option key={item} value={item}>
+                      {item}ο εξάμηνο
+                    </option>
+                  ))}
+                </select>
                 <button
+                  className="secondary-button"
                   type="button"
-                  aria-pressed={view === 'list'}
-                  onClick={() => setFilter({ view: 'list' })}
+                  onClick={() =>
+                    setFilter({ sort: sort === 'asc' ? 'desc' : undefined })
+                  }
                 >
-                  Λίστα
+                  Εξάμηνο {sort === 'asc' ? '↑' : '↓'}
                 </button>
+                <div
+                  className="view-toggle"
+                  role="group"
+                  aria-label="Προβολή μαθημάτων"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={view === 'cards'}
+                    onClick={() => setFilter({ view: undefined })}
+                  >
+                    Κάρτες
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={view === 'list'}
+                    onClick={() => setFilter({ view: 'list' })}
+                  >
+                    Λίστα
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="professor-courses-results-header">
-              <p>Ανατεθειμένα μαθήματα</p>
-              <span>
-                {query.data?.summary.assignedCourseCount ?? 0}{' '}
-                {(query.data?.summary.assignedCourseCount ?? 0) === 1
-                  ? 'μάθημα'
-                  : 'μαθήματα'}
-              </span>
-            </div>
-            {courses.length === 0 ? (
-              <EmptyState message="Δεν σου έχουν ανατεθεί μαθήματα." />
-            ) : sorted.length === 0 ? (
-              <EmptyState
-                message="Δεν βρέθηκαν μαθήματα για τα επιλεγμένα φίλτρα."
-                action={
-                  hasFilters
-                    ? { label: 'Καθαρισμός φίλτρων', onClick: clearFilters }
-                    : undefined
-                }
-              />
-            ) : view === 'cards' ? (
-              <div className="course-card-grid">
-                {sorted.map((course) => (
-                  <CourseCard course={course} key={course.id} />
-                ))}
+            }
+            header={
+              <div className="course-results-header">
+                <p>Ανατεθειμένα μαθήματα</p>
+                <span>
+                  {query.data?.summary.assignedCourseCount ?? 0}{' '}
+                  {(query.data?.summary.assignedCourseCount ?? 0) === 1
+                    ? 'μάθημα'
+                    : 'μαθήματα'}
+                </span>
               </div>
-            ) : (
-              <div className="course-list-rows">
-                {sorted.map((course) => (
-                  <CourseListRow course={course} key={course.id} />
-                ))}
-              </div>
-            )}
-          </section>
+            }
+            emptyState={
+              courses.length === 0 ? (
+                <EmptyState message="Δεν σου έχουν ανατεθεί μαθήματα." />
+              ) : sorted.length === 0 ? (
+                <EmptyState
+                  message="Δεν βρέθηκαν μαθήματα για τα επιλεγμένα φίλτρα."
+                  action={
+                    hasFilters
+                      ? { label: 'Καθαρισμός φίλτρων', onClick: clearFilters }
+                      : undefined
+                  }
+                />
+              ) : undefined
+            }
+          />
         )}
       </QueryState>
       <p className="course-page-footnote">

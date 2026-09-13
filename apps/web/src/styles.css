@@ -1485,25 +1485,25 @@ select {
   gap: var(--hub-space-5);
   width: 100%;
 }
-.professor-courses-results {
+.course-results {
   display: grid;
   gap: var(--hub-space-4);
 }
-.professor-courses-results .course-filter-row {
+.course-results .course-filter-row {
   padding: 0;
 }
-.professor-courses-results-header {
+.course-results-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--hub-space-3);
 }
-.professor-courses-results-header p {
+.course-results-header p {
   color: var(--color-hub-navy);
   font-size: 0.875rem;
   font-weight: 750;
 }
-.professor-courses-results-header span {
+.course-results-header span {
   color: var(--color-hub-muted);
   font-size: 0.8125rem;
   font-weight: 600;
@@ -1688,8 +1688,8 @@ select {
   .course-list-row {
     flex-wrap: wrap;
   }
-  .professor-courses-results .course-filter-row,
-  .professor-courses-results-header {
+  .course-results .course-filter-row,
+  .course-results-header {
     align-items: stretch;
     flex-direction: column;
   }
