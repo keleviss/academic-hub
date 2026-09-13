@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useParams } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import type {
   CourseDocumentMetadata,
@@ -9,16 +9,23 @@ import type {
 } from '@web-app/contracts';
 
 import {
-  ApiClientError,
   createCourseDocument,
   fetchCourseDocuments,
   fetchProfessorCourse,
   updateCourseDocumentMetadata,
 } from '../../../../api/client';
 import { useAuthenticatedUser } from '../../../../auth/authenticatedUser';
+import { Avatar } from '../../../../components/Avatar';
+import { BackLink } from '../../../../components/BackLink';
 import { Dialog } from '../../../../components/Dialog';
+import { EmptyState } from '../../../../components/EmptyState';
 import { ErrorNotice } from '../../../../components/feedback';
-import { useNotification } from '../../../../components/notifications';
+import { QueryState } from '../../../../components/QueryState';
+import { StatusBadge } from '../../../../components/StatusBadge';
+import { Tabs } from '../../../../components/Tabs';
+import { useDialogState } from '../../../../hooks/useDialogState';
+import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
+import { getErrorMessage } from '../../../../lib/api-error';
 import { normalizeSearch } from '../../../../lib/normalize-search';
 import { DocumentFormDialog, type DocumentFormValues } from '../components/DocumentFormDialog';
 import { professorCoursesKey } from './ProfessorCoursesPage';
@@ -28,8 +35,7 @@ type DocumentFilter = 'all' | 'visible' | 'hidden';
 type DialogState =
   | { type: 'create' }
   | { type: 'edit'; document: CourseDocumentMetadata }
-  | { type: 'visibility'; document: CourseDocumentMetadata }
-  | null;
+  | { type: 'visibility'; document: CourseDocumentMetadata };
 
 const instructorRoleLabels = {
   owner: 'Υπεύθυνος μαθήματος',
@@ -37,23 +43,12 @@ const instructorRoleLabels = {
 } as const;
 
 function messageFor(error: unknown): string {
-  if (error instanceof ApiClientError) {
-    if (error.status === 403)
-      return 'Δεν έχεις πρόσβαση σε αυτό το μάθημα.';
-    if (error.status === 404) return 'Το μάθημα δεν βρέθηκε.';
-    return error.message;
-  }
-  return 'Η ενέργεια δεν ολοκληρώθηκε. Δοκίμασε ξανά.';
-}
-
-function initialsFor(fullName: string): string {
-  const initials = fullName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('');
-  return (initials || '?').toLocaleUpperCase('el-GR');
+  return getErrorMessage(error, {
+    statuses: {
+      403: 'Δεν έχεις πρόσβαση σε αυτό το μάθημα.',
+      404: 'Το μάθημα δεν βρέθηκε.',
+    },
+  });
 }
 
 function documentsQueryKey(courseId: string) {
@@ -67,10 +62,8 @@ function professorCourseKey(courseId: string) {
 export function ProfessorCourseDetailPage(): React.JSX.Element {
   const { courseId = '' } = useParams();
   const user = useAuthenticatedUser();
-  const client = useQueryClient();
-  const { notify } = useNotification();
   const [tab, setTab] = useState<Tab>('documents');
-  const [dialog, setDialog] = useState<DialogState>(null);
+  const { dialog, openDialog, closeDialog } = useDialogState<DialogState>();
   const [docSearch, setDocSearch] = useState('');
   const [docFilter, setDocFilter] = useState<DocumentFilter>('all');
 
@@ -93,27 +86,25 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
     enabled: !!courseId,
   });
 
-  const refreshAfterMutation = async () => {
-    await Promise.all([
-      client.invalidateQueries({ queryKey: professorCoursesKey }),
-      client.invalidateQueries({ queryKey: professorCourseKey(courseId) }),
-      client.invalidateQueries({ queryKey: documentsQueryKey(courseId) }),
-    ]);
-  };
+  const invalidateKeys = [
+    professorCoursesKey,
+    professorCourseKey(courseId),
+    documentsQueryKey(courseId),
+  ];
 
-  const createMutation = useMutation({
+  const createMutation = useNotifyingMutation({
     mutationFn: (input: CreateCourseDocumentRequest) =>
       createCourseDocument(courseId, input),
-    onSuccess: async () => {
-      await refreshAfterMutation();
-      setDialog(null);
+    invalidateKeys,
+    successMessage: 'Το έγγραφο δημιουργήθηκε.',
+    onSuccess: () => {
+      closeDialog();
       setTab('documents');
       setDocSearch('');
       setDocFilter('all');
-      notify({ kind: 'success', message: 'Το έγγραφο δημιουργήθηκε.' });
     },
   });
-  const saveMutation = useMutation({
+  const saveMutation = useNotifyingMutation({
     mutationFn: ({
       documentId,
       input,
@@ -121,16 +112,16 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
       documentId: string;
       input: UpdateCourseDocumentMetadataRequest;
     }) => updateCourseDocumentMetadata(courseId, documentId, input),
-    onSuccess: async () => {
-      await refreshAfterMutation();
-      setDialog(null);
+    invalidateKeys,
+    successMessage: 'Οι αλλαγές αποθηκεύτηκαν.',
+    onSuccess: () => {
+      closeDialog();
       setTab('documents');
       setDocSearch('');
       setDocFilter('all');
-      notify({ kind: 'success', message: 'Οι αλλαγές αποθηκεύτηκαν.' });
     },
   });
-  const visibilityMutation = useMutation({
+  const visibilityMutation = useNotifyingMutation({
     mutationFn: ({
       documentId,
       input,
@@ -138,17 +129,11 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
       documentId: string;
       input: UpdateCourseDocumentMetadataRequest;
     }) => updateCourseDocumentMetadata(courseId, documentId, input),
-    onSuccess: async () => {
-      await refreshAfterMutation();
-      setDialog(null);
-      notify({
-        kind: 'success',
-        message: 'Η ορατότητα του εγγράφου ενημερώθηκε.',
-      });
-    },
+    invalidateKeys,
+    successMessage: 'Η ορατότητα του εγγράφου ενημερώθηκε.',
+    onSuccess: closeDialog,
   });
 
-  const detail = courseQuery.data?.data;
   const documents = documentsQuery.data?.data ?? [];
   const totalDocuments = documents.length;
 
@@ -174,28 +159,27 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
     setDocFilter('all');
   };
 
-  if (courseQuery.isPending) return <p role="status">Φόρτωση μαθήματος…</p>;
-  if (courseQuery.isError || !detail) {
-    return (
-      <section className="professor-course-detail-page">
-        <Link className="back-link" to="/app/courses">
-          ← Τα μαθήματά μου
-        </Link>
-        <ErrorNotice>{messageFor(courseQuery.error)}</ErrorNotice>
-      </section>
-    );
-  }
-
   const openEdit = (document: CourseDocumentMetadata) =>
-    setDialog({ type: 'edit', document });
+    openDialog({ type: 'edit', document });
   const toggleVisibility = (document: CourseDocumentMetadata) =>
-    setDialog({ type: 'visibility', document });
+    openDialog({ type: 'visibility', document });
 
   return (
+    <QueryState
+      query={courseQuery}
+      loadingLabel="Φόρτωση μαθήματος…"
+      errorOptions={{
+        statuses: {
+          403: 'Δεν έχεις πρόσβαση σε αυτό το μάθημα.',
+          404: 'Το μάθημα δεν βρέθηκε.',
+        },
+      }}
+    >
+      {(course) => {
+        const detail = course.data;
+        return (
     <section className="professor-course-detail-page">
-      <Link className="back-link" to="/app/courses">
-        ← Τα μαθήματά μου
-      </Link>
+      <BackLink to="/app/courses">Τα μαθήματά μου</BackLink>
       <header className="course-detail-header mt-2">
         <div>
           <p className="auth-kicker">
@@ -210,30 +194,21 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
         <button
           className="primary-button"
           type="button"
-          onClick={() => setDialog({ type: 'create' })}
+          onClick={() => openDialog({ type: 'create' })}
         >
           + Νέο έγγραφο
         </button>
       </header>
       <div className="course-detail-layout">
         <div className="course-list-card">
-          <div className="course-filter-tabs" role="tablist">
-            {(
-              [
-                ['documents', `Έγγραφα (${totalDocuments})`],
-                ['details', 'Στοιχεία μαθήματος'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                className={tab === value ? 'is-active' : ''}
-                type="button"
-                onClick={() => setTab(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={tab}
+            onChange={setTab}
+            items={[
+              { value: 'documents', label: `Έγγραφα (${totalDocuments})` },
+              { value: 'details', label: 'Στοιχεία μαθήματος' },
+            ]}
+          />
           {tab === 'documents' && (
             <div className="course-members">
               <div className="course-filter-row text-sm">
@@ -259,27 +234,21 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                 {filteredDocuments.length} από {totalDocuments} έγγραφα
               </p>
               {totalDocuments === 0 ? (
-                <div className="course-empty">
-                  <p>Το πρώτο υλικό ξεκινά εδώ.</p>
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={() => setDialog({ type: 'create' })}
-                  >
-                    Νέο έγγραφο
-                  </button>
-                </div>
+                <EmptyState
+                  message="Το πρώτο υλικό ξεκινά εδώ."
+                  action={{
+                    label: 'Νέο έγγραφο',
+                    onClick: () => openDialog({ type: 'create' }),
+                  }}
+                />
               ) : filteredDocuments.length === 0 ? (
-                <div className="course-empty">
-                  <p>Δεν βρέθηκαν έγγραφα για τα επιλεγμένα φίλτρα.</p>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={clearDocumentFilters}
-                  >
-                    Καθαρισμός φίλτρων
-                  </button>
-                </div>
+                <EmptyState
+                  message="Δεν βρέθηκαν έγγραφα για τα επιλεγμένα φίλτρα."
+                  action={{
+                    label: 'Καθαρισμός φίλτρων',
+                    onClick: clearDocumentFilters,
+                  }}
+                />
               ) : (
                 <ul className="document-list">
                   {filteredDocuments.map((document) => (
@@ -363,15 +332,11 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
               <div>
                 <dt>Κατάσταση</dt>
                 <dd>
-                  <span
-                    className={
-                      detail.isActive
-                        ? 'status-badge is-active'
-                        : 'status-badge is-inactive'
-                    }
-                  >
-                    {detail.isActive ? 'Ενεργό' : 'Ανενεργό'}
-                  </span>
+                  <StatusBadge
+                    active={detail.isActive}
+                    activeLabel="Ενεργό"
+                    inactiveLabel="Ανενεργό"
+                  />
                 </dd>
               </div>
               <div>
@@ -396,9 +361,7 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
               <h2>Διδάσκοντες</h2>
               {detail.instructors.map((instructor) => (
                 <div className="member-row instructor-row" key={instructor.id}>
-                  <span className="profile-avatar" aria-hidden="true">
-                    {initialsFor(instructor.fullName)}
-                  </span>
+                  <Avatar name={instructor.fullName} fallback="?" />
                   <div>
                     <strong>
                       {instructor.fullName}
@@ -438,7 +401,7 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                 ? messageFor(saveMutation.error)
                 : null
           }
-          onCancel={() => setDialog(null)}
+          onCancel={closeDialog}
           onSubmit={(values: DocumentFormValues) => {
             const input = {
               title: values.title,
@@ -461,7 +424,7 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
               ? 'Απόκρυψη εγγράφου'
               : 'Εμφάνιση εγγράφου'
           }
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
         >
           <div className="confirm-dialog">
             <p>
@@ -477,7 +440,7 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
               <button
                 className="secondary-button"
                 type="button"
-                onClick={() => setDialog(null)}
+                onClick={closeDialog}
               >
                 Ακύρωση
               </button>
@@ -504,5 +467,9 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
         </Dialog>
       )}
     </section>
+        );
+      }}
+    </QueryState>
   );
 }
+

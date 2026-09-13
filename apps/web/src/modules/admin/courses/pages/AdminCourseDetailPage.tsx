@@ -1,6 +1,5 @@
-import { ErrorNotice } from "apps/web/src/components/feedback";
-import { useQuery } from "node_modules/@tanstack/react-query/build/modern/useQuery";
-import { useState } from "react";
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import type {
   CourseDetail,
   CourseInstructorRole,
@@ -17,13 +16,19 @@ import {
   updateAdminCourse,
   updateCourseEnrollmentStatus,
 } from '../../../../api/client';
-import { messageFor } from "../utils/AdminCoursesUtils";
-import { Dialog } from "apps/web/src/components/Dialog";
-import { Link, useParams } from "react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNotification } from "apps/web/src/components/notifications";
-import { courseListKey } from "../utils/AdminCourses.const";
-import { CourseForm } from "../components/AdminCourseForm";
+import { messageFor } from '../utils/AdminCoursesUtils';
+import { BackLink } from '../../../../components/BackLink';
+import { Dialog } from '../../../../components/Dialog';
+import { ErrorNotice } from '../../../../components/feedback';
+import { EmptyState } from '../../../../components/EmptyState';
+import { QueryState } from '../../../../components/QueryState';
+import { StatusBadge } from '../../../../components/StatusBadge';
+import { Tabs } from '../../../../components/Tabs';
+import { useDialogState } from '../../../../hooks/useDialogState';
+import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
+import { useParams } from 'react-router';
+import { courseListKey } from '../utils/AdminCourses.const';
+import { CourseForm } from '../components/AdminCourseForm';
 
 
 function MemberPicker({
@@ -184,115 +189,86 @@ function MemberDialog({
 
 export function AdminCourseDetailPage(): React.JSX.Element {
   const { courseId = '' } = useParams();
-  const client = useQueryClient();
-  const { notify } = useNotification();
   const [tab, setTab] = useState<'details' | 'instructors' | 'students'>(
     'details',
   );
-  const [dialog, setDialog] = useState<
-    'edit' | 'activation' | 'instructor' | 'student' | null
-  >(null);
+  const { dialog, openDialog, closeDialog } = useDialogState<
+    'edit' | 'activation' | 'instructor' | 'student'
+  >();
   const [studentSearch, setStudentSearch] = useState('');
   const courseQuery = useQuery({
     queryKey: [...courseListKey, courseId],
     queryFn: ({ signal }) => fetchAdminCourse(courseId, signal),
     enabled: !!courseId,
   });
-  const refresh = async () => {
-    await client.invalidateQueries({ queryKey: [...courseListKey, courseId] });
-    await client.invalidateQueries({ queryKey: courseListKey });
-  };
-  const update = useMutation({
+  const invalidateKeys = [courseListKey, [...courseListKey, courseId]];
+  const update = useNotifyingMutation({
     mutationFn: (input: Parameters<typeof updateAdminCourse>[1]) =>
       updateAdminCourse(courseId, input),
-    onSuccess: async (_result, input) => {
-      await refresh();
-      setDialog(null);
-      notify({
-        kind: 'success',
-        message:
-          typeof input.isActive === 'boolean'
-            ? input.isActive
-              ? 'Το μάθημα ενεργοποιήθηκε.'
-              : 'Το μάθημα απενεργοποιήθηκε.'
-            : 'Οι αλλαγές αποθηκεύτηκαν.',
-      });
-    },
+    invalidateKeys,
+    successMessage: (_data, input) =>
+      typeof input.isActive === 'boolean'
+        ? input.isActive
+          ? 'Το μάθημα ενεργοποιήθηκε.'
+          : 'Το μάθημα απενεργοποιήθηκε.'
+        : 'Οι αλλαγές αποθηκεύτηκαν.',
+    onSuccess: closeDialog,
   });
-  const assign = useMutation({
+  const assign = useNotifyingMutation({
     mutationFn: (input: Parameters<typeof assignCourseInstructor>[1]) =>
       assignCourseInstructor(courseId, input),
-    onSuccess: async () => {
-      await refresh();
-      setDialog(null);
-      notify({
-        kind: 'success',
-        message: 'Ο διδάσκων ανατέθηκε στο μάθημα.',
-      });
-    },
+    invalidateKeys,
+    successMessage: 'Ο διδάσκων ανατέθηκε στο μάθημα.',
+    onSuccess: closeDialog,
   });
-  const enroll = useMutation({
+  const enroll = useNotifyingMutation({
     mutationFn: (input: Parameters<typeof enrollCourseStudent>[1]) =>
       enrollCourseStudent(courseId, input),
-    onSuccess: async () => {
-      await refresh();
-      setDialog(null);
-      notify({
-        kind: 'success',
-        message: 'Ο φοιτητής εγγράφηκε στο μάθημα.',
-      });
-    },
+    invalidateKeys,
+    successMessage: 'Ο φοιτητής εγγράφηκε στο μάθημα.',
+    onSuccess: closeDialog,
   });
-  const detail = courseQuery.data?.data;
-  if (courseQuery.isPending) return <p role="status">Φόρτωση μαθήματος…</p>;
-  if (courseQuery.isError || !detail)
-    return (
-      <ErrorNotice>
-        {courseQuery.isError
-          ? messageFor(courseQuery.error)
-          : 'Το μάθημα δεν βρέθηκε.'}
-      </ErrorNotice>
-    );
-  const normalizedStudentSearch = studentSearch
-    .trim()
-    .toLocaleLowerCase('el-GR');
-  const visibleEnrollments = detail.enrollments.filter(
-    (enrollment) =>
-      !normalizedStudentSearch ||
-      [enrollment.fullName, enrollment.email]
-        .join(' ')
-        .toLocaleLowerCase('el-GR')
-        .includes(normalizedStudentSearch),
-  );
-  const changeEnrollment = async (userId: string, status: EnrollmentStatus) => {
-    try {
-      await updateCourseEnrollmentStatus(courseId, userId, { status });
-      await refresh();
-      notify({
-        kind: 'success',
-        message: 'Η κατάσταση εγγραφής ενημερώθηκε.',
-      });
-    } catch (error) {
-      notify({ kind: 'error', message: messageFor(error) });
-    }
-  };
-  const removeInstructor = async (userId: string) => {
-    try {
-      await removeCourseInstructor(courseId, userId);
-      await refresh();
-      notify({
-        kind: 'success',
-        message: 'Ο διδάσκων αφαιρέθηκε από το μάθημα.',
-      });
-    } catch (error) {
-      notify({ kind: 'error', message: messageFor(error) });
-    }
-  };
+  const removeInstructorMutation = useNotifyingMutation({
+    mutationFn: (userId: string) => removeCourseInstructor(courseId, userId),
+    invalidateKeys,
+    successMessage: 'Ο διδάσκων αφαιρέθηκε από το μάθημα.',
+    notifyOnError: true,
+  });
+  const updateEnrollmentMutation = useNotifyingMutation({
+    mutationFn: ({
+      userId,
+      status,
+    }: {
+      userId: string;
+      status: EnrollmentStatus;
+    }) => updateCourseEnrollmentStatus(courseId, userId, { status }),
+    invalidateKeys,
+    successMessage: 'Η κατάσταση εγγραφής ενημερώθηκε.',
+    notifyOnError: true,
+  });
+
   return (
+    <QueryState
+      query={courseQuery}
+      loadingLabel="Φόρτωση μαθήματος…"
+      errorOptions={{ fallback: 'Το μάθημα δεν βρέθηκε.' }}
+    >
+      {(course) => {
+        const detail = course.data;
+        const normalizedStudentSearch = studentSearch
+          .trim()
+          .toLocaleLowerCase('el-GR');
+        const visibleEnrollments = detail.enrollments.filter(
+          (enrollment) =>
+            !normalizedStudentSearch ||
+            [enrollment.fullName, enrollment.email]
+              .join(' ')
+              .toLocaleLowerCase('el-GR')
+              .includes(normalizedStudentSearch),
+        );
+        return (
     <section className="admin-courses-page course-detail-page">
-      <Link className="back-link" to="/app/courses">
-        ← Όλα τα μαθήματα
-      </Link>
+      <BackLink to="/app/courses">Όλα τα μαθήματα</BackLink>
       <header className="course-detail-header">
         <div>
           <p className="auth-kicker">
@@ -300,36 +276,29 @@ export function AdminCourseDetailPage(): React.JSX.Element {
           </p>
           <h1>{detail.title}</h1>
         </div>
-        <span
-          className={
-            detail.isActive
-              ? 'status-badge is-active'
-              : 'status-badge is-inactive'
-          }
-        >
-          {detail.isActive ? 'Ενεργό' : 'Ανενεργό'}
-        </span>
+        <StatusBadge
+          active={detail.isActive}
+          activeLabel="Ενεργό"
+          inactiveLabel="Ανενεργό"
+        />
       </header>
       <div className="course-detail-layout">
         <div className="course-list-card">
-          <div className="course-filter-tabs" role="tablist">
-            {(
-              [
-                ['details', 'Στοιχεία'],
-                ['instructors', `Διδάσκοντες (${detail.instructors.length})`],
-                ['students', `Φοιτητές (${detail.enrollments.length})`],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                className={tab === value ? 'is-active' : ''}
-                type="button"
-                onClick={() => setTab(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={tab}
+            onChange={setTab}
+            items={[
+              { value: 'details', label: 'Στοιχεία' },
+              {
+                value: 'instructors',
+                label: `Διδάσκοντες (${detail.instructors.length})`,
+              },
+              {
+                value: 'students',
+                label: `Φοιτητές (${detail.enrollments.length})`,
+              },
+            ]}
+          />
           {tab === 'details' && (
             <div className="course-details">
               <div className="course-section-heading">
@@ -337,7 +306,7 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                 <button
                   className="secondary-button"
                   type="button"
-                  onClick={() => setDialog('edit')}
+                  onClick={() => openDialog('edit')}
                 >
                   Επεξεργασία
                 </button>
@@ -381,7 +350,7 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                     detail.isActive ? 'danger-button' : 'primary-button'
                   }
                   type="button"
-                  onClick={() => setDialog('activation')}
+                  onClick={() => openDialog('activation')}
                 >
                   {detail.isActive ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
                 </button>
@@ -395,13 +364,13 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                 <button
                   className="primary-button"
                   type="button"
-                  onClick={() => setDialog('instructor')}
+                  onClick={() => openDialog('instructor')}
                 >
                   + Ανάθεση διδάσκοντα
                 </button>
               </div>
               {detail.instructors.length === 0 ? (
-                <p className="course-empty">Δεν έχουν ανατεθεί διδάσκοντες.</p>
+                <EmptyState message="Δεν έχουν ανατεθεί διδάσκοντες." />
               ) : (
                 detail.instructors.map((item) => (
                   <div className="member-row" key={item.userId}>
@@ -417,7 +386,7 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                     <button
                       className="text-danger-button"
                       type="button"
-                      onClick={() => void removeInstructor(item.userId)}
+                      onClick={() => removeInstructorMutation.mutate(item.userId)}
                     >
                       Αφαίρεση
                     </button>
@@ -433,15 +402,13 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                 <button
                   className="primary-button"
                   type="button"
-                  onClick={() => setDialog('student')}
+                  onClick={() => openDialog('student')}
                 >
                   + Εγγραφή φοιτητή
                 </button>
               </div>
               {detail.enrollments.length === 0 ? (
-                <p className="course-empty">
-                  Δεν υπάρχουν εγγεγραμμένοι φοιτητές.
-                </p>
+                <EmptyState message="Δεν υπάρχουν εγγεγραμμένοι φοιτητές." />
               ) : (
                 <>
                   <label className="course-member-search">
@@ -455,9 +422,7 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                     />
                   </label>
                   {visibleEnrollments.length === 0 ? (
-                    <p className="course-empty">
-                      Δεν βρέθηκαν φοιτητές με αυτά τα στοιχεία.
-                    </p>
+                    <EmptyState message="Δεν βρέθηκαν φοιτητές με αυτά τα στοιχεία." />
                   ) : (
                     visibleEnrollments.map((item) => (
                       <div className="member-row" key={item.studentId}>
@@ -476,10 +441,10 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                           value={item.status}
                           onChange={(event) => {
                             event.currentTarget.blur();
-                            void changeEnrollment(
-                              item.studentId,
-                              event.target.value as EnrollmentStatus,
-                            );
+                            updateEnrollmentMutation.mutate({
+                              userId: item.studentId,
+                              status: event.target.value as EnrollmentStatus,
+                            });
                           }}
                         >
                           <option value="active">Ενεργή</option>
@@ -497,16 +462,15 @@ export function AdminCourseDetailPage(): React.JSX.Element {
         <Summary course={detail} />
       </div>
       {dialog === 'edit' && (
-        <Dialog title="Επεξεργασία μαθήματος" onClose={() => setDialog(null)}>
-          <CourseForm
-            initial={detail}
-            label="Αποθήκευση αλλαγών"
-            pending={update.isPending}
-            error={update.isError ? messageFor(update.error) : null}
-            onCancel={() => setDialog(null)}
-            onSubmit={(value) => update.mutate(value)}
-          />
-        </Dialog>
+        <CourseForm
+          title="Επεξεργασία μαθήματος"
+          initial={detail}
+          submitLabel="Αποθήκευση αλλαγών"
+          pending={update.isPending}
+          error={update.isError ? messageFor(update.error) : null}
+          onCancel={closeDialog}
+          onSubmit={(value) => update.mutate(value)}
+        />
       )}
       {dialog === 'activation' && (
         <Dialog
@@ -515,7 +479,7 @@ export function AdminCourseDetailPage(): React.JSX.Element {
               ? 'Απενεργοποίηση μαθήματος'
               : 'Ενεργοποίηση μαθήματος'
           }
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
         >
           <div className="confirm-dialog">
             <p>
@@ -530,7 +494,7 @@ export function AdminCourseDetailPage(): React.JSX.Element {
               <button
                 className="secondary-button"
                 type="button"
-                onClick={() => setDialog(null)}
+                onClick={closeDialog}
               >
                 Ακύρωση
               </button>
@@ -553,7 +517,7 @@ export function AdminCourseDetailPage(): React.JSX.Element {
           role="professor"
           pending={assign.isPending}
           error={assign.isError ? messageFor(assign.error) : null}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
           onSubmit={(candidate, instructorRole) =>
             assign.mutate({ instructorId: candidate.id, role: instructorRole })
           }
@@ -566,12 +530,15 @@ export function AdminCourseDetailPage(): React.JSX.Element {
           role="student"
           pending={enroll.isPending}
           error={enroll.isError ? messageFor(enroll.error) : null}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
           onSubmit={(candidate) =>
             enroll.mutate({ studentId: candidate.id, status: 'active' })
           }
         />
       )}
     </section>
+        );
+      }}
+    </QueryState>
   );
 }

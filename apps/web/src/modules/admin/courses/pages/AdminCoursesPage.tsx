@@ -1,23 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
 import {
   createAdminCourse,
   fetchAdminCourses,
 } from '../../../../api/client';
-import { Dialog } from '../../../../components/Dialog';
-import { ErrorNotice } from '../../../../components/feedback';
-import { useNotification } from '../../../../components/notifications';
+import { EmptyState } from '../../../../components/EmptyState';
+import { Pagination } from '../../../../components/Pagination';
+import { QueryState } from '../../../../components/QueryState';
+import { StatusBadge } from '../../../../components/StatusBadge';
+import { Tabs } from '../../../../components/Tabs';
+import { useDebouncedInput } from '../../../../hooks/useDebouncedInput';
+import { useDialogState } from '../../../../hooks/useDialogState';
+import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
+import { useUrlFilters } from '../../../../hooks/useUrlFilters';
 import { messageFor } from '../utils/AdminCoursesUtils';
 import { courseListKey, semesters } from '../utils/AdminCourses.const';
 import { CourseForm } from '../components/AdminCourseForm';
 
 export function AdminCoursesPage(): React.JSX.Element {
   const navigate = useNavigate();
-  const client = useQueryClient();
-  const { notify } = useNotification();
-  const [params, setParams] = useSearchParams();
-  const [createOpen, setCreateOpen] = useState(false);
+  const { params, setFilter } = useUrlFilters({ resetKey: 'page' });
+  const { dialog: createOpen, openDialog, closeDialog } = useDialogState<true>();
 
   const page = Number(params.get('page') ?? '1');
   const requestedStatus = params.get('status');
@@ -27,37 +31,12 @@ export function AdminCoursesPage(): React.JSX.Element {
       ? requestedStatus
       : 'all';
   const search = useMemo(() => params.get('search') ?? '', [params]);
-  const [searchDraftState, setSearchDraftState] = useState(() => ({
-    source: search,
-    value: search,
-  }));
-  const searchDraft =
-    searchDraftState.source === search ? searchDraftState.value : search;
+  const [searchDraft, setSearchDraft] = useDebouncedInput(search, (value) =>
+    setFilter({ search: value || undefined }),
+  );
   const semester = params.get('semester')
     ? Number(params.get('semester'))
     : undefined;
-
-  const setFilter = useCallback(
-    (next: Record<string, string | undefined>) => {
-      const updated = new URLSearchParams(params);
-      Object.entries(next).forEach(([key, value]) =>
-        value ? updated.set(key, value) : updated.delete(key),
-      );
-      if (!('page' in next)) updated.delete('page');
-      setParams(updated);
-    },
-    [params, setParams],
-  );
-
-  useEffect(() => {
-    if (searchDraft === search) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setFilter({ search: searchDraft || undefined });
-    }, 300);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [search, searchDraft, setFilter]);
 
   const list = useQuery({
     queryKey: [...courseListKey, { page, search, semester, status }],
@@ -69,15 +48,12 @@ export function AdminCoursesPage(): React.JSX.Element {
     placeholderData: (previousData) => previousData,
   });
 
-  const create = useMutation({
+  const create = useNotifyingMutation({
     mutationFn: createAdminCourse,
+    invalidateKeys: [courseListKey],
+    successMessage: 'Το νέο μάθημα δημιουργήθηκε.',
     onSuccess: ({ data }) => {
-      void client.invalidateQueries({ queryKey: courseListKey });
-      setCreateOpen(false);
-      notify({
-        kind: 'success',
-        message: 'Το νέο μάθημα δημιουργήθηκε.',
-      });
+      closeDialog();
       navigate(`/app/courses/${data.id}`);
     },
   });
@@ -93,67 +69,53 @@ export function AdminCoursesPage(): React.JSX.Element {
         <button
           className="primary-button"
           type="button"
-          onClick={() => setCreateOpen(true)}
+          onClick={() => openDialog(true)}
         >
           + Νέο μάθημα
         </button>
       </header>
-      {list.isError && <ErrorNotice>{messageFor(list.error)}</ErrorNotice>}
-      {list.isPending ? (
-        <p role="status">Φόρτωση μαθημάτων…</p>
-      ) : (
-        list.data && (
+      <QueryState
+        query={list}
+        loadingLabel="Φόρτωση μαθημάτων…"
+        errorOptions={{
+          fallback: 'Η φόρτωση των μαθημάτων απέτυχε. Δοκίμασε ξανά.',
+        }}
+      >
+        {(data) => (
           <>
             <div className="course-stat-grid">
               <article>
                 <span>Σύνολο μαθημάτων</span>
-                <strong>{list.data.summary.totalCourses}</strong>
+                <strong>{data.summary.totalCourses}</strong>
               </article>
               <article>
                 <span>Ενεργά μαθήματα</span>
-                <strong>{list.data.summary.activeCourses}</strong>
+                <strong>{data.summary.activeCourses}</strong>
               </article>
               <article>
                 <span>Χωρίς διδάσκοντα</span>
-                <strong>{list.data.summary.unassignedCourses}</strong>
+                <strong>{data.summary.unassignedCourses}</strong>
               </article>
             </div>
             <div className="course-list-card">
-              <div
-                className="course-filter-tabs"
-                role="tablist"
-                aria-label="Κατάσταση μαθημάτων"
-              >
-                {(
-                  [
-                    ['all', 'Όλα'],
-                    ['active', 'Ενεργά'],
-                    ['inactive', 'Ανενεργά'],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    className={status === value ? 'is-active' : ''}
-                    type="button"
-                    onClick={() =>
-                      setFilter({ status: value === 'all' ? undefined : value })
-                    }
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <Tabs
+                ariaLabel="Κατάσταση μαθημάτων"
+                value={status}
+                onChange={(value) =>
+                  setFilter({ status: value === 'all' ? undefined : value })
+                }
+                items={[
+                  { value: 'all', label: 'Όλα' },
+                  { value: 'active', label: 'Ενεργά' },
+                  { value: 'inactive', label: 'Ανενεργά' },
+                ]}
+              />
               <div className="course-filter-row text-sm">
                 <input
                   aria-label="Αναζήτηση μαθημάτων"
                   placeholder="Αναζήτηση τίτλου, κωδικού ή διδάσκοντα…"
                   value={searchDraft}
-                  onChange={(event) =>
-                    setSearchDraftState({
-                      source: search,
-                      value: event.target.value,
-                    })
-                  }
+                  onChange={(event) => setSearchDraft(event.target.value)}
                 />
                 <select
                   aria-label="Φίλτρο εξαμήνου"
@@ -170,10 +132,8 @@ export function AdminCoursesPage(): React.JSX.Element {
                   ))}
                 </select>
               </div>
-              {list.data.data.length === 0 ? (
-                <p className="course-empty">
-                  Δεν υπάρχουν μαθήματα για τα επιλεγμένα φίλτρα.
-                </p>
+              {data.data.length === 0 ? (
+                <EmptyState message="Δεν υπάρχουν μαθήματα για τα επιλεγμένα φίλτρα." />
               ) : (
                 <div className="course-table-wrap">
                   <table>
@@ -190,7 +150,7 @@ export function AdminCoursesPage(): React.JSX.Element {
                       </tr>
                     </thead>
                     <tbody>
-                      {list.data.data.map((course) => (
+                      {data.data.map((course) => (
                         <tr key={course.id}>
                           <td data-label="Μάθημα">
                             <strong>{course.title}</strong>
@@ -206,15 +166,11 @@ export function AdminCoursesPage(): React.JSX.Element {
                             {course.counts.studentCount}
                           </td>
                           <td data-label="Κατάσταση">
-                            <span
-                              className={
-                                course.isActive
-                                  ? 'status-badge is-active'
-                                  : 'status-badge is-inactive'
-                              }
-                            >
-                              {course.isActive ? 'Ενεργό' : 'Ανενεργό'}
-                            </span>
+                            <StatusBadge
+                              active={course.isActive}
+                              activeLabel="Ενεργό"
+                              inactiveLabel="Ανενεργό"
+                            />
                           </td>
                           <td data-label="Ενέργειες">
                             <Link
@@ -230,44 +186,27 @@ export function AdminCoursesPage(): React.JSX.Element {
                   </table>
                 </div>
               )}
-              {list.data.meta.totalPages > 1 && (
-                <nav
-                  className="course-pagination"
-                  aria-label="Σελίδες μαθημάτων"
-                >
-                  <button
-                    disabled={page <= 1}
-                    type="button"
-                    onClick={() => setFilter({ page: String(page - 1) })}
-                  >
-                    Προηγούμενη
-                  </button>
-                  <span>
-                    Σελίδα {page} από {list.data.meta.totalPages}
-                  </span>
-                  <button
-                    disabled={page >= list.data.meta.totalPages}
-                    type="button"
-                    onClick={() => setFilter({ page: String(page + 1) })}
-                  >
-                    Επόμενη
-                  </button>
-                </nav>
-              )}
+              <Pagination
+                ariaLabel="Σελίδες μαθημάτων"
+                page={page}
+                totalPages={data.meta.totalPages}
+                onPageChange={(nextPage) =>
+                  setFilter({ page: String(nextPage) })
+                }
+              />
             </div>
           </>
-        )
-      )}
+        )}
+      </QueryState>
       {createOpen && (
-        <Dialog title="Νέο μάθημα" onClose={() => setCreateOpen(false)}>
-          <CourseForm
-            label="Δημιουργία μαθήματος"
-            pending={create.isPending}
-            error={create.isError ? messageFor(create.error) : null}
-            onCancel={() => setCreateOpen(false)}
-            onSubmit={(value) => create.mutate(value)}
-          />
-        </Dialog>
+        <CourseForm
+          title="Νέο μάθημα"
+          submitLabel="Δημιουργία μαθήματος"
+          pending={create.isPending}
+          error={create.isError ? messageFor(create.error) : null}
+          onCancel={closeDialog}
+          onSubmit={(value) => create.mutate(value)}
+        />
       )}
     </section>
   );

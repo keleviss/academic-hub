@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import type { CourseDocumentMetadata, DocumentVisibility } from '@web-app/contracts';
 
-import { Dialog } from '../../../components/Dialog';
-import { ErrorNotice } from '../../../components/feedback';
-import { normalizeSearch } from '../../../lib/normalize-search';
+import { FormDialog } from '../../../../components/FormDialog';
+import { FormField } from '../../../../components/FormField';
+import { normalizeSearch } from '../../../../lib/normalize-search';
 
 export interface DocumentFormValues {
   title: string;
@@ -44,8 +43,7 @@ function buildDocumentFormSchema(otherNormalizedFilenames: string[]) {
     description: z
       .string()
       .trim()
-      .max(1_500, 'Η περιγραφή έχει όριο 1.500 χαρακτήρων.')
-      .optional(),
+      .max(1_500, 'Η περιγραφή έχει όριο 1.500 χαρακτήρων.'),
   });
 }
 
@@ -81,89 +79,45 @@ export function DocumentFormDialog({
     () => buildDocumentFormSchema(otherNormalizedFilenames),
     [otherNormalizedFilenames],
   );
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<DocumentFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      title: initial?.title ?? '',
-      originalFilename: initial?.originalFilename ?? '',
-      visibility: initial?.visibility ?? 'hidden_from_students',
-      description: initial?.description ?? '',
-    },
-  });
 
   return (
-    <Dialog
+    <FormDialog<DocumentFormValues>
       title={mode === 'create' ? 'Νέο έγγραφο' : 'Επεξεργασία εγγράφου'}
-      onClose={onCancel}
+      resolver={zodResolver(schema)}
+      defaultValues={{
+        title: initial?.title ?? '',
+        originalFilename: initial?.originalFilename ?? '',
+        visibility: initial?.visibility ?? 'hidden_from_students',
+        description: initial?.description ?? '',
+      }}
+      pending={pending}
+      error={error}
+      submitLabel={mode === 'create' ? 'Δημιουργία εγγράφου' : 'Αποθήκευση αλλαγών'}
+      onCancel={onCancel}
+      onSubmit={onSubmit}
     >
-      <form
-        className="course-form"
-        noValidate
-        onSubmit={(event) => void handleSubmit(onSubmit)(event)}
-      >
-        <p className="document-form-course">
-          {courseCode} · {courseTitle}
-        </p>
-        <label>
-          Τίτλος εγγράφου
-          <input
-            {...register('title')}
-            readOnly={pending}
-            aria-invalid={!!errors.title}
-          />
-        </label>
-        {errors.title && (
-          <p className="field-error" role="alert">
-            {errors.title.message}
+      {({ register, formState: { errors } }) => (
+        <>
+          <p className="document-form-course">
+            {courseCode} · {courseTitle}
           </p>
-        )}
-        <label>
-          Όνομα αρχείου (PDF)
-          <input
-            {...register('originalFilename')}
-            readOnly={pending}
-            aria-invalid={!!errors.originalFilename}
-          />
-        </label>
-        {errors.originalFilename && (
-          <p className="field-error" role="alert">
-            {errors.originalFilename.message}
-          </p>
-        )}
-        <label>
-          Ορατότητα
-          <select {...register('visibility')} disabled={pending}>
-            <option value="hidden_from_students">Κρυφό</option>
-            <option value="visible_to_students">Ορατό στους φοιτητές</option>
-          </select>
-        </label>
-        <label>
-          Περιγραφή <span className="field-optional">Προαιρετική</span>
-          <textarea {...register('description')} readOnly={pending} />
-        </label>
-        {errors.description && (
-          <p className="field-error" role="alert">
-            {errors.description.message}
-          </p>
-        )}
-        {error && <ErrorNotice>{error}</ErrorNotice>}
-        <footer className="course-dialog-actions">
-          <button className="secondary-button" type="button" onClick={onCancel}>
-            Ακύρωση
-          </button>
-          <button className="primary-button" disabled={pending} type="submit">
-            {pending
-              ? 'Αποθήκευση…'
-              : mode === 'create'
-                ? 'Δημιουργία εγγράφου'
-                : 'Αποθήκευση αλλαγών'}
-          </button>
-        </footer>
-      </form>
-    </Dialog>
+          <FormField label="Τίτλος εγγράφου" error={errors.title}>
+            <input {...register('title')} readOnly={pending} />
+          </FormField>
+          <FormField label="Όνομα αρχείου (PDF)" error={errors.originalFilename}>
+            <input {...register('originalFilename')} readOnly={pending} />
+          </FormField>
+          <FormField label="Ορατότητα">
+            <select {...register('visibility')} disabled={pending}>
+              <option value="hidden_from_students">Κρυφό</option>
+              <option value="visible_to_students">Ορατό στους φοιτητές</option>
+            </select>
+          </FormField>
+          <FormField label="Περιγραφή" optional error={errors.description}>
+            <textarea {...register('description')} readOnly={pending} />
+          </FormField>
+        </>
+      )}
+    </FormDialog>
   );
 }

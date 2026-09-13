@@ -20,6 +20,7 @@ import {
 import type { CurrentUser } from '@web-app/contracts';
 
 import { appPath, roleLabels } from '../auth/session';
+import { getInitials } from './Avatar';
 import { normalizeSearch } from '../lib/normalize-search';
 import type {
   WorkspaceNavIcon,
@@ -119,13 +120,7 @@ function isActivePath(path: string, currentPath: string): boolean {
 }
 
 function initialsFor(user: CurrentUser): string {
-  const initials = user.fullName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('');
-  return (initials || user.email[0] || 'U').toLocaleUpperCase('el-GR');
+  return getInitials(user.fullName, user.email[0] || 'U');
 }
 
 function NavItem({
