@@ -13,6 +13,7 @@ import {
 } from '../../../components/AppSidebar';
 import { ErrorNotice } from '../../../components/feedback';
 import { NotificationProvider } from '../../../components/notifications';
+import { WorkspaceBreadcrumbProvider } from '../../../components/workspaceBreadcrumb';
 import { appPath, useLogoutMutation } from '../../../auth/session';
 import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
 import { ProfessorCourseDetailPage } from '../../professor/courses/pages/ProfessorCourseDetailPage';
@@ -90,87 +91,90 @@ export function LoggedLayout(): React.JSX.Element {
   }
 
   return (
-    <div
-      className={
-        mobileSidebarOpen
-          ? 'workspace-shell is-mobile-sidebar-open'
-          : 'workspace-shell'
-      }
-    >
-      <div className="workspace-sidebar-desktop">
-        <AppSidebar
-          state="logged"
-          user={user}
-          navItems={routes}
-          logoutPending={logout.isPending}
-          onLogout={() => void signOut()}
-        />
-      </div>
-      <WorkspaceToolbar
-        role={user.role}
-        onOpenSidebar={() => setMobileSidebarOpen(true)}
-      />
-      <MobileSidebarDrawer
-        open={mobileSidebarOpen}
-        onClose={() => setMobileSidebarOpen(false)}
+    <WorkspaceBreadcrumbProvider>
+      <div
+        className={
+          mobileSidebarOpen
+            ? 'workspace-shell is-mobile-sidebar-open'
+            : 'workspace-shell'
+        }
       >
-        <AppSidebar
-          state="logged"
-          user={user}
-          navItems={routes}
-          logoutPending={logout.isPending}
-          onLogout={() => void signOut()}
-          onNavigate={() => setMobileSidebarOpen(false)}
+        <div className="workspace-sidebar-desktop">
+          <AppSidebar
+            state="logged"
+            user={user}
+            navItems={routes}
+            logoutPending={logout.isPending}
+            onLogout={() => void signOut()}
+          />
+        </div>
+        <WorkspaceToolbar
+          role={user.role}
+          onOpenSidebar={() => setMobileSidebarOpen(true)}
         />
-      </MobileSidebarDrawer>
-      <main ref={contentRef} className="workspace-content" id="main-content">
-        <NotificationProvider>
-          {logoutFailed && (
-            <ErrorNotice>
-              Η αποσύνδεση δεν ολοκληρώθηκε. Δοκίμασε ξανά.
-            </ErrorNotice>
-          )}
-          <Routes>
-            {routes.map((route) => (
-              <Route
-                key={route.path || 'index'}
-                index={route.path === ''}
-                path={route.path || undefined}
-                element={route.element}
-              />
-            ))}
-            {user.role === 'admin' && (
-              <Route
-                path="courses/:courseId"
-                element={<AdminCourseDetailPage />}
-              />
+        <MobileSidebarDrawer
+          open={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+        >
+          <AppSidebar
+            state="logged"
+            user={user}
+            navItems={routes}
+            logoutPending={logout.isPending}
+            onLogout={() => void signOut()}
+            onNavigate={() => setMobileSidebarOpen(false)}
+          />
+        </MobileSidebarDrawer>
+        <main ref={contentRef} className="workspace-content" id="main-content">
+          <NotificationProvider>
+            {logoutFailed && (
+              <ErrorNotice>
+                Η αποσύνδεση δεν ολοκληρώθηκε. Δοκίμασε ξανά.
+              </ErrorNotice>
             )}
-            {user.role === 'professor' && (
-              <Route
-                path="courses/:courseId"
-                element={<ProfessorCourseDetailPage />}
-              />
-            )}
-            {user.role === 'student' && (
-              <Route
-                path="courses/:courseId"
-                element={<StudentCourseDetailPage />}
-              />
-            )}
-            {(user.role === 'professor' || user.role === 'student') && (
-              <Route
-                path="courses/:courseId/documents/:documentId"
-                element={
-                  <Suspense fallback={<p role="status">Φόρτωση προβολέα…</p>}>
-                    <DocumentViewerPage />
-                  </Suspense>
-                }
-              />
-            )}
-            <Route path="*" element={<Navigate to={appPath} replace />} />
-          </Routes>
-        </NotificationProvider>
-      </main>
-    </div>
+            <Routes>
+              {routes.map((route) => (
+                <Route
+                  key={route.path || 'index'}
+                  index={route.path === ''}
+                  path={route.path || undefined}
+                  element={route.element}
+                />
+              ))}
+              {user.role === 'admin' && (
+                <Route
+                  path="courses/:courseId"
+                  element={<AdminCourseDetailPage />}
+                />
+              )}
+              {user.role === 'professor' && (
+                <Route
+                  path="courses/:courseId"
+                  element={<ProfessorCourseDetailPage />}
+                />
+              )}
+              {user.role === 'student' && (
+                <Route
+                  path="courses/:courseId"
+                  element={<StudentCourseDetailPage />}
+                />
+              )}
+              {(user.role === 'professor' || user.role === 'student') && (
+                <Route
+                  path="courses/:courseId/documents/:documentId"
+                  element={
+                    <Suspense fallback={<p role="status">Φόρτωση προβολέα…</p>}>
+                      <DocumentViewerPage />
+                    </Suspense>
+                  }
+                />
+              )}
+              <Route path="*" element={<Navigate to={appPath} replace />} />
+            </Routes>
+          </NotificationProvider>
+        </main>
+      </div>
+    </WorkspaceBreadcrumbProvider>
   );
 }
+

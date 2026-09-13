@@ -7,6 +7,7 @@ import {
 } from '../../../../api/client';
 import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
+import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 import { PdfCanvasViewer } from '../components/PdfCanvasViewer';
 
 function documentQueryKey(courseId: string, documentId: string) {
@@ -27,6 +28,15 @@ export function DocumentViewerPage(): React.JSX.Element {
     queryFn: ({ signal }) => fetchCourseDocument(courseId, documentId, signal),
     enabled: !!courseId && !!documentId,
   });
+  useSetWorkspaceBreadcrumb(
+    documentQuery.data
+      ? [
+          { label: 'Μαθήματα', to: '/app/courses' },
+          { label: 'Μάθημα', to: `/app/courses/${courseId}` },
+          { label: documentQuery.data.data.title },
+        ]
+      : null,
+  );
   const contentQuery = useQuery({
     queryKey: [...documentQueryKey(courseId, documentId), 'content'],
     queryFn: ({ signal }) =>

@@ -29,6 +29,7 @@ import { courseListKey } from '../utils/AdminCourses.const';
 import { CourseForm } from '../components/AdminCourseForm';
 import { PageLayout } from '../../../../components/PageLayout';
 import { StatusBadge } from '../../../../components/StatusBadge';
+import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 
 function MemberPicker({
   courseId,
@@ -199,6 +200,14 @@ export function AdminCourseDetailPage(): React.JSX.Element {
     queryFn: ({ signal }) => fetchAdminCourse(courseId, signal),
     enabled: !!courseId,
   });
+  useSetWorkspaceBreadcrumb(
+    courseQuery.data
+      ? [
+          { label: 'Μαθήματα', to: '/app/courses' },
+          { label: courseQuery.data.data.code },
+        ]
+      : null,
+  );
   const invalidateKeys = [courseListKey, [...courseListKey, courseId]];
   const update = useNotifyingMutation({
     mutationFn: (input: Parameters<typeof updateAdminCourse>[1]) =>

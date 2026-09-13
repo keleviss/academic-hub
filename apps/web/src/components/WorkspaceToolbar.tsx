@@ -1,20 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
 import type { UserRole } from '@web-app/contracts';
 import { Menu, UserCircle } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 
 import { appPath } from '../auth/session';
-import {
-  fetchAdminCourse,
-  fetchProfessorCourse,
-  fetchStudentCourse,
-} from '../api/client';
 import { workspaceRoutesByRole } from '../modules/workspace/routing/workspaceRoutes';
-
-type Breadcrumb = {
-  label: string;
-  to?: string;
-};
+import {
+  useWorkspaceBreadcrumb,
+  type WorkspaceBreadcrumb as Breadcrumb,
+} from './workspaceBreadcrumb';
 
 const workspaceLabels: Record<UserRole, string> = {
   admin: 'Χώρος διαχείρισης',
@@ -22,19 +15,29 @@ const workspaceLabels: Record<UserRole, string> = {
   student: 'Χώρος μελέτης',
 };
 
-function getBreadcrumbs(
-  role: UserRole,
-  pathname: string,
-  courseCode?: string,
-): Breadcrumb[] {
+/** Structural fallback (no data) used until the current page publishes its own breadcrumb trail. */
+function getBreadcrumbs(role: UserRole, pathname: string): Breadcrumb[] {
   const root: Breadcrumb = { label: workspaceLabels[role], to: appPath };
   const courseDetail = pathname.match(/^\/app\/courses\/[^/]+$/);
+  const documentDetail = pathname.match(
+    /^\/app\/courses\/([^/]+)\/documents\/[^/]+$/,
+  );
+
+  if (documentDetail) {
+    const courseId = documentDetail[1];
+    return [
+      root,
+      { label: 'Μαθήματα', to: `${appPath}/courses` },
+      { label: 'Μάθημα', to: `${appPath}/courses/${courseId}` },
+      { label: 'Έγγραφο' },
+    ];
+  }
 
   if (courseDetail) {
     return [
       root,
       { label: 'Μαθήματα', to: `${appPath}/courses` },
-      { label: courseCode ?? 'Μάθημα' },
+      { label: 'Μάθημα' },
     ];
   }
 
@@ -57,38 +60,10 @@ export function WorkspaceToolbar({
   onOpenSidebar: () => void;
 }): React.JSX.Element {
   const location = useLocation();
-  const courseId = location.pathname.match(
-    /^\/app\/courses\/([^/]+)$/,
-  )?.[1];
-  const adminCourse = useQuery({
-    queryKey: ['admin', 'courses', courseId],
-    queryFn: ({ signal }) => fetchAdminCourse(courseId ?? '', signal),
-    enabled: !!courseId && role === 'admin',
-    staleTime: 30_000,
-  });
-  const professorCourse = useQuery({
-    queryKey: ['professor', 'courses', courseId],
-    queryFn: ({ signal }) => fetchProfessorCourse(courseId ?? '', signal),
-    enabled: !!courseId && role === 'professor',
-    staleTime: 30_000,
-  });
-  const studentCourse = useQuery({
-    queryKey: ['student', 'courses', courseId],
-    queryFn: ({ signal }) => fetchStudentCourse(courseId ?? '', signal),
-    enabled: !!courseId && role === 'student',
-    staleTime: 30_000,
-  });
-  const course =
-    role === 'professor'
-      ? professorCourse
-      : role === 'student'
-        ? studentCourse
-        : adminCourse;
-  const breadcrumbs = getBreadcrumbs(
-    role,
-    location.pathname,
-    course.data?.data.code,
-  );
+  const overrideTrail = useWorkspaceBreadcrumb();
+  const breadcrumbs = overrideTrail
+    ? [{ label: workspaceLabels[role], to: appPath }, ...overrideTrail]
+    : getBreadcrumbs(role, location.pathname);
 
   return (
     <header className="workspace-toolbar">
@@ -121,7 +96,6 @@ export function WorkspaceToolbar({
               ))}
             </ol>
           </nav>
-
         </div>
         <Link
           to={`${appPath}/profile`}

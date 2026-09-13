@@ -18,6 +18,7 @@ import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
 import { downloadBlob } from '../../../../lib/download-file';
 import { normalizeSearch } from '../../../../lib/normalize-search';
 import { PageLayout } from '../../../../components/PageLayout';
+import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 
 type Tab = 'documents' | 'details';
 
@@ -52,6 +53,14 @@ export function StudentCourseDetailPage(): React.JSX.Element {
     queryFn: ({ signal }) => fetchStudentCourse(courseId, signal),
     enabled: !!courseId,
   });
+  useSetWorkspaceBreadcrumb(
+    courseQuery.data
+      ? [
+          { label: 'Μαθήματα', to: '/app/courses' },
+          { label: courseQuery.data.data.code },
+        ]
+      : null,
+  );
   const documentsQuery = useQuery({
     queryKey: documentsQueryKey(courseId),
     queryFn: ({ signal }) => fetchCourseDocuments(courseId, signal),

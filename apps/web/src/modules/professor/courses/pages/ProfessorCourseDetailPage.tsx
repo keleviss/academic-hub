@@ -35,6 +35,7 @@ import {
 } from '../components/DocumentFormDialog';
 import { professorCoursesKey } from '../utils/ProfessorCourses.const';
 import { PageLayout } from '../../../../components/PageLayout';
+import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 
 type Tab = 'documents' | 'details';
 type DocumentFilter = 'all' | 'visible' | 'hidden';
@@ -87,6 +88,14 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
     queryFn: ({ signal }) => fetchProfessorCourse(courseId, signal),
     enabled: !!courseId,
   });
+  useSetWorkspaceBreadcrumb(
+    courseQuery.data
+      ? [
+          { label: 'Μαθήματα', to: '/app/courses' },
+          { label: courseQuery.data.data.code },
+        ]
+      : null,
+  );
   const documentsQuery = useQuery({
     queryKey: documentsQueryKey(courseId),
     queryFn: ({ signal }) => fetchCourseDocuments(courseId, signal),

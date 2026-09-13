@@ -68,31 +68,31 @@ const extraProfessorUsers = [
   {
     id: '20202020-2020-4020-8020-202020202021',
     email: 'markos.professor@academic-hub.local',
-    fullName: 'Δρ. Μάρκος Ιωαννίδης',
+    fullName: 'Μάρκος Ιωαννίδης',
     isActive: true,
   },
   {
     id: '20202020-2020-4020-8020-202020202022',
     email: 'sofia.professor@academic-hub.local',
-    fullName: 'Δρ. Σοφία Νικολαΐδου',
+    fullName: 'Σοφία Νικολαΐδου',
     isActive: true,
   },
   {
     id: '20202020-2020-4020-8020-202020202023',
     email: 'dimitris.professor@academic-hub.local',
-    fullName: 'Δρ. Δημήτρης Καραμήτρος',
+    fullName: 'Δημήτρης Καραμήτρος',
     isActive: true,
   },
   {
     id: '20202020-2020-4020-8020-202020202024',
     email: 'ioanna.professor@academic-hub.local',
-    fullName: 'Δρ. Ιωάννα Σπύρου',
+    fullName: 'Ιωάννα Σπύρου',
     isActive: true,
   },
   {
     id: '20202020-2020-4020-8020-202020202025',
     email: 'andreas.inactive-professor@academic-hub.local',
-    fullName: 'Δρ. Ανδρέας Βασιλείου',
+    fullName: 'Ανδρέας Βασιλείου',
     isActive: false,
   },
 ] as const;
@@ -446,7 +446,7 @@ async function seedUsers(): Promise<void> {
     {
       id: ids.professor,
       email: 'professor@academic-hub.local',
-      fullName: 'Δρ. Ελένη Παπαδοπούλου',
+      fullName: 'Ελένη Παπαδοπούλου',
       role: 'professor' as const,
     },
     {
