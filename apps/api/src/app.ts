@@ -9,6 +9,7 @@ import type { AuthRouteOptions } from './routes/auth.js';
 import type { CourseDocumentsRouteOptions } from './routes/course-documents.js';
 import type { ProfessorCoursesRouteOptions } from './routes/professor-courses.js';
 import type { ReadinessRouteOptions } from './routes/readiness.js';
+import type { StudentCoursesRouteOptions } from './routes/student-courses.js';
 
 export interface CreateAppOptions {
   auditLogger?: AuthRouteOptions['auditLogger'];
@@ -21,6 +22,7 @@ export interface CreateAppOptions {
   serviceName?: string;
   sessionService?: AuthRouteOptions['sessionService'];
   storageCheck?: ReadinessRouteOptions['storageCheck'];
+  studentCoursesPrisma?: StudentCoursesRouteOptions['prisma'];
   version?: string;
 }
 
@@ -49,6 +51,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
       serviceName: options.serviceName,
       sessionService: options.sessionService,
       storageCheck: options.storageCheck,
+      studentCoursesPrisma: options.studentCoursesPrisma,
       version: options.version,
     }),
   );

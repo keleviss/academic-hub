@@ -295,6 +295,34 @@ export const ProfessorCourseDetailResponseSchema = z.object({
   data: ProfessorCourseDetailSchema,
 });
 
+export const StudentCourseListItemSchema = z.object({
+  id: z.uuid(),
+  code: CourseCodeSchema,
+  title: z.string().min(1),
+  description: z.string().nullable(),
+  semester: CourseSemesterSchema,
+  ectsCredits: CourseEctsCreditsSchema,
+  isActive: z.boolean(),
+  counts: z.object({
+    documentCount: z.number().int().nonnegative(),
+  }),
+});
+
+export const StudentCourseListResponseSchema = z.object({
+  data: z.array(StudentCourseListItemSchema),
+  summary: z.object({
+    enrolledCourseCount: z.number().int().nonnegative(),
+  }),
+});
+
+export const StudentCourseDetailSchema = StudentCourseListItemSchema.extend({
+  instructors: z.array(CourseInstructorSchema),
+});
+
+export const StudentCourseDetailResponseSchema = z.object({
+  data: StudentCourseDetailSchema,
+});
+
 export type CourseIdParams = z.infer<typeof CourseIdParamsSchema>;
 export type CourseMemberIdParams = z.infer<typeof CourseMemberIdParamsSchema>;
 export type CourseDocumentIdParams = z.infer<
@@ -363,4 +391,12 @@ export type ProfessorCourseListResponse = z.infer<
 export type ProfessorCourseDetail = z.infer<typeof ProfessorCourseDetailSchema>;
 export type ProfessorCourseDetailResponse = z.infer<
   typeof ProfessorCourseDetailResponseSchema
+>;
+export type StudentCourseListItem = z.infer<typeof StudentCourseListItemSchema>;
+export type StudentCourseListResponse = z.infer<
+  typeof StudentCourseListResponseSchema
+>;
+export type StudentCourseDetail = z.infer<typeof StudentCourseDetailSchema>;
+export type StudentCourseDetailResponse = z.infer<
+  typeof StudentCourseDetailResponseSchema
 >;

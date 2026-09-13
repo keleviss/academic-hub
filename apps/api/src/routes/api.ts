@@ -18,6 +18,10 @@ import {
   createReadinessRouter,
   type ReadinessRouteOptions,
 } from './readiness.js';
+import {
+  createStudentCoursesRouter,
+  type StudentCoursesRouteOptions,
+} from './student-courses.js';
 
 export type ApiRouterOptions = AuthRouteOptions &
   HealthRouteOptions &
@@ -25,6 +29,7 @@ export type ApiRouterOptions = AuthRouteOptions &
     courseDocumentsPrisma?: CourseDocumentsRouteOptions['prisma'];
     coursesPrisma?: AdminCoursesRouteOptions['prisma'];
     professorCoursesPrisma?: ProfessorCoursesRouteOptions['prisma'];
+    studentCoursesPrisma?: StudentCoursesRouteOptions['prisma'];
   };
 
 export function createApiRouter(options: ApiRouterOptions = {}): Router {
@@ -54,6 +59,14 @@ export function createApiRouter(options: ApiRouterOptions = {}): Router {
     createProfessorCoursesRouter({
       auditLogger: options.auditLogger,
       prisma: options.professorCoursesPrisma,
+      sessionService: options.sessionService,
+    }),
+  );
+  router.use(
+    '/student/courses',
+    createStudentCoursesRouter({
+      auditLogger: options.auditLogger,
+      prisma: options.studentCoursesPrisma,
       sessionService: options.sessionService,
     }),
   );

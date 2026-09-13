@@ -13,6 +13,8 @@ import {
   LoginRequestSchema,
   ProfessorCourseDetailResponseSchema,
   ProfessorCourseListResponseSchema,
+  StudentCourseDetailResponseSchema,
+  StudentCourseListResponseSchema,
   type CurrentSession,
   type AssignCourseInstructorRequest,
   type CourseCreateRequest,
@@ -33,6 +35,8 @@ import {
   type LoginRequest,
   type ProfessorCourseDetailResponse,
   type ProfessorCourseListResponse,
+  type StudentCourseDetailResponse,
+  type StudentCourseListResponse,
   type UpdateCourseDocumentMetadataRequest,
   type UpdateEnrollmentStatusRequest,
 } from '@web-app/contracts';
@@ -307,6 +311,25 @@ export function fetchProfessorCourse(
   return requestJson(
     `/api/professor/courses/${courseId}`,
     ProfessorCourseDetailResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchStudentCourses(
+  signal?: AbortSignal,
+): Promise<StudentCourseListResponse> {
+  return requestJson('/api/student/courses', StudentCourseListResponseSchema, {
+    signal,
+  });
+}
+
+export function fetchStudentCourse(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<StudentCourseDetailResponse> {
+  return requestJson(
+    `/api/student/courses/${courseId}`,
+    StudentCourseDetailResponseSchema,
     { signal },
   );
 }

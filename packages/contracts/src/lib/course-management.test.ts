@@ -15,6 +15,8 @@ import {
   EnrollStudentRequestSchema,
   ProfessorCourseDetailResponseSchema,
   ProfessorCourseListResponseSchema,
+  StudentCourseDetailResponseSchema,
+  StudentCourseListResponseSchema,
   UpdateCourseDocumentMetadataRequestSchema,
   UpdateEnrollmentStatusRequestSchema,
 } from './course-management.js';
@@ -353,5 +355,50 @@ describe('professor course contracts', () => {
 
     expect(response.data.studentCount).toBe(42);
     expect(response.data.instructors[0]?.role).toBe('owner');
+  });
+});
+
+describe('student course contracts', () => {
+  const studentListItem = {
+    id: courseId,
+    code: 'ICE-302',
+    title: 'Ηλεκτρονική',
+    description: 'Αναλογικά και ψηφιακά ηλεκτρονικά κυκλώματα.',
+    semester: 3,
+    ectsCredits: 5,
+    isActive: true,
+    counts: {
+      documentCount: 2,
+    },
+  };
+
+  it('parses student course list responses with enrollment summary', () => {
+    const response = StudentCourseListResponseSchema.parse({
+      data: [studentListItem],
+      summary: { enrolledCourseCount: 1 },
+    });
+
+    expect(response.data[0]?.counts.documentCount).toBe(2);
+    expect(response.summary.enrolledCourseCount).toBe(1);
+  });
+
+  it('parses student course detail responses with instructors', () => {
+    const response = StudentCourseDetailResponseSchema.parse({
+      data: {
+        ...studentListItem,
+        instructors: [instructor],
+      },
+    });
+
+    expect(response.data.instructors[0]?.role).toBe('owner');
+  });
+
+  it('rejects student course payloads missing required fields', () => {
+    expect(() =>
+      StudentCourseListResponseSchema.parse({
+        data: [{ ...studentListItem, counts: {} }],
+        summary: { enrolledCourseCount: 1 },
+      }),
+    ).toThrow();
   });
 });
