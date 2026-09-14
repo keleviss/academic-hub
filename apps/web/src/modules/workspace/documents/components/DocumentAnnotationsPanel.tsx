@@ -1,10 +1,15 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Check,
+  Copy,
+  FileText,
+  Pencil,
   MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
+  Trash2,
 } from 'lucide-react';
 import type {
   AnnotationType,
@@ -16,7 +21,9 @@ import {
   createCourseDocumentAnnotation,
   fetchCourseDocumentAnnotations,
 } from '../../../../api/client';
+import { useAuthenticatedUser } from '../../../../auth/authenticatedUser';
 import { EmptyState } from '../../../../components/EmptyState';
+import { useNotification } from '../../../../components/notifications';
 import { QueryState } from '../../../../components/QueryState';
 import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
 
@@ -56,11 +63,23 @@ function annotationsQueryKey(courseId: string, documentId: string) {
   return ['courses', courseId, 'documents', documentId, 'annotations'] as const;
 }
 
+function annotationHash(annotationId: string): string {
+  return `annotation-${annotationId}`;
+}
+
+function annotationIdFromLocationHash(): string | null {
+  const hash = window.location.hash.slice(1);
+  return hash.startsWith('annotation-')
+    ? hash.slice('annotation-'.length)
+    : null;
+}
+
 export function DocumentAnnotationsPanel({
   collapsed,
   courseId,
   currentPage,
   documentId,
+  onNavigateToPage,
   onCollapsedChange,
   pageCount,
 }: {
@@ -68,11 +87,16 @@ export function DocumentAnnotationsPanel({
   courseId: string;
   currentPage: number;
   documentId: string;
+  onNavigateToPage: (pageNumber: number) => void;
   onCollapsedChange: (collapsed: boolean) => void;
   pageCount: number | null;
 }): React.JSX.Element {
   const formId = useId();
+  const currentUser = useAuthenticatedUser();
+  const { notify } = useNotification();
   const menuRef = useRef<HTMLDivElement>(null);
+  const annotationItemRefs = useRef(new Map<string, HTMLElement>());
+  const highlightTimeoutRef = useRef<number | null>(null);
   const [type, setType] = useState<AnnotationType>('note');
   const [visibility, setVisibility] = useState<AnnotationVisibility>('private');
   const [selectedText, setSelectedText] = useState('');
@@ -82,6 +106,9 @@ export function DocumentAnnotationsPanel({
   const [menuOpen, setMenuOpen] = useState(false);
   const [annotationFilter, setAnnotationFilter] =
     useState<AnnotationFilter>('all');
+  const [highlightedAnnotationId, setHighlightedAnnotationId] = useState(() =>
+    annotationIdFromLocationHash(),
+  );
 
   const annotationsQuery = useQuery({
     queryKey: annotationsQueryKey(courseId, documentId),
@@ -112,6 +139,36 @@ export function DocumentAnnotationsPanel({
 
   const pending = createMutation.isPending;
   const bodyErrorId = `${formId}-body-error`;
+  const annotations = annotationsQuery.data?.data;
+
+  const registerAnnotationElement = useCallback(
+    (annotationId: string, element: HTMLElement | null) => {
+      if (element) annotationItemRefs.current.set(annotationId, element);
+      else annotationItemRefs.current.delete(annotationId);
+    },
+    [],
+  );
+
+  const handleCopyAnnotationLink = useCallback(
+    async (annotation: CourseDocumentAnnotation) => {
+      const url = new URL(window.location.href);
+      url.hash = annotationHash(annotation.id);
+
+      try {
+        await navigator.clipboard.writeText(url.toString());
+        notify({
+          kind: 'success',
+          message: 'Ο σύνδεσμος του σχολίου αντιγράφηκε.',
+        });
+      } catch {
+        notify({
+          kind: 'error',
+          message: 'Δεν ήταν δυνατή η αντιγραφή του συνδέσμου.',
+        });
+      }
+    },
+    [notify],
+  );
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -132,6 +189,49 @@ export function DocumentAnnotationsPanel({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [menuOpen]);
+
+  useEffect(() => {
+    function handleHashChange() {
+      setHighlightedAnnotationId(annotationIdFromLocationHash());
+    }
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (!highlightedAnnotationId || !annotations) return;
+
+    const annotation = annotations.find(
+      (item) => item.id === highlightedAnnotationId,
+    );
+    if (!annotation) return;
+
+    onNavigateToPage(annotation.target.pageNumber);
+    window.requestAnimationFrame(() => {
+      annotationItemRefs.current.get(highlightedAnnotationId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+
+    if (highlightTimeoutRef.current) {
+      window.clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightedAnnotationId(null);
+      highlightTimeoutRef.current = null;
+    }, 3_200);
+  }, [annotations, highlightedAnnotationId, onNavigateToPage]);
+
+  useEffect(
+    () => () => {
+      if (highlightTimeoutRef.current) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   if (collapsed) {
     return (
@@ -382,6 +482,11 @@ export function DocumentAnnotationsPanel({
                     <AnnotationItem
                       key={annotation.id}
                       annotation={annotation}
+                      currentUserId={currentUser.id}
+                      isHighlighted={annotation.id === highlightedAnnotationId}
+                      onCopyLink={handleCopyAnnotationLink}
+                      onNavigateToPage={onNavigateToPage}
+                      registerElement={registerAnnotationElement}
                     />
                   ))}
                 </div>
@@ -446,14 +551,40 @@ function filterAnnotations(
 
 function AnnotationItem({
   annotation,
+  currentUserId,
+  isHighlighted,
+  onCopyLink,
+  onNavigateToPage,
+  registerElement,
 }: {
   annotation: CourseDocumentAnnotation;
+  currentUserId: string;
+  isHighlighted: boolean;
+  onCopyLink: (annotation: CourseDocumentAnnotation) => void;
+  onNavigateToPage: (pageNumber: number) => void;
+  registerElement: (annotationId: string, element: HTMLElement | null) => void;
 }): React.JSX.Element {
+  const isOwner = annotation.author.id === currentUserId;
+
   return (
-    <article className="annotation-item">
-      <div className="annotation-item-header">
-        <span>{typeLabels[annotation.type]}</span>
-        <span>{visibilityLabels[annotation.visibility]}</span>
+    <article
+      className={
+        isHighlighted ? 'annotation-item is-highlighted' : 'annotation-item'
+      }
+      id={annotationHash(annotation.id)}
+      ref={(element) => registerElement(annotation.id, element)}
+    >
+      <div className="annotation-item-topline">
+        <div className="annotation-item-header">
+          <span>{typeLabels[annotation.type]}</span>
+          <span>{visibilityLabels[annotation.visibility]}</span>
+        </div>
+        <AnnotationItemActionsMenu
+          annotation={annotation}
+          isOwner={isOwner}
+          onCopyLink={onCopyLink}
+          onNavigateToPage={onNavigateToPage}
+        />
       </div>
       <p className="annotation-item-page">
         Σελίδα {annotation.target.pageNumber} - {annotation.author.fullName}
@@ -463,5 +594,152 @@ function AnnotationItem({
       )}
       {annotation.body && <p>{annotation.body}</p>}
     </article>
+  );
+}
+
+function AnnotationItemActionsMenu({
+  annotation,
+  isOwner,
+  onCopyLink,
+  onNavigateToPage,
+}: {
+  annotation: CourseDocumentAnnotation;
+  isOwner: boolean;
+  onCopyLink: (annotation: CourseDocumentAnnotation) => void;
+  onNavigateToPage: (pageNumber: number) => void;
+}): React.JSX.Element {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+
+  const openMenu = useCallback(() => {
+    const triggerRect = triggerRef.current?.getBoundingClientRect();
+    if (!triggerRect) {
+      setOpen((value) => !value);
+      return;
+    }
+
+    const popoverWidth = Math.min(272, window.innerWidth - 32);
+    const nextLeft = Math.min(
+      Math.max(16, triggerRect.right - popoverWidth),
+      window.innerWidth - popoverWidth - 16,
+    );
+
+    setPosition({
+      left: nextLeft,
+      top: triggerRect.bottom + 6,
+    });
+    setOpen((value) => !value);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeMenu() {
+      setOpen(false);
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        popoverRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      closeMenu();
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeMenu();
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
+  }, [open]);
+
+  return (
+    <div className="annotation-item-menu">
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Ενέργειες σχολίου"
+        className="annotation-item-menu-trigger"
+        ref={triggerRef}
+        type="button"
+        onClick={openMenu}
+      >
+        <MoreHorizontal aria-hidden="true" size={16} />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            className="annotation-item-menu-popover"
+            ref={popoverRef}
+            role="menu"
+            style={{
+              left: position?.left ?? 0,
+              top: position?.top ?? 0,
+              visibility: position ? 'visible' : 'hidden',
+            }}
+          >
+            {isOwner && (
+              <button disabled role="menuitem" type="button">
+                <Pencil aria-hidden="true" size={14} />
+                <span>Επεξεργασία</span>
+                <span className="annotation-item-menu-status">Read only</span>
+              </button>
+            )}
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onNavigateToPage(annotation.target.pageNumber);
+              }}
+            >
+              <FileText aria-hidden="true" size={14} />
+              <span>Μετάβαση στη σελίδα</span>
+            </button>
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onCopyLink(annotation);
+              }}
+            >
+              <Copy aria-hidden="true" size={14} />
+              <span>Αντιγραφή συνδέσμου</span>
+            </button>
+            {isOwner && (
+              <button
+                className="annotation-item-menu-danger"
+                disabled
+                role="menuitem"
+                type="button"
+              >
+                <Trash2 aria-hidden="true" size={14} />
+                <span>Διαγραφή</span>
+                <span className="annotation-item-menu-status">Read only</span>
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
+    </div>
   );
 }

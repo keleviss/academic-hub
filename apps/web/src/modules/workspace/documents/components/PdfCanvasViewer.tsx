@@ -16,10 +16,12 @@ const PAGE_VISIBILITY_THRESHOLDS = [0, 0.25, 0.5, 0.75, 1];
 export function PdfCanvasViewer({
   data,
   onVisiblePageChange,
+  scrollToPage,
   title,
 }: {
   data: ArrayBuffer;
   onVisiblePageChange?: (pageNumber: number) => void;
+  scrollToPage?: { pageNumber: number; requestId: number } | null;
   title: string;
 }): React.JSX.Element {
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
@@ -131,6 +133,15 @@ export function PdfCanvasViewer({
       observer.disconnect();
     };
   }, [onVisiblePageChange, pageCount]);
+
+  useEffect(() => {
+    if (!scrollToPage) return;
+
+    pageWrapperRefs.current.get(scrollToPage.pageNumber)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, [scrollToPage]);
 
   if (error) return <ErrorNotice>{error}</ErrorNotice>;
   if (!pdfDocument) return <p role="status">Φόρτωση προβολέα…</p>;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -26,6 +26,10 @@ const accessErrorOptions = {
 export function DocumentViewerPage(): React.JSX.Element {
   const { courseId = '', documentId = '' } = useParams();
   const [visiblePage, setVisiblePage] = useState(1);
+  const [pageScrollTarget, setPageScrollTarget] = useState<{
+    pageNumber: number;
+    requestId: number;
+  } | null>(null);
   const [annotationsPanelCollapsed, setAnnotationsPanelCollapsed] =
     useState(false);
   const documentQuery = useQuery({
@@ -48,6 +52,13 @@ export function DocumentViewerPage(): React.JSX.Element {
       fetchCourseDocumentContent(courseId, documentId, signal),
     enabled: !!courseId && !!documentId,
   });
+  const handleNavigateToPage = useCallback((pageNumber: number) => {
+    setVisiblePage(pageNumber);
+    setPageScrollTarget((current) => ({
+      pageNumber,
+      requestId: (current?.requestId ?? 0) + 1,
+    }));
+  }, []);
 
   return (
     <QueryState
@@ -85,6 +96,7 @@ export function DocumentViewerPage(): React.JSX.Element {
                       data={buffer}
                       title={detail.title}
                       onVisiblePageChange={setVisiblePage}
+                      scrollToPage={pageScrollTarget}
                     />
                   )}
                 </QueryState>
@@ -93,6 +105,7 @@ export function DocumentViewerPage(): React.JSX.Element {
                 courseId={courseId}
                 currentPage={visiblePage}
                 documentId={documentId}
+                onNavigateToPage={handleNavigateToPage}
                 collapsed={annotationsPanelCollapsed}
                 onCollapsedChange={setAnnotationsPanelCollapsed}
                 pageCount={detail.pageCount}
