@@ -1,5 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts"],
+  "references": [
+    {
+      "path": "../../packages/contracts/tsconfig.lib.json"
+    }
+  ]
 }

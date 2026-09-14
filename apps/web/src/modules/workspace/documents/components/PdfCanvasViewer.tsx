@@ -3,6 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import { ErrorNotice } from '../../../../components/feedback';
+import { Spinner } from '../../../../components/Spinner';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -144,7 +145,7 @@ export function PdfCanvasViewer({
   }, [scrollToPage]);
 
   if (error) return <ErrorNotice>{error}</ErrorNotice>;
-  if (!pdfDocument) return <p role="status">Φόρτωση προβολέα…</p>;
+  if (!pdfDocument) return <Spinner label="Φόρτωση προβολέα…" />;
 
   return (
     <div

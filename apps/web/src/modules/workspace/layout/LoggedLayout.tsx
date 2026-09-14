@@ -20,6 +20,7 @@ import {
 } from '../../../components/AppSidebar';
 import { ErrorNotice } from '../../../components/feedback';
 import { NotificationProvider } from '../../../components/notifications';
+import { Spinner } from '../../../components/Spinner';
 import { WorkspaceBreadcrumbProvider } from '../../../components/workspaceBreadcrumb';
 import { appPath, useLogoutMutation } from '../../../auth/session';
 import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
@@ -170,7 +171,7 @@ export function LoggedLayout(): React.JSX.Element {
                 <Route
                   path="courses/:courseId/documents/:documentId"
                   element={
-                    <Suspense fallback={<p role="status">Φόρτωση προβολέα…</p>}>
+                    <Suspense fallback={<Spinner label="Φόρτωση προβολέα…" />}>
                       <DocumentViewerPage />
                     </Suspense>
                   }

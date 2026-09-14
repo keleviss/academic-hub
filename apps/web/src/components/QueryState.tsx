@@ -2,6 +2,7 @@ import type { UseQueryResult } from '@tanstack/react-query';
 
 import { getErrorMessage } from '../lib/api-error';
 import { ErrorNotice } from './feedback';
+import { Spinner } from './Spinner';
 
 /** Renders the shared loading / error / empty triad around a react-query result. */
 export function QueryState<T>({
@@ -21,7 +22,7 @@ export function QueryState<T>({
   onRetry?: () => void;
   children: (data: T) => React.ReactNode;
 }): React.JSX.Element {
-  if (query.isPending) return <p role="status">{loadingLabel}</p>;
+  if (query.isPending) return <Spinner label={loadingLabel} />;
 
   if (query.isError || query.data === undefined) {
     const message = query.isError

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Navigate } from 'react-router';
 
 import { SessionFeedback } from '../components/feedback';
+import { Spinner } from '../components/Spinner';
 import { useSession } from './session';
 import { AuthenticatedUserContext } from './authenticatedUser';
 
@@ -12,9 +13,9 @@ const LoginPage = lazy(() =>
 function LoginFallback(): React.JSX.Element {
   return (
     <div className="flex min-h-dvh items-center justify-center p-5">
-      <p className="session-feedback text-center" role="status">
-        Φόρτωση σύνδεσης...
-      </p>
+      <div className="session-feedback">
+        <Spinner label="Φόρτωση σύνδεσης..." />
+      </div>
     </div>
   );
 }

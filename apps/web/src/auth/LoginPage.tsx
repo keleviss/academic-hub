@@ -7,6 +7,7 @@ import { LoginRequestSchema, type LoginRequest } from '@web-app/contracts';
 import { ApiClientError } from '../api/client';
 import { AppSidebar } from '../components/AppSidebar';
 import { ErrorNotice, SessionFeedback } from '../components/feedback';
+import { Spinner } from '../components/Spinner';
 import { appPath, useLoginMutation, useSession } from './session';
 
 function loginMessage(error: unknown): string {
@@ -116,9 +117,7 @@ function LoginForm() {
         {isSubmitting ? 'Γίνεται σύνδεση…' : 'Σύνδεση στο Academic Hub'}
       </button>
       {isSubmitting && (
-        <p role="status" className="form-status">
-          Η σύνδεση βρίσκεται σε εξέλιξη.
-        </p>
+        <Spinner label={<span className="form-status">Η σύνδεση βρίσκεται σε εξέλιξη.</span>} />
       )}
     </form>
   );
