@@ -1803,6 +1803,9 @@ select {
   border-bottom: 1px solid var(--color-hub-border);
   padding-bottom: var(--hub-space-3);
 }
+.annotation-form-toggle {
+  width: 100%;
+}
 .annotation-form label {
   color: var(--color-hub-muted);
   font-size: 0.75rem;
@@ -1824,13 +1827,27 @@ select {
   padding: 0 0.625rem;
 }
 .annotation-form textarea {
-  min-height: 4.25rem;
+  min-height: 3.5rem;
   resize: vertical;
   padding: 0.625rem;
+}
+.annotation-form textarea[aria-invalid='true'] {
+  border-color: var(--color-hub-danger);
 }
 .annotation-form-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 0.75rem;
+}
+.annotation-form-error {
+  margin: -0.25rem 0 0;
+  color: var(--color-hub-danger);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.annotation-form-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
 }
 .document-annotations-results {
@@ -1886,10 +1903,14 @@ select {
     grid-template-columns: minmax(0, 1fr) 22rem;
   }
   .document-annotations-panel {
+    --document-annotations-height: calc(
+      100dvh - var(--workspace-toolbar-height) - 3rem
+    );
     grid-template-rows: auto auto minmax(0, 1fr);
     position: sticky;
     top: -1.5rem;
-    height: min(53rem, calc(100dvh - var(--workspace-toolbar-height) - 4rem));
+    height: var(--document-annotations-height);
+    max-height: var(--document-annotations-height);
     min-height: 0;
     overflow: hidden;
   }

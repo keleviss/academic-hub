@@ -56,6 +56,8 @@ export function DocumentAnnotationsPanel({
   const [visibility, setVisibility] = useState<AnnotationVisibility>('private');
   const [selectedText, setSelectedText] = useState('');
   const [body, setBody] = useState('');
+  const [formExpanded, setFormExpanded] = useState(false);
+  const [bodyError, setBodyError] = useState<string | null>(null);
 
   const annotationsQuery = useQuery({
     queryKey: annotationsQueryKey(courseId, documentId),
@@ -70,7 +72,7 @@ export function DocumentAnnotationsPanel({
         pageNumber: currentPage,
         type,
         visibility,
-        body: body.trim() || undefined,
+        body: body.trim(),
         selectedText: selectedText.trim() || undefined,
       }),
     invalidateKeys: [annotationsQueryKey(courseId, documentId)],
@@ -78,11 +80,14 @@ export function DocumentAnnotationsPanel({
     notifyOnError: true,
     onSuccess: () => {
       setBody('');
+      setBodyError(null);
+      setFormExpanded(false);
       setSelectedText('');
     },
   });
 
   const pending = createMutation.isPending;
+  const bodyErrorId = `${formId}-body-error`;
 
   return (
     <aside
@@ -96,87 +101,126 @@ export function DocumentAnnotationsPanel({
         </div>
       </div>
 
-      <form
-        className="annotation-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          createMutation.mutate();
-        }}
-      >
-        <div className="annotation-form-grid">
-          <label htmlFor={`${formId}-page`}>
-            Σελίδα
-            <input
-              id={`${formId}-page`}
-              type="number"
-              min={1}
-              max={pageCount ?? undefined}
-              required
-              value={currentPage}
-              readOnly
-            />
-          </label>
-          <label htmlFor={`${formId}-type`}>
-            Τύπος
+      {formExpanded ? (
+        <form
+          className="annotation-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!body.trim()) {
+              setBodyError('Συμπλήρωσε περιεχόμενο για το annotation.');
+              return;
+            }
+            createMutation.mutate();
+          }}
+        >
+          <div className="annotation-form-grid">
+            <label htmlFor={`${formId}-page`}>
+              Σελίδα
+              <input
+                id={`${formId}-page`}
+                type="number"
+                min={1}
+                max={pageCount ?? undefined}
+                required
+                value={currentPage}
+                readOnly
+              />
+            </label>
+            <label htmlFor={`${formId}-type`}>
+              Τύπος
+              <select
+                id={`${formId}-type`}
+                value={type}
+                onChange={(event) =>
+                  setType(event.target.value as AnnotationType)
+                }
+                disabled={pending}
+              >
+                {annotationTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label htmlFor={`${formId}-visibility`}>
+            Ορατότητα
             <select
-              id={`${formId}-type`}
-              value={type}
+              id={`${formId}-visibility`}
+              value={visibility}
               onChange={(event) =>
-                setType(event.target.value as AnnotationType)
+                setVisibility(event.target.value as AnnotationVisibility)
               }
               disabled={pending}
             >
-              {annotationTypeOptions.map((option) => (
+              {annotationVisibilityOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
           </label>
-        </div>
-        <label htmlFor={`${formId}-visibility`}>
-          Ορατότητα
-          <select
-            id={`${formId}-visibility`}
-            value={visibility}
-            onChange={(event) =>
-              setVisibility(event.target.value as AnnotationVisibility)
-            }
-            disabled={pending}
-          >
-            {annotationVisibilityOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label htmlFor={`${formId}-selected-text`}>
-          Επιλεγμένο κείμενο
-          <input
-            id={`${formId}-selected-text`}
-            type="text"
-            maxLength={1000}
-            value={selectedText}
-            onChange={(event) => setSelectedText(event.target.value)}
-            disabled={pending}
-          />
-        </label>
-        <label htmlFor={`${formId}-body`}>
-          Περιεχόμενο
-          <textarea
-            id={`${formId}-body`}
-            maxLength={2000}
-            rows={4}
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            disabled={pending}
-          />
-        </label>
-        <button className="primary-button" type="submit" disabled={pending}>
-          {pending ? 'Αποθήκευση…' : 'Προσθήκη annotation'}
+          <label htmlFor={`${formId}-selected-text`}>
+            Επιλεγμένο κείμενο
+            <input
+              id={`${formId}-selected-text`}
+              type="text"
+              maxLength={1000}
+              value={selectedText}
+              onChange={(event) => setSelectedText(event.target.value)}
+              disabled={pending}
+            />
+          </label>
+          <label htmlFor={`${formId}-body`}>
+            Περιεχόμενο
+            <textarea
+              id={`${formId}-body`}
+              aria-describedby={bodyError ? bodyErrorId : undefined}
+              aria-invalid={bodyError ? true : undefined}
+              maxLength={2000}
+              rows={3}
+              value={body}
+              onChange={(event) => {
+                setBody(event.target.value);
+                if (bodyError && event.target.value.trim()) {
+                  setBodyError(null);
+                }
+              }}
+              disabled={pending}
+            />
+          </label>
+          {bodyError && (
+            <p className="annotation-form-error" id={bodyErrorId} role="alert">
+              {bodyError}
+            </p>
+          )}
+          <div className="annotation-form-actions">
+            <button className="primary-button" type="submit" disabled={pending}>
+              {pending ? 'Αποθήκευση…' : 'Αποθήκευση'}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setBodyError(null);
+                setFormExpanded(false);
+              }}
+            >
+              Άκυρο
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          className="primary-button annotation-form-toggle"
+          type="button"
+          onClick={() => setFormExpanded(true)}
+        >
+          Προσθήκη annotation
         </button>
-      </form>
+      )}
 
       <div className="document-annotations-results">
         <QueryState
