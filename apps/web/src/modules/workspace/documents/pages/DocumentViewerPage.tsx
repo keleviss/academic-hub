@@ -26,6 +26,8 @@ const accessErrorOptions = {
 export function DocumentViewerPage(): React.JSX.Element {
   const { courseId = '', documentId = '' } = useParams();
   const [visiblePage, setVisiblePage] = useState(1);
+  const [annotationsPanelCollapsed, setAnnotationsPanelCollapsed] =
+    useState(false);
   const documentQuery = useQuery({
     queryKey: documentQueryKey(courseId, documentId),
     queryFn: ({ signal }) => fetchCourseDocument(courseId, documentId, signal),
@@ -64,7 +66,13 @@ export function DocumentViewerPage(): React.JSX.Element {
               text: 'Επιστροφή στο μάθημα',
             }}
           >
-            <div className="document-viewer">
+            <div
+              className={
+                annotationsPanelCollapsed
+                  ? 'document-viewer is-annotations-collapsed'
+                  : 'document-viewer'
+              }
+            >
               <div className="document-viewer-canvas-area">
                 <QueryState
                   query={contentQuery}
@@ -85,6 +93,8 @@ export function DocumentViewerPage(): React.JSX.Element {
                 courseId={courseId}
                 currentPage={visiblePage}
                 documentId={documentId}
+                collapsed={annotationsPanelCollapsed}
+                onCollapsedChange={setAnnotationsPanelCollapsed}
                 pageCount={detail.pageCount}
               />
             </div>
