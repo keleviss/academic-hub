@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -24,6 +25,7 @@ const accessErrorOptions = {
 
 export function DocumentViewerPage(): React.JSX.Element {
   const { courseId = '', documentId = '' } = useParams();
+  const [visiblePage, setVisiblePage] = useState(1);
   const documentQuery = useQuery({
     queryKey: documentQueryKey(courseId, documentId),
     queryFn: ({ signal }) => fetchCourseDocument(courseId, documentId, signal),
@@ -71,12 +73,17 @@ export function DocumentViewerPage(): React.JSX.Element {
                   onRetry={() => void contentQuery.refetch()}
                 >
                   {(buffer) => (
-                    <PdfCanvasViewer data={buffer} title={detail.title} />
+                    <PdfCanvasViewer
+                      data={buffer}
+                      title={detail.title}
+                      onVisiblePageChange={setVisiblePage}
+                    />
                   )}
                 </QueryState>
               </div>
               <DocumentAnnotationsPanel
                 courseId={courseId}
+                currentPage={visiblePage}
                 documentId={documentId}
                 pageCount={detail.pageCount}
               />

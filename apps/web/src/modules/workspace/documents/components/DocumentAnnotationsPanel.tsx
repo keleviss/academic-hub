@@ -42,15 +42,16 @@ function annotationsQueryKey(courseId: string, documentId: string) {
 
 export function DocumentAnnotationsPanel({
   courseId,
+  currentPage,
   documentId,
   pageCount,
 }: {
   courseId: string;
+  currentPage: number;
   documentId: string;
   pageCount: number | null;
 }): React.JSX.Element {
   const formId = useId();
-  const [pageNumber, setPageNumber] = useState('1');
   const [type, setType] = useState<AnnotationType>('note');
   const [visibility, setVisibility] = useState<AnnotationVisibility>('private');
   const [selectedText, setSelectedText] = useState('');
@@ -66,7 +67,7 @@ export function DocumentAnnotationsPanel({
   const createMutation = useNotifyingMutation({
     mutationFn: () =>
       createCourseDocumentAnnotation(courseId, documentId, {
-        pageNumber: Number(pageNumber),
+        pageNumber: currentPage,
         type,
         visibility,
         body: body.trim() || undefined,
@@ -111,9 +112,8 @@ export function DocumentAnnotationsPanel({
               min={1}
               max={pageCount ?? undefined}
               required
-              value={pageNumber}
-              onChange={(event) => setPageNumber(event.target.value)}
-              disabled={pending}
+              value={currentPage}
+              readOnly
             />
           </label>
           <label htmlFor={`${formId}-type`}>
@@ -178,23 +178,25 @@ export function DocumentAnnotationsPanel({
         </button>
       </form>
 
-      <QueryState
-        query={annotationsQuery}
-        loadingLabel="Φόρτωση annotations…"
-        onRetry={() => void annotationsQuery.refetch()}
-      >
-        {(response) =>
-          response.data.length === 0 ? (
-            <EmptyState message="Δεν υπάρχουν annotations για αυτό το έγγραφο." />
-          ) : (
-            <div className="annotation-list">
-              {response.data.map((annotation) => (
-                <AnnotationItem key={annotation.id} annotation={annotation} />
-              ))}
-            </div>
-          )
-        }
-      </QueryState>
+      <div className="document-annotations-results">
+        <QueryState
+          query={annotationsQuery}
+          loadingLabel="Φόρτωση annotations…"
+          onRetry={() => void annotationsQuery.refetch()}
+        >
+          {(response) =>
+            response.data.length === 0 ? (
+              <EmptyState message="Δεν υπάρχουν annotations για αυτό το έγγραφο." />
+            ) : (
+              <div className="annotation-list">
+                {response.data.map((annotation) => (
+                  <AnnotationItem key={annotation.id} annotation={annotation} />
+                ))}
+              </div>
+            )
+          }
+        </QueryState>
+      </div>
     </aside>
   );
 }
