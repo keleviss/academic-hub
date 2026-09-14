@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft } from 'lucide-react';
 
 import {
   fetchCourseDocument,
   fetchCourseDocumentContent,
 } from '../../../../api/client';
-import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 import { DocumentAnnotationsPanel } from '../components/DocumentAnnotationsPanel';
@@ -21,6 +21,15 @@ const accessErrorOptions = {
     403: 'Δεν έχεις πρόσβαση σε αυτό το έγγραφο.',
     404: 'Το έγγραφο δεν βρέθηκε.',
   },
+};
+
+const contentErrorOptions = {
+  codes: {
+    DOCUMENT_CONTENT_UNAVAILABLE:
+      'Το περιεχόμενο του εγγράφου δεν είναι προσωρινά διαθέσιμο.',
+  },
+  statuses: accessErrorOptions.statuses,
+  fallback: 'Η φόρτωση του περιεχομένου απέτυχε. Δοκίμασε ξανά.',
 };
 
 export function DocumentViewerPage(): React.JSX.Element {
@@ -69,14 +78,20 @@ export function DocumentViewerPage(): React.JSX.Element {
       {(document) => {
         const detail = document.data;
         return (
-          <PageLayout
-            title={detail.title}
-            subtitle={detail.description ?? 'Προβολή εγγράφου μαθήματος'}
-            backlink={{
-              href: `/app/courses/${courseId}`,
-              text: 'Επιστροφή στο μάθημα',
-            }}
-          >
+          <section className="document-viewer-page">
+            <header className="document-viewer-toolbar">
+              <Link
+                aria-label="Επιστροφή στο μάθημα"
+                className="document-viewer-back-link"
+                to={`/app/courses/${courseId}`}
+              >
+                <ArrowLeft aria-hidden="true" size={16} />
+              </Link>
+              <div className="document-viewer-title-block">
+                <h1>{detail.title}</h1>
+                {detail.description && <p>{detail.description}</p>}
+              </div>
+            </header>
             <div
               className={
                 annotationsPanelCollapsed
@@ -88,7 +103,7 @@ export function DocumentViewerPage(): React.JSX.Element {
                 <QueryState
                   query={contentQuery}
                   loadingLabel="Φόρτωση περιεχομένου…"
-                  errorOptions={accessErrorOptions}
+                  errorOptions={contentErrorOptions}
                   onRetry={() => void contentQuery.refetch()}
                 >
                   {(buffer) => (
@@ -111,7 +126,7 @@ export function DocumentViewerPage(): React.JSX.Element {
                 pageCount={detail.pageCount}
               />
             </div>
-          </PageLayout>
+          </section>
         );
       }}
     </QueryState>

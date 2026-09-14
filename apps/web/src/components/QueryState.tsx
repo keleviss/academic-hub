@@ -24,18 +24,21 @@ export function QueryState<T>({
   if (query.isPending) return <p role="status">{loadingLabel}</p>;
 
   if (query.isError || query.data === undefined) {
+    const message = query.isError
+      ? getErrorMessage(query.error, errorOptions)
+      : (emptyMessage ?? 'Δεν βρέθηκαν δεδομένα.');
+
     return (
       <ErrorNotice>
-        {query.isError
-          ? getErrorMessage(query.error, errorOptions)
-          : (emptyMessage ?? 'Δεν βρέθηκαν δεδομένα.')}
+        <span>{message}</span>
         {onRetry && (
-          <>
-            {' '}
-            <button className="secondary-button" type="button" onClick={onRetry}>
-              Δοκίμασε ξανά
-            </button>
-          </>
+          <button
+            className="secondary-button error-notice-action"
+            type="button"
+            onClick={onRetry}
+          >
+            Δοκίμασε ξανά
+          </button>
         )}
       </ErrorNotice>
     );
@@ -47,4 +50,3 @@ export function QueryState<T>({
 
   return <>{children(query.data)}</>;
 }
-

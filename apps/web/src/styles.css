@@ -278,6 +278,10 @@ button:disabled {
   background: var(--color-hub-teal-dark);
 }
 .error-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.875rem;
   border: 1px solid #f7bdcd;
   background: #fff0f4;
   color: var(--color-hub-danger);
@@ -286,6 +290,10 @@ button:disabled {
   font-size: 0.8125rem;
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+.error-notice-action {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 .workspace-notification-viewport {
   position: fixed;
@@ -1743,11 +1751,61 @@ select {
 .actions-menu-popover button:hover {
   background: var(--color-hub-surface-muted, rgba(15, 35, 55, 0.06));
 }
+.document-viewer-page {
+  display: grid;
+  gap: var(--hub-space-3);
+}
+.document-viewer-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+.document-viewer-back-link {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-hub-border);
+  border-radius: var(--radius-hub-control);
+  background: var(--color-hub-surface);
+  color: var(--color-hub-accent);
+}
+.document-viewer-back-link:hover {
+  background: var(--color-hub-surface-muted, rgba(15, 35, 55, 0.06));
+  color: var(--color-hub-navy);
+}
+.document-viewer-title-block {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+.document-viewer-title-block h1 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-hub-navy);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.document-viewer-title-block p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-hub-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .document-viewer {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: var(--hub-space-4);
+  gap: var(--hub-space-3);
   min-height: 70vh;
   transition: grid-template-columns 180ms ease;
 }
