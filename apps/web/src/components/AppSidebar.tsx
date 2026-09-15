@@ -366,9 +366,6 @@ function LoggedSidebar({
           type="button"
           className="profile-card-button"
           aria-label={`Μενού χρήστη ${user.fullName}`}
-          data-sidebar-tooltip={
-            collapsed ? `${user.fullName} · ${roleLabels[user.role]}` : undefined
-          }
           aria-haspopup="menu"
           aria-expanded={profileOpen}
           onClick={() => setProfileOpen((open) => !open)}

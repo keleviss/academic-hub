@@ -652,7 +652,7 @@ button:disabled {
 .app-sidebar--logged {
   display: flex;
   position: relative;
-  z-index: 30;
+  z-index: 40;
   width: var(--workspace-sidebar-width);
   height: 100%;
   min-height: 0;
@@ -744,6 +744,10 @@ button:disabled {
 .sidebar-nav ul {
   display: grid;
   gap: 0.375rem;
+}
+
+.app-sidebar--logged.is-collapsed .sidebar-nav ul {
+  justify-content: center;
 }
 
 .sidebar-nav-row {
@@ -869,11 +873,12 @@ button:disabled {
 .app-sidebar--logged.is-collapsed .sidebar-main {
   gap: 1rem;
   padding: 1.25rem 0.875rem;
+  justify-content: center;
 }
 
 .app-sidebar--logged.is-collapsed .sidebar-brand-row {
   display: grid;
-  justify-items: center;
+  justify-content: center;
   gap: 0.625rem;
 }
 
@@ -913,6 +918,7 @@ button:disabled {
   bottom: 0.875rem;
   left: calc(100% + 0.625rem);
   width: 13rem;
+  z-index: 80;
 }
 
 .app-sidebar--logged.is-collapsed [data-sidebar-tooltip] {
@@ -1190,8 +1196,10 @@ button:disabled {
   .workspace-sidebar-desktop {
     position: sticky;
     top: 0;
+    z-index: 40;
     display: block;
     height: 100%;
+    overflow: visible;
   }
 
   .workspace-toolbar {
