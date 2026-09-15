@@ -32,6 +32,7 @@ const adminId = '77777777-7777-4777-8777-777777777777';
 const studentId = '33333333-3333-4333-8333-333333333333';
 const otherStudentId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const now = new Date('2026-09-12T09:00:00.000Z');
+const documentDiscussionCategoryId = '19191919-1919-4191-8191-191919191919';
 
 const course = {
   id: courseId,
@@ -93,6 +94,7 @@ function createTestApp(
   options: {
     activeEnrollment?: boolean;
     assignedProfessor?: boolean;
+    existingThreadForPublicAnnotation?: boolean;
     maxUploadBytes?: number;
     visibilityFixtures?: boolean;
   } = {},
@@ -197,6 +199,50 @@ function createTestApp(
       },
     },
   ];
+  const forumCategories = [
+    {
+      id: documentDiscussionCategoryId,
+      courseId,
+      name: 'Συζητήσεις εγγράφων',
+      kind: 'document_discussion',
+      description: 'Νήματα από σχόλια εγγράφων.',
+      orderIndex: 1,
+      isVisible: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
+  const forumThreads: Array<{
+    annotationId: string;
+    authorId: string;
+    categoryId: string;
+    courseId: string;
+    documentId: string;
+    documentTitleSnapshot: string;
+    id: string;
+    pageNumberSnapshot: number;
+    selectedTextSnapshot: string | null;
+    targetId: string;
+    title: string;
+    visibility: 'private' | 'public' | 'instructor_only';
+  }> = options.existingThreadForPublicAnnotation
+    ? [
+        {
+          annotationId: publicAnnotation.id,
+          authorId: studentId,
+          categoryId: documentDiscussionCategoryId,
+          courseId,
+          documentId: visibleDocumentId,
+          documentTitleSnapshot: 'Visible handout',
+          id: '20202020-2020-4202-8202-202020202020',
+          pageNumberSnapshot: annotationTargetRecord.pageNumber,
+          selectedTextSnapshot: annotationTargetRecord.selectedText,
+          targetId: annotationTargetRecord.id,
+          title: publicAnnotation.body,
+          visibility: 'public',
+        },
+      ]
+    : [];
   const courseDelegate = {
     findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
       where.id === courseId ? course : null,
@@ -459,6 +505,105 @@ function createTestApp(
       },
     ),
   };
+  const forumCategory = {
+    upsert: vi.fn(
+      async ({
+        create,
+        update,
+        where,
+      }: {
+        create: {
+          courseId: string;
+          description: string;
+          kind: 'document_discussion';
+          name: string;
+          orderIndex: number;
+        };
+        update: {
+          isVisible: boolean;
+          kind: 'document_discussion';
+        };
+        where: { courseId_name: { courseId: string; name: string } };
+      }) => {
+        const existingIndex = forumCategories.findIndex(
+          (category) =>
+            category.courseId === where.courseId_name.courseId &&
+            category.name === where.courseId_name.name,
+        );
+
+        if (existingIndex >= 0) {
+          const next = {
+            ...forumCategories[existingIndex],
+            ...update,
+            updatedAt: now,
+          };
+          forumCategories[existingIndex] = next;
+          return next;
+        }
+
+        const record = {
+          id: documentDiscussionCategoryId,
+          ...create,
+          isVisible: true,
+          createdAt: now,
+          updatedAt: now,
+        };
+        forumCategories.push(record);
+        return record;
+      },
+    ),
+  };
+  const forumThread = {
+    create: vi.fn(
+      async ({
+        data,
+      }: {
+        data: {
+          annotationId: string;
+          authorId: string;
+          categoryId: string;
+          courseId: string;
+          documentId: string;
+          documentTitleSnapshot: string;
+          pageNumberSnapshot: number;
+          selectedTextSnapshot: string | null;
+          targetId: string;
+          title: string;
+          visibility: 'private' | 'public' | 'instructor_only';
+        };
+      }) => {
+        const record = {
+          id: '18181818-1818-4181-8181-181818181818',
+          ...data,
+        };
+        forumThreads.push(record);
+        return record;
+      },
+    ),
+    findUnique: vi.fn(
+      async ({ where }: { where: { annotationId: string } }) =>
+        forumThreads.find(
+          (thread) => thread.annotationId === where.annotationId,
+        ) ?? null,
+    ),
+  };
+  const courseDocumentsPrisma = {
+    annotation,
+    annotationTarget,
+    course: courseDelegate,
+    courseInstructor,
+    document,
+    enrollment,
+    forumCategory,
+    forumThread,
+  };
+  const courseDocumentsPrismaWithTransaction = {
+    ...courseDocumentsPrisma,
+    $transaction: vi.fn(
+      async <T>(callback: (transaction: typeof courseDocumentsPrisma) => T) =>
+        callback(courseDocumentsPrisma),
+    ),
+  };
 
   const sessionService: SessionService = {
     createSession: vi.fn(),
@@ -489,20 +634,18 @@ function createTestApp(
     auditLogger,
     courseDocumentsMaxUploadBytes: options.maxUploadBytes,
     courseDocumentsPrisma: {
-      annotation,
-      annotationTarget,
-      course: courseDelegate,
-      courseInstructor,
-      document,
-      enrollment,
+      ...courseDocumentsPrismaWithTransaction,
     } as unknown as Pick<
       PrismaClient,
+      | '$transaction'
       | 'annotation'
       | 'annotationTarget'
       | 'course'
       | 'courseInstructor'
       | 'document'
       | 'enrollment'
+      | 'forumCategory'
+      | 'forumThread'
     >,
     courseDocumentsStorage: storageService,
     sessionService,
@@ -515,6 +658,8 @@ function createTestApp(
     courseDelegate,
     courseInstructor,
     document,
+    forumCategory,
+    forumThread,
     storageService,
   };
 }
@@ -845,9 +990,12 @@ describe('course document routes', () => {
   });
 
   it('creates a page-level annotation target and annotation', async () => {
-    const { annotation, annotationTarget, app } = createTestApp('student', {
-      visibilityFixtures: true,
-    });
+    const { annotation, annotationTarget, app, forumThread } = createTestApp(
+      'student',
+      {
+        visibilityFixtures: true,
+      },
+    );
 
     const response = await request(app)
       .post(
@@ -896,7 +1044,98 @@ describe('course document routes', () => {
         }),
       }),
     );
+    expect(forumThread.create).not.toHaveBeenCalled();
   });
+
+  it.each(['public', 'instructor_only'] as const)(
+    'creates a contextual thread for %s question annotations',
+    async (visibility) => {
+      const { app, forumCategory, forumThread } = createTestApp('student', {
+        visibilityFixtures: true,
+      });
+
+      const response = await request(app)
+        .post(
+          `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations`,
+        )
+        .set('Cookie', authCookie())
+        .send({
+          pageNumber: 2,
+          type: 'question',
+          visibility,
+          body: '  Πώς συνδέεται αυτό;  ',
+          selectedText: '  σημείο απορίας  ',
+        })
+        .expect(201);
+
+      const body = CourseDocumentAnnotationResponseSchema.parse(response.body);
+      expect(body.data).toMatchObject({
+        body: 'Πώς συνδέεται αυτό;',
+        type: 'question',
+        visibility,
+        target: {
+          pageNumber: 2,
+          selectedText: 'σημείο απορίας',
+        },
+      });
+      expect(forumCategory.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            courseId_name: {
+              courseId,
+              name: 'Συζητήσεις εγγράφων',
+            },
+          },
+        }),
+      );
+      expect(forumThread.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            annotationId: body.data.id,
+            authorId: studentId,
+            categoryId: documentDiscussionCategoryId,
+            courseId,
+            documentId: visibleDocumentId,
+            documentTitleSnapshot: 'Visible handout',
+            pageNumberSnapshot: 2,
+            selectedTextSnapshot: 'σημείο απορίας',
+            targetId: body.data.target.id,
+            title: 'Πώς συνδέεται αυτό;',
+            visibility,
+          }),
+        }),
+      );
+    },
+  );
+
+  it.each([
+    { type: 'question', visibility: 'private' },
+    { type: 'note', visibility: 'public' },
+  ] as const)(
+    'does not create a contextual thread for $visibility $type annotations',
+    async ({ type, visibility }) => {
+      const { app, forumCategory, forumThread } = createTestApp('student', {
+        visibilityFixtures: true,
+      });
+
+      await request(app)
+        .post(
+          `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations`,
+        )
+        .set('Cookie', authCookie())
+        .send({
+          pageNumber: 2,
+          type,
+          visibility,
+          body: 'Δεν ανοίγει thread',
+          selectedText: 'σημείο',
+        })
+        .expect(201);
+
+      expect(forumCategory.upsert).not.toHaveBeenCalled();
+      expect(forumThread.create).not.toHaveBeenCalled();
+    },
+  );
 
   it('updates an annotation for its creator', async () => {
     const { annotation, app } = createTestApp('student', {
@@ -932,6 +1171,75 @@ describe('course document routes', () => {
         where: { id: publicAnnotation.id },
       }),
     );
+  });
+
+  it('creates a contextual thread when an update completes the question criteria', async () => {
+    const { app, forumCategory, forumThread } = createTestApp('student', {
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .patch(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations/12121212-1212-4121-8121-121212121212`,
+      )
+      .set('Cookie', authCookie())
+      .send({
+        body: '  Ποια είναι η διαφορά εδώ;  ',
+        type: 'question',
+        visibility: 'public',
+      })
+      .expect(200);
+
+    const body = CourseDocumentAnnotationResponseSchema.parse(response.body);
+    expect(body.data).toMatchObject({
+      id: '12121212-1212-4121-8121-121212121212',
+      body: 'Ποια είναι η διαφορά εδώ;',
+      type: 'question',
+      visibility: 'public',
+    });
+    expect(forumThread.findUnique).toHaveBeenCalledWith({
+      where: { annotationId: body.data.id },
+    });
+    expect(forumCategory.upsert).toHaveBeenCalled();
+    expect(forumThread.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          annotationId: body.data.id,
+          authorId: studentId,
+          courseId,
+          documentId: visibleDocumentId,
+          documentTitleSnapshot: 'Visible handout',
+          pageNumberSnapshot: 1,
+          selectedTextSnapshot: 'προσωπικό σημείο',
+          targetId: 'abababab-abab-4aba-8aba-abababababab',
+          title: 'Ποια είναι η διαφορά εδώ;',
+          visibility: 'public',
+        }),
+      }),
+    );
+  });
+
+  it('does not create a duplicate contextual thread for an already-threaded question', async () => {
+    const { app, forumCategory, forumThread } = createTestApp('student', {
+      existingThreadForPublicAnnotation: true,
+      visibilityFixtures: true,
+    });
+
+    await request(app)
+      .patch(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations/${publicAnnotation.id}`,
+      )
+      .set('Cookie', authCookie())
+      .send({
+        body: 'Ενημερωμένη ερώτηση με υπάρχον thread',
+      })
+      .expect(200);
+
+    expect(forumThread.findUnique).toHaveBeenCalledWith({
+      where: { annotationId: publicAnnotation.id },
+    });
+    expect(forumCategory.upsert).not.toHaveBeenCalled();
+    expect(forumThread.create).not.toHaveBeenCalled();
   });
 
   it('blocks annotation updates from non-creators', async () => {
