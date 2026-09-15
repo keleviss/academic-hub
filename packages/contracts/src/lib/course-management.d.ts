@@ -10,10 +10,15 @@ export declare const CourseDocumentIdParamsSchema: z.ZodObject<{
     courseId: z.ZodUUID;
     documentId: z.ZodUUID;
 }, z.core.$strip>;
+export declare const CourseDocumentAnnotationIdParamsSchema: z.ZodObject<{
+    courseId: z.ZodUUID;
+    documentId: z.ZodUUID;
+    annotationId: z.ZodUUID;
+}, z.core.$strip>;
 export declare const CourseStatusFilterSchema: z.ZodEnum<{
+    all: "all";
     active: "active";
     inactive: "inactive";
-    all: "all";
 }>;
 export declare const CourseSemesterSchema: z.ZodCoercedNumber<unknown>;
 export declare const CourseEctsCreditsSchema: z.ZodCoercedNumber<unknown>;
@@ -42,9 +47,9 @@ export declare const CourseListQuerySchema: z.ZodObject<{
     search: z.ZodOptional<z.ZodString>;
     semester: z.ZodOptional<z.ZodCoercedNumber<unknown>>;
     status: z.ZodDefault<z.ZodEnum<{
+        all: "all";
         active: "active";
         inactive: "inactive";
-        all: "all";
     }>>;
 }, z.core.$strip>;
 export declare const CourseMemberCandidateRoleSchema: z.ZodEnum<{
@@ -63,9 +68,9 @@ export declare const CourseMemberCandidateSchema: z.ZodObject<{
     fullName: z.ZodString;
     email: z.ZodEmail;
     role: z.ZodEnum<{
-        admin: "admin";
         professor: "professor";
         student: "student";
+        admin: "admin";
     }>;
 }, z.core.$strip>;
 export declare const CourseMemberCandidatesResponseSchema: z.ZodObject<{
@@ -74,9 +79,9 @@ export declare const CourseMemberCandidatesResponseSchema: z.ZodObject<{
         fullName: z.ZodString;
         email: z.ZodEmail;
         role: z.ZodEnum<{
-            admin: "admin";
             professor: "professor";
             student: "student";
+            admin: "admin";
         }>;
     }, z.core.$strip>>;
 }, z.core.$strip>;
@@ -305,9 +310,9 @@ export declare const CourseDocumentAnnotationAuthorSchema: z.ZodObject<{
     id: z.ZodUUID;
     fullName: z.ZodString;
     role: z.ZodEnum<{
-        admin: "admin";
         professor: "professor";
         student: "student";
+        admin: "admin";
     }>;
 }, z.core.$strip>;
 export declare const CourseDocumentAnnotationSchema: z.ZodObject<{
@@ -323,9 +328,9 @@ export declare const CourseDocumentAnnotationSchema: z.ZodObject<{
         id: z.ZodUUID;
         fullName: z.ZodString;
         role: z.ZodEnum<{
-            admin: "admin";
             professor: "professor";
             student: "student";
+            admin: "admin";
         }>;
     }, z.core.$strip>;
     type: z.ZodEnum<{
@@ -361,6 +366,21 @@ export declare const CreateCourseDocumentAnnotationRequestSchema: z.ZodObject<{
     body: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     selectedText: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, z.core.$strip>;
+export declare const UpdateCourseDocumentAnnotationRequestSchema: z.ZodObject<{
+    type: z.ZodOptional<z.ZodEnum<{
+        highlight: "highlight";
+        note: "note";
+        question: "question";
+        important: "important";
+        confusing: "confusing";
+    }>>;
+    visibility: z.ZodOptional<z.ZodEnum<{
+        private: "private";
+        public: "public";
+        instructor_only: "instructor_only";
+    }>>;
+    body: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, z.core.$strip>;
 export declare const CourseDocumentAnnotationsResponseSchema: z.ZodObject<{
     data: z.ZodArray<z.ZodObject<{
         id: z.ZodUUID;
@@ -375,9 +395,9 @@ export declare const CourseDocumentAnnotationsResponseSchema: z.ZodObject<{
             id: z.ZodUUID;
             fullName: z.ZodString;
             role: z.ZodEnum<{
-                admin: "admin";
                 professor: "professor";
                 student: "student";
+                admin: "admin";
             }>;
         }, z.core.$strip>;
         type: z.ZodEnum<{
@@ -411,9 +431,9 @@ export declare const CourseDocumentAnnotationResponseSchema: z.ZodObject<{
             id: z.ZodUUID;
             fullName: z.ZodString;
             role: z.ZodEnum<{
-                admin: "admin";
                 professor: "professor";
                 student: "student";
+                admin: "admin";
             }>;
         }, z.core.$strip>;
         type: z.ZodEnum<{
@@ -820,6 +840,7 @@ export declare const StudentCourseDetailResponseSchema: z.ZodObject<{
 export type CourseIdParams = z.infer<typeof CourseIdParamsSchema>;
 export type CourseMemberIdParams = z.infer<typeof CourseMemberIdParamsSchema>;
 export type CourseDocumentIdParams = z.infer<typeof CourseDocumentIdParamsSchema>;
+export type CourseDocumentAnnotationIdParams = z.infer<typeof CourseDocumentAnnotationIdParamsSchema>;
 export type CourseStatusFilter = z.infer<typeof CourseStatusFilterSchema>;
 export type CourseCreateRequest = z.infer<typeof CourseCreateRequestSchema>;
 export type CourseUpdateRequest = z.infer<typeof CourseUpdateRequestSchema>;
@@ -845,6 +866,7 @@ export type CourseDocumentsResponse = z.infer<typeof CourseDocumentsResponseSche
 export type CourseDocumentResponse = z.infer<typeof CourseDocumentResponseSchema>;
 export type CourseDocumentAnnotation = z.infer<typeof CourseDocumentAnnotationSchema>;
 export type CreateCourseDocumentAnnotationRequest = z.infer<typeof CreateCourseDocumentAnnotationRequestSchema>;
+export type UpdateCourseDocumentAnnotationRequest = z.infer<typeof UpdateCourseDocumentAnnotationRequestSchema>;
 export type CourseDocumentAnnotationsResponse = z.infer<typeof CourseDocumentAnnotationsResponseSchema>;
 export type CourseDocumentAnnotationResponse = z.infer<typeof CourseDocumentAnnotationResponseSchema>;
 export type CourseDetail = z.infer<typeof CourseDetailSchema>;

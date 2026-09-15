@@ -13,6 +13,7 @@ import type {
   UserRole,
 } from '@prisma/client';
 import {
+  CourseDocumentAnnotationIdParamsSchema,
   CourseDocumentIdParamsSchema,
   CourseDocumentAnnotationResponseSchema,
   CourseDocumentAnnotationsResponseSchema,
@@ -22,6 +23,7 @@ import {
   CreateCourseDocumentAnnotationRequestSchema,
   CreateCourseDocumentRequestSchema,
   MAX_COURSE_DOCUMENT_UPLOAD_BYTES,
+  UpdateCourseDocumentAnnotationRequestSchema,
   UpdateCourseDocumentMetadataRequestSchema,
   type CourseDocumentAnnotation,
   type CourseDocumentAnnotationResponse,
@@ -31,6 +33,7 @@ import {
   type CourseDocumentsResponse,
   type CreateCourseDocumentAnnotationRequest,
   type CreateCourseDocumentRequest,
+  type UpdateCourseDocumentAnnotationRequest,
   type UpdateCourseDocumentMetadataRequest,
 } from '@web-app/contracts';
 
@@ -308,6 +311,85 @@ export function createCourseDocumentsRouter(
     }),
   );
 
+  router.patch(
+    '/:documentId/annotations/:annotationId',
+    requireRole(['admin', 'professor', 'student'], gateOptions),
+    validateRequest({
+      body: UpdateCourseDocumentAnnotationRequestSchema,
+      params: CourseDocumentAnnotationIdParamsSchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { annotationId, courseId, documentId } = request.params as {
+        annotationId: string;
+        courseId: string;
+        documentId: string;
+      };
+      const input = request.body as UpdateCourseDocumentAnnotationRequest;
+      await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+
+      const annotation = await getCourseDocumentAnnotationOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        annotationId,
+      );
+      assertAnnotationOwner(annotation, request.currentSession!.user.id);
+
+      const payload: CourseDocumentAnnotationResponse = {
+        data: toCourseDocumentAnnotation(
+          await updateCourseDocumentAnnotation(prisma, annotationId, input),
+        ),
+      };
+
+      sendJson(response, 200, CourseDocumentAnnotationResponseSchema, payload);
+    }),
+  );
+
+  router.delete(
+    '/:documentId/annotations/:annotationId',
+    requireRole(['admin', 'professor', 'student'], gateOptions),
+    validateRequest({ params: CourseDocumentAnnotationIdParamsSchema }),
+    asyncHandler(async (request, response) => {
+      const { annotationId, courseId, documentId } = request.params as {
+        annotationId: string;
+        courseId: string;
+        documentId: string;
+      };
+      await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+
+      const annotation = await getCourseDocumentAnnotationOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        annotationId,
+      );
+      assertAnnotationOwner(annotation, request.currentSession!.user.id);
+      await deleteCourseDocumentAnnotation(prisma, annotationId);
+
+      response.status(204).send();
+    }),
+  );
+
   router.get(
     '/:documentId/content',
     requireRole(['admin', 'professor', 'student'], gateOptions),
@@ -485,6 +567,79 @@ async function createCourseDocumentAnnotation(
     },
     include: courseDocumentAnnotationInclude(),
   })) as CourseDocumentAnnotationRecord;
+}
+
+async function getCourseDocumentAnnotationOrThrow(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  annotationId: string,
+): Promise<CourseDocumentAnnotationRecord> {
+  const annotation = await prisma.annotation.findFirst({
+    include: courseDocumentAnnotationInclude(),
+    where: {
+      courseId,
+      documentId,
+      id: annotationId,
+      isDeleted: false,
+    },
+  });
+
+  if (!annotation) {
+    throw annotationNotFound(courseId, documentId, annotationId);
+  }
+
+  return annotation as CourseDocumentAnnotationRecord;
+}
+
+async function updateCourseDocumentAnnotation(
+  prisma: CourseDocumentsPrismaClient,
+  annotationId: string,
+  input: UpdateCourseDocumentAnnotationRequest,
+): Promise<CourseDocumentAnnotationRecord> {
+  return (await prisma.annotation.update({
+    data: normalizeCourseDocumentAnnotationUpdateData(input),
+    include: courseDocumentAnnotationInclude(),
+    where: { id: annotationId },
+  })) as CourseDocumentAnnotationRecord;
+}
+
+async function deleteCourseDocumentAnnotation(
+  prisma: CourseDocumentsPrismaClient,
+  annotationId: string,
+): Promise<void> {
+  await prisma.annotation.update({
+    data: { isDeleted: true },
+    where: { id: annotationId },
+  });
+}
+
+function normalizeCourseDocumentAnnotationUpdateData(
+  input: UpdateCourseDocumentAnnotationRequest,
+): Prisma.AnnotationUpdateInput {
+  const data: Prisma.AnnotationUpdateInput = {};
+
+  if (input.type !== undefined) data.type = input.type;
+  if (input.visibility !== undefined) data.visibility = input.visibility;
+  if (Object.prototype.hasOwnProperty.call(input, 'body')) {
+    data.body = input.body?.trim() || null;
+  }
+
+  return data;
+}
+
+function assertAnnotationOwner(
+  annotation: CourseDocumentAnnotationRecord,
+  actorId: string,
+): void {
+  if (annotation.author.id !== actorId) {
+    throw new HttpError(
+      403,
+      'Only the annotation creator can modify this annotation.',
+      { annotationId: annotation.id },
+      'ANNOTATION_FORBIDDEN',
+    );
+  }
 }
 
 function annotationVisibilityWhere(
@@ -843,6 +998,19 @@ function documentNotFound(courseId: string, documentId: string): HttpError {
     'Document not found',
     { courseId, documentId },
     'DOCUMENT_NOT_FOUND',
+  );
+}
+
+function annotationNotFound(
+  courseId: string,
+  documentId: string,
+  annotationId: string,
+): HttpError {
+  return new HttpError(
+    404,
+    'Annotation not found',
+    { annotationId, courseId, documentId },
+    'ANNOTATION_NOT_FOUND',
   );
 }
 

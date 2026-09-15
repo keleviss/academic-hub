@@ -1,5 +1,4 @@
 import { FileText } from 'lucide-react';
-
 import { formatFileSize } from '../lib/format-file-size';
 
 type DocumentTableRow = {
@@ -47,18 +46,20 @@ export function DocumentsTable<T extends DocumentTableRow>({
           {documents.map((document) => (
             <tr key={document.id}>
               <td className="document-name-cell">
-                <FileText aria-hidden="true" size={20} />
-                <div className="document-row-main">
-                  <button
-                    className="document-row-title"
-                    type="button"
-                    onClick={() => onDocTitleClick(document)}
-                  >
-                    {document.title}
-                  </button>
-                  <span className="document-row-doc-name">
-                    {document.originalFilename}
-                  </span>
+                <div className="document-name-cell-content">
+                  <FileText aria-hidden="true" size={20} />
+                  <div className="document-row-main">
+                    <button
+                      className="document-row-title"
+                      type="button"
+                      onClick={() => onDocTitleClick(document)}
+                    >
+                      {document.title}
+                    </button>
+                    <span className="document-row-doc-name">
+                      {document.originalFilename}
+                    </span>
+                  </div>
                 </div>
               </td>
               <td className="document-row-file-size">

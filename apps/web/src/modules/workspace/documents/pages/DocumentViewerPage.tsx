@@ -53,10 +53,10 @@ export function DocumentViewerPage(): React.JSX.Element {
   useSetWorkspaceBreadcrumb(
     documentQuery.data
       ? [
-        { label: 'Μαθήματα', to: '/app/courses' },
-        { label: 'Μάθημα', to: `/app/courses/${courseId}` },
-        { label: documentQuery.data.data.title },
-      ]
+          { label: 'Μαθήματα', to: '/app/courses' },
+          { label: 'Μάθημα', to: `/app/courses/${courseId}` },
+          { label: documentQuery.data.data.title },
+        ]
       : null,
   );
   const contentQuery = useQuery({
@@ -74,78 +74,80 @@ export function DocumentViewerPage(): React.JSX.Element {
   }, []);
 
   return (
-    <QueryState
-      query={documentQuery}
-      loadingLabel="Φόρτωση εγγράφου…"
-      errorOptions={accessErrorOptions}
-    >
-      {(document) => {
-        const detail = document.data;
-        return (
-          <section className="document-viewer-page">
-            <header className="document-viewer-toolbar">
-              <Link
-                aria-label="Επιστροφή στο μάθημα"
-                className="document-viewer-back-link"
-                to={`/app/courses/${courseId}`}
-              >
-                <ArrowLeft aria-hidden="true" size={16} />
-              </Link>
-              <div className="document-viewer-title-block">
-                <h1>{detail.title}</h1>
-                {detail.description && <p>{detail.description}</p>}
-              </div>
-            </header>
-            <div
-              className={
-                annotationsPanelCollapsed
-                  ? 'document-viewer is-annotations-collapsed'
-                  : 'document-viewer'
-              }
-            >
-              <div className="document-viewer-canvas-area">
-                <div
-                  className="document-viewer-canvas-scroll"
-                  ref={canvasScrollRef}
+    <section className="document-viewer-page">
+      <QueryState
+        query={documentQuery}
+        loadingLabel="Φόρτωση εγγράφου…"
+        errorOptions={accessErrorOptions}
+      >
+        {(document) => {
+          const detail = document.data;
+          return (
+            <>
+              <header className="document-viewer-toolbar">
+                <Link
+                  aria-label="Επιστροφή στο μάθημα"
+                  className="document-viewer-back-link"
+                  to={`/app/courses/${courseId}`}
                 >
-                  <QueryState
-                    query={contentQuery}
-                    loadingLabel="Φόρτωση περιεχομένου…"
-                    errorOptions={contentErrorOptions}
-                    onRetry={() => void contentQuery.refetch()}
-                  >
-                    {(buffer) => (
-                      <PdfCanvasViewer
-                        data={buffer}
-                        title={detail.title}
-                        onVisiblePageChange={setVisiblePage}
-                        scrollToPage={pageScrollTarget}
-                        scrollContainerRef={canvasScrollRef}
-                        zoomMode={zoomMode}
-                      />
-                    )}
-                  </QueryState>
+                  <ArrowLeft aria-hidden="true" size={16} />
+                </Link>
+                <div className="document-viewer-title-block">
+                  <h1>{detail.title}</h1>
+                  {detail.description && <p>{detail.description}</p>}
                 </div>
-                {contentQuery.data && (
-                  <PdfZoomControls
-                    zoomMode={zoomMode}
-                    onZoomModeChange={setZoomMode}
-                  />
-                )}
+              </header>
+              <div
+                className={
+                  annotationsPanelCollapsed
+                    ? 'document-viewer is-annotations-collapsed'
+                    : 'document-viewer'
+                }
+              >
+                <div className="document-viewer-canvas-area">
+                  <div
+                    className="document-viewer-canvas-scroll"
+                    ref={canvasScrollRef}
+                  >
+                    <QueryState
+                      query={contentQuery}
+                      loadingLabel="Φόρτωση περιεχομένου…"
+                      errorOptions={contentErrorOptions}
+                      onRetry={() => void contentQuery.refetch()}
+                    >
+                      {(buffer) => (
+                        <PdfCanvasViewer
+                          data={buffer}
+                          title={detail.title}
+                          onVisiblePageChange={setVisiblePage}
+                          scrollToPage={pageScrollTarget}
+                          scrollContainerRef={canvasScrollRef}
+                          zoomMode={zoomMode}
+                        />
+                      )}
+                    </QueryState>
+                  </div>
+                  {contentQuery.data && (
+                    <PdfZoomControls
+                      zoomMode={zoomMode}
+                      onZoomModeChange={setZoomMode}
+                    />
+                  )}
+                </div>
+                <DocumentAnnotationsPanel
+                  courseId={courseId}
+                  currentPage={visiblePage}
+                  documentId={documentId}
+                  onNavigateToPage={handleNavigateToPage}
+                  collapsed={annotationsPanelCollapsed}
+                  onCollapsedChange={setAnnotationsPanelCollapsed}
+                  pageCount={detail.pageCount}
+                />
               </div>
-              <DocumentAnnotationsPanel
-                courseId={courseId}
-                currentPage={visiblePage}
-                documentId={documentId}
-                onNavigateToPage={handleNavigateToPage}
-                collapsed={annotationsPanelCollapsed}
-                onCollapsedChange={setAnnotationsPanelCollapsed}
-                pageCount={detail.pageCount}
-              />
-            </div>
-          </section>
-        );
-      }}
-    </QueryState>
+            </>
+          );
+        }}
+      </QueryState>
+    </section>
   );
 }

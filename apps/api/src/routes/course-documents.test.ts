@@ -414,6 +414,50 @@ function createTestApp(
             ),
         ),
     ),
+    findFirst: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          courseId: string;
+          documentId: string;
+          id: string;
+          isDeleted: boolean;
+        };
+      }) =>
+        annotations.find(
+          (record) =>
+            record.courseId === where.courseId &&
+            record.documentId === where.documentId &&
+            record.id === where.id &&
+            record.isDeleted === where.isDeleted,
+        ) ?? null,
+    ),
+    update: vi.fn(
+      async ({
+        data,
+        where,
+      }: {
+        data: {
+          body?: string | null;
+          isDeleted?: boolean;
+          type?: 'highlight' | 'note' | 'question' | 'important' | 'confusing';
+          visibility?: 'private' | 'public' | 'instructor_only';
+        };
+        where: { id: string };
+      }) => {
+        const recordIndex = annotations.findIndex(
+          (record) => record.id === where.id,
+        );
+        const next = {
+          ...annotations[recordIndex],
+          ...data,
+          updatedAt: now,
+        };
+        annotations[recordIndex] = next;
+        return next;
+      },
+    ),
   };
 
   const sessionService: SessionService = {
@@ -852,6 +896,107 @@ describe('course document routes', () => {
         }),
       }),
     );
+  });
+
+  it('updates an annotation for its creator', async () => {
+    const { annotation, app } = createTestApp('student', {
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .patch(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations/${publicAnnotation.id}`,
+      )
+      .set('Cookie', authCookie())
+      .send({
+        body: '  Ενημερωμένη σημείωση  ',
+        type: 'important',
+        visibility: 'private',
+      })
+      .expect(200);
+
+    const body = CourseDocumentAnnotationResponseSchema.parse(response.body);
+    expect(body.data).toMatchObject({
+      id: publicAnnotation.id,
+      body: 'Ενημερωμένη σημείωση',
+      type: 'important',
+      visibility: 'private',
+    });
+    expect(annotation.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          body: 'Ενημερωμένη σημείωση',
+          type: 'important',
+          visibility: 'private',
+        }),
+        where: { id: publicAnnotation.id },
+      }),
+    );
+  });
+
+  it('blocks annotation updates from non-creators', async () => {
+    const { annotation, app } = createTestApp('professor', {
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .patch(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations/${publicAnnotation.id}`,
+      )
+      .set('Cookie', authCookie())
+      .send({ body: 'Αλλαγή από άλλον χρήστη' })
+      .expect(403);
+
+    expect(response.body.error.code).toBe('ANNOTATION_FORBIDDEN');
+    expect(annotation.update).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes an annotation for its creator', async () => {
+    const { annotation, app } = createTestApp('student', {
+      visibilityFixtures: true,
+    });
+
+    await request(app)
+      .delete(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations/${publicAnnotation.id}`,
+      )
+      .set('Cookie', authCookie())
+      .expect(204);
+
+    expect(annotation.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { isDeleted: true },
+        where: { id: publicAnnotation.id },
+      }),
+    );
+
+    const listResponse = await request(app)
+      .get(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations`,
+      )
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    const body = CourseDocumentAnnotationsResponseSchema.parse(
+      listResponse.body,
+    );
+    expect(body.data.map((item) => item.id)).not.toContain(publicAnnotation.id);
+  });
+
+  it('blocks annotation deletes from non-creators', async () => {
+    const { annotation, app } = createTestApp('professor', {
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .delete(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/annotations/${publicAnnotation.id}`,
+      )
+      .set('Cookie', authCookie())
+      .expect(403);
+
+    expect(response.body.error.code).toBe('ANNOTATION_FORBIDDEN');
+    expect(annotation.update).not.toHaveBeenCalled();
   });
 
   it('rejects annotations outside the document page range', async () => {

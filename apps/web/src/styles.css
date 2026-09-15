@@ -2109,7 +2109,7 @@ select {
   vertical-align: middle;
 }
 
-.document-name-cell {
+.document-name-cell .document-name-cell-content {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -2206,6 +2206,12 @@ select {
 .document-viewer-page {
   display: grid;
   gap: var(--hub-space-3);
+}
+
+.document-viewer-page > [role='status'],
+.document-viewer-canvas-scroll > [role='status'] {
+  align-self: start;
+  justify-self: start;
 }
 
 .document-viewer-toolbar {
@@ -2508,7 +2514,9 @@ select {
 }
 
 .annotation-form,
-.annotation-form label {
+.annotation-form label,
+.annotation-edit-form,
+.annotation-edit-form label {
   display: grid;
   gap: 0.5rem;
 }
@@ -2531,7 +2539,9 @@ select {
 
 .annotation-form input,
 .annotation-form select,
-.annotation-form textarea {
+.annotation-form textarea,
+.annotation-edit-form select,
+.annotation-edit-form textarea {
   width: 100%;
   border: 1px solid var(--color-hub-border);
   border-radius: var(--radius-hub-control);
@@ -2541,18 +2551,21 @@ select {
 }
 
 .annotation-form input,
-.annotation-form select {
+.annotation-form select,
+.annotation-edit-form select {
   min-height: 2.25rem;
   padding: 0 0.625rem;
 }
 
-.annotation-form textarea {
+.annotation-form textarea,
+.annotation-edit-form textarea {
   min-height: 3.5rem;
   resize: vertical;
   padding: 0.625rem;
 }
 
-.annotation-form textarea[aria-invalid='true'] {
+.annotation-form textarea[aria-invalid='true'],
+.annotation-edit-form textarea[aria-invalid='true'] {
   border-color: var(--color-hub-danger);
 }
 
@@ -2569,7 +2582,20 @@ select {
   font-weight: 700;
 }
 
-.annotation-form-actions {
+.annotation-edit-form {
+  gap: 0.75rem;
+  border-top: 1px solid var(--color-hub-border);
+  padding-top: 0.75rem;
+}
+
+.annotation-edit-form label {
+  color: var(--color-hub-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.annotation-form-actions,
+.annotation-edit-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
@@ -2663,6 +2689,11 @@ select {
   color: var(--color-hub-muted);
   font-size: 0.75rem;
   line-height: 1.45;
+}
+
+.annotation-item .annotation-form-error {
+  color: var(--color-hub-danger);
+  font-weight: 700;
 }
 
 .annotation-item blockquote {
