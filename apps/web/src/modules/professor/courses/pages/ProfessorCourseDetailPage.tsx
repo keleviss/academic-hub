@@ -285,7 +285,7 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                     ) : (
                       <DocumentsTable
                         documents={filteredDocuments}
-                        onDocTitleClick={(document) => openEdit(document)}
+                        onDocTitleClick={(document) => viewDocument(document)}
                         renderVisibility={(document) => (
                           <button
                             className={

@@ -1932,7 +1932,6 @@ select {
   top: 0;
   z-index: 1;
   padding: var(--hub-space-2) var(--hub-space-3);
-  border-bottom: 1px solid var(--color-hub-border);
   background: #fff;
   color: var(--color-hub-muted);
   font-size: 0.75rem;
@@ -2506,10 +2505,10 @@ select {
   }
 
   .document-annotations-panel {
-    --document-annotations-height: calc(100dvh - var(--workspace-toolbar-height) - 7rem);
+    --document-annotations-height: calc(100dvh - var(--workspace-toolbar-height) - 7.5rem);
     grid-template-rows: auto auto minmax(0, 1fr);
     position: sticky;
-    top: 0;
+    top: .5rem;
     height: var(--document-annotations-height);
     max-height: var(--document-annotations-height);
     min-height: 0;
