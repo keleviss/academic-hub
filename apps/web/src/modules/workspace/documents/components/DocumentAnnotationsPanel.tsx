@@ -49,13 +49,20 @@ const visibilityLabels = Object.fromEntries(
   annotationVisibilityOptions.map((option) => [option.value, option.label]),
 ) as Record<AnnotationVisibility, string>;
 
-type AnnotationFilter = 'all' | 'question' | 'note' | 'important' | 'other';
+type AnnotationFilter =
+  | 'all'
+  | 'question'
+  | 'note'
+  | 'important'
+  | 'mine'
+  | 'other';
 
 const annotationFilterOptions = [
   { value: 'all', label: 'Όλα' },
   { value: 'question', label: 'Μόνο ερωτήσεις' },
   { value: 'note', label: 'Μόνο σημειώσεις' },
   { value: 'important', label: 'Μόνο σημαντικά' },
+  { value: 'mine', label: 'Δικά μου σχόλια' },
   { value: 'other', label: 'Λοιπά' },
 ] satisfies Array<{ value: AnnotationFilter; label: string }>;
 
@@ -442,6 +449,7 @@ export function DocumentAnnotationsPanel({
             const filteredAnnotations = filterAnnotations(
               response.data,
               annotationFilter,
+              currentUser.id,
             );
 
             if (response.data.length === 0) {
@@ -536,8 +544,14 @@ function AnnotationCountSummary({
 function filterAnnotations(
   annotations: CourseDocumentAnnotation[],
   filter: AnnotationFilter,
+  currentUserId: string,
 ): CourseDocumentAnnotation[] {
   if (filter === 'all') return annotations;
+  if (filter === 'mine') {
+    return annotations.filter(
+      (annotation) => annotation.author.id === currentUserId,
+    );
+  }
   if (filter === 'other') {
     return annotations.filter(
       (annotation) =>
