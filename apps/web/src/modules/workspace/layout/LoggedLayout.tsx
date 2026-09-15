@@ -45,6 +45,7 @@ export function LoggedLayout(): React.JSX.Element {
   const contentRef = useRef<HTMLElement>(null);
   const [logoutFailed, setLogoutFailed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const routes = workspaceRoutesByRole[user.role];
   // Only the document viewer manages its own internal scroll areas.
   const isDocumentViewerRoute = /\/documents\/[^/]+\/?$/.test(
@@ -102,15 +103,17 @@ export function LoggedLayout(): React.JSX.Element {
     }
   }
 
+  const shellClassName = [
+    'workspace-shell',
+    mobileSidebarOpen ? 'is-mobile-sidebar-open' : '',
+    sidebarCollapsed ? 'is-sidebar-collapsed' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <WorkspaceBreadcrumbProvider>
-      <div
-        className={
-          mobileSidebarOpen
-            ? 'workspace-shell is-mobile-sidebar-open'
-            : 'workspace-shell'
-        }
-      >
+      <div className={shellClassName}>
         <div className="workspace-sidebar-desktop">
           <AppSidebar
             state="logged"
@@ -118,6 +121,10 @@ export function LoggedLayout(): React.JSX.Element {
             navItems={routes}
             logoutPending={logout.isPending}
             onLogout={() => void signOut()}
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() =>
+              setSidebarCollapsed((collapsed) => !collapsed)
+            }
           />
         </div>
         <WorkspaceToolbar
