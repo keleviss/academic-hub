@@ -598,7 +598,7 @@ export function DocumentAnnotationsPanel({
                         isSavingEdit={
                           updateMutation.isPending &&
                           updateMutation.variables?.annotationId ===
-                            annotation.id
+                          annotation.id
                         }
                         onCancelEdit={handleCancelEdit}
                         onCopyLink={handleCopyAnnotationLink}
@@ -795,9 +795,9 @@ function AnnotationItem({
                   onEditDraftChange((draft) =>
                     draft?.annotationId === annotation.id
                       ? {
-                          ...draft,
-                          type: event.target.value as AnnotationType,
-                        }
+                        ...draft,
+                        type: event.target.value as AnnotationType,
+                      }
                       : draft,
                   )
                 }
@@ -819,10 +819,10 @@ function AnnotationItem({
                   onEditDraftChange((draft) =>
                     draft?.annotationId === annotation.id
                       ? {
-                          ...draft,
-                          visibility: event.target
-                            .value as AnnotationVisibility,
-                        }
+                        ...draft,
+                        visibility: event.target
+                          .value as AnnotationVisibility,
+                      }
                       : draft,
                   )
                 }
@@ -851,12 +851,12 @@ function AnnotationItem({
                 onEditDraftChange((draft) =>
                   draft?.annotationId === annotation.id
                     ? {
-                        ...draft,
-                        body: event.target.value,
-                        bodyError: event.target.value.trim()
-                          ? null
-                          : draft.bodyError,
-                      }
+                      ...draft,
+                      body: event.target.value,
+                      bodyError: event.target.value.trim()
+                        ? null
+                        : draft.bodyError,
+                    }
                     : draft,
                 )
               }
