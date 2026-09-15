@@ -900,6 +900,8 @@ button:disabled {
 .app-sidebar--logged.is-collapsed .sidebar-search,
 .app-sidebar--logged.is-collapsed .profile-card-button {
   padding: 0;
+  border: none;
+  background: transparent;
 }
 
 .app-sidebar--logged.is-collapsed .sidebar-nav-link {
@@ -911,6 +913,9 @@ button:disabled {
 
 .app-sidebar--logged.is-collapsed .sidebar-profile {
   padding: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .app-sidebar--logged.is-collapsed .profile-popover {
