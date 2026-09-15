@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 export function Dialog({
@@ -54,7 +55,7 @@ export function Dialog({
             type="button"
             onClick={onClose}
           >
-            ×
+            <X size={20} />
           </button>
         </header>
         {children}

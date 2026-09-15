@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import { ErrorNotice } from '../../../../components/feedback';
 import { Spinner } from '../../../../components/Spinner';
+import { resolvePdfPageScale, type PdfZoomMode } from './pdfZoom';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url,
 ).toString();
 
-const PAGE_SCALE = 1.25;
 const PAGE_VISIBILITY_THRESHOLDS = [0, 0.25, 0.5, 0.75, 1];
 
 /** Renders each PDF page into its own canvas, stacked in a continuous scroll, ready for future per-page annotation overlays. */
@@ -20,19 +20,34 @@ export function PdfCanvasViewer({
   scrollContainerRef,
   scrollToPage,
   title,
+  zoomMode,
 }: {
   data: ArrayBuffer;
   onVisiblePageChange?: (pageNumber: number) => void;
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
   scrollToPage?: { pageNumber: number; requestId: number } | null;
   title: string;
+  zoomMode: PdfZoomMode;
 }): React.JSX.Element {
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [pageCount, setPageCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [basePageSize, setBasePageSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+  const [containerSize, setContainerSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const canvasRefs = useRef(new Map<number, HTMLCanvasElement>());
   const pageWrapperRefs = useRef(new Map<number, HTMLDivElement>());
   const lastVisiblePageRef = useRef<number | null>(null);
+
+  const scale = useMemo(
+    () => resolvePdfPageScale(zoomMode, basePageSize, containerSize),
+    [zoomMode, basePageSize, containerSize],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -40,11 +55,19 @@ export function PdfCanvasViewer({
     const loadingTask = pdfjsLib.getDocument({ data: data.slice(0) });
 
     loadingTask.promise
-      .then((doc) => {
+      .then(async (doc) => {
         if (cancelled) return;
         setError(null);
         setPdfDocument(doc);
         setPageCount(doc.numPages);
+
+        const firstPage = await doc.getPage(1);
+        if (cancelled) return;
+        const baseViewport = firstPage.getViewport({ scale: 1 });
+        setBasePageSize({
+          width: baseViewport.width,
+          height: baseViewport.height,
+        });
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
@@ -59,6 +82,24 @@ export function PdfCanvasViewer({
   }, [data]);
 
   useEffect(() => {
+    const container = scrollContainerRef?.current;
+    if (!container) return;
+
+    function measure() {
+      if (!container) return;
+      setContainerSize({
+        width: container.clientWidth,
+        height: container.clientHeight,
+      });
+    }
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [scrollContainerRef]);
+
+  useEffect(() => {
     if (!pdfDocument) return;
     let cancelled = false;
 
@@ -71,7 +112,7 @@ export function PdfCanvasViewer({
         const page = await doc.getPage(pageNumber);
         if (cancelled) return;
 
-        const viewport = page.getViewport({ scale: PAGE_SCALE });
+        const viewport = page.getViewport({ scale });
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
@@ -88,7 +129,7 @@ export function PdfCanvasViewer({
     return () => {
       cancelled = true;
     };
-  }, [pdfDocument]);
+  }, [pdfDocument, scale]);
 
   useEffect(() => {
     if (!onVisiblePageChange || pageCount === 0) return;

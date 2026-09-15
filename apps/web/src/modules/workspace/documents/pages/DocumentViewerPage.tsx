@@ -11,6 +11,8 @@ import { QueryState } from '../../../../components/QueryState';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 import { DocumentAnnotationsPanel } from '../components/DocumentAnnotationsPanel';
 import { PdfCanvasViewer } from '../components/PdfCanvasViewer';
+import { PdfZoomControls } from '../components/PdfZoomControls';
+import type { PdfZoomMode } from '../components/pdfZoom';
 
 function documentQueryKey(courseId: string, documentId: string) {
   return ['courses', courseId, 'documents', documentId] as const;
@@ -41,6 +43,7 @@ export function DocumentViewerPage(): React.JSX.Element {
   } | null>(null);
   const [annotationsPanelCollapsed, setAnnotationsPanelCollapsed] =
     useState(false);
+  const [zoomMode, setZoomMode] = useState<PdfZoomMode>('automatic');
   const canvasScrollRef = useRef<HTMLDivElement>(null);
   const documentQuery = useQuery({
     queryKey: documentQueryKey(courseId, documentId),
@@ -118,10 +121,17 @@ export function DocumentViewerPage(): React.JSX.Element {
                         onVisiblePageChange={setVisiblePage}
                         scrollToPage={pageScrollTarget}
                         scrollContainerRef={canvasScrollRef}
+                        zoomMode={zoomMode}
                       />
                     )}
                   </QueryState>
                 </div>
+                {contentQuery.data && (
+                  <PdfZoomControls
+                    zoomMode={zoomMode}
+                    onZoomModeChange={setZoomMode}
+                  />
+                )}
               </div>
               <DocumentAnnotationsPanel
                 courseId={courseId}

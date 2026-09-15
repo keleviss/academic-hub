@@ -67,9 +67,6 @@ function BrandLockup({
         compact ? 'sidebar-brand sidebar-brand--compact' : 'sidebar-brand'
       }
     >
-      <span className="sidebar-seal" aria-hidden="true">
-        AH
-      </span>
       <div>
         <span>UNIWA</span>
         <p>Academic Hub</p>

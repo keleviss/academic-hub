@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Check,
@@ -24,6 +23,7 @@ import {
 import { useAuthenticatedUser } from '../../../../auth/authenticatedUser';
 import { EmptyState } from '../../../../components/EmptyState';
 import { useNotification } from '../../../../components/notifications';
+import { Popover } from '../../../../components/Popover';
 import { QueryState } from '../../../../components/QueryState';
 import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
 
@@ -101,7 +101,6 @@ export function DocumentAnnotationsPanel({
   const formId = useId();
   const currentUser = useAuthenticatedUser();
   const { notify } = useNotification();
-  const menuRef = useRef<HTMLDivElement>(null);
   const annotationItemRefs = useRef(new Map<string, HTMLElement>());
   const highlightTimeoutRef = useRef<number | null>(null);
   const [type, setType] = useState<AnnotationType>('note');
@@ -110,7 +109,6 @@ export function DocumentAnnotationsPanel({
   const [body, setBody] = useState('');
   const [formExpanded, setFormExpanded] = useState(false);
   const [bodyError, setBodyError] = useState<string | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [annotationFilter, setAnnotationFilter] =
     useState<AnnotationFilter>('all');
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState(() =>
@@ -176,26 +174,6 @@ export function DocumentAnnotationsPanel({
     },
     [notify],
   );
-
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target as Node;
-      if (!menuRef.current?.contains(target)) setMenuOpen(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setMenuOpen(false);
-    }
-
-    window.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [menuOpen]);
 
   useEffect(() => {
     function handleHashChange() {
@@ -277,44 +255,48 @@ export function DocumentAnnotationsPanel({
           >
             <PanelRightClose aria-hidden="true" size={18} />
           </button>
-          <div className="annotation-panel-menu" ref={menuRef}>
-            <button
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              aria-label="Ενέργειες σχολίων"
-              className="annotation-panel-menu-trigger"
-              type="button"
-              onClick={() => setMenuOpen((value) => !value)}
-            >
-              <MoreHorizontal aria-hidden="true" size={18} />
-            </button>
-            {menuOpen && (
-              <div className="annotation-panel-menu-popover" role="menu">
-                <div className="annotation-panel-menu-section">
-                  <p>Φίλτρο σχολίων</p>
-                  {annotationFilterOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      role="menuitemradio"
-                      aria-checked={annotationFilter === option.value}
-                      type="button"
-                      onClick={() => {
-                        setAnnotationFilter(option.value);
-                        setMenuOpen(false);
-                      }}
-                    >
-                      <Check
-                        aria-hidden="true"
-                        className="annotation-panel-menu-check"
-                        size={14}
-                      />
-                      <span>{option.label}</span>
-                    </button>
-                  ))}
-                </div>
+          <Popover
+            align="end"
+            panelClassName="annotation-panel-menu-popover"
+            renderTrigger={({ open, triggerRef, toggle }) => (
+              <button
+                aria-expanded={open}
+                aria-haspopup="menu"
+                aria-label="Ενέργειες σχολίων"
+                className="annotation-panel-menu-trigger"
+                ref={triggerRef}
+                type="button"
+                onClick={toggle}
+              >
+                <MoreHorizontal aria-hidden="true" size={18} />
+              </button>
+            )}
+          >
+            {(close) => (
+              <div className="annotation-panel-menu-section">
+                <p>Φίλτρο σχολίων</p>
+                {annotationFilterOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    role="menuitemradio"
+                    aria-checked={annotationFilter === option.value}
+                    type="button"
+                    onClick={() => {
+                      setAnnotationFilter(option.value);
+                      close();
+                    }}
+                  >
+                    <Check
+                      aria-hidden="true"
+                      className="annotation-panel-menu-check"
+                      size={14}
+                    />
+                    <span>{option.label}</span>
+                  </button>
+                ))}
               </div>
             )}
-          </div>
+          </Popover>
         </div>
       </div>
 
@@ -622,138 +604,69 @@ function AnnotationItemActionsMenu({
   onCopyLink: (annotation: CourseDocumentAnnotation) => void;
   onNavigateToPage: (pageNumber: number) => void;
 }): React.JSX.Element {
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{
-    left: number;
-    top: number;
-  } | null>(null);
-
-  const openMenu = useCallback(() => {
-    const triggerRect = triggerRef.current?.getBoundingClientRect();
-    if (!triggerRect) {
-      setOpen((value) => !value);
-      return;
-    }
-
-    const popoverWidth = Math.min(272, window.innerWidth - 32);
-    const nextLeft = Math.min(
-      Math.max(16, triggerRect.right - popoverWidth),
-      window.innerWidth - popoverWidth - 16,
-    );
-
-    setPosition({
-      left: nextLeft,
-      top: triggerRect.bottom + 6,
-    });
-    setOpen((value) => !value);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function closeMenu() {
-      setOpen(false);
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target as Node;
-      if (
-        triggerRef.current?.contains(target) ||
-        popoverRef.current?.contains(target)
-      ) {
-        return;
-      }
-
-      closeMenu();
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') closeMenu();
-    }
-
-    window.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('resize', closeMenu);
-    window.addEventListener('scroll', closeMenu, true);
-    return () => {
-      window.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('resize', closeMenu);
-      window.removeEventListener('scroll', closeMenu, true);
-    };
-  }, [open]);
-
   return (
-    <div className="annotation-item-menu">
-      <button
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="Ενέργειες σχολίου"
-        className="annotation-item-menu-trigger"
-        ref={triggerRef}
-        type="button"
-        onClick={openMenu}
-      >
-        <MoreHorizontal aria-hidden="true" size={16} />
-      </button>
-      {open &&
-        createPortal(
-          <div
-            className="annotation-item-menu-popover"
-            ref={popoverRef}
-            role="menu"
-            style={{
-              left: position?.left ?? 0,
-              top: position?.top ?? 0,
-              visibility: position ? 'visible' : 'hidden',
+    <Popover
+      align="end"
+      panelClassName="annotation-item-menu-popover"
+      renderTrigger={({ open, triggerRef, toggle }) => (
+        <button
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-label="Ενέργειες σχολίου"
+          className="annotation-item-menu-trigger"
+          ref={triggerRef}
+          type="button"
+          onClick={toggle}
+        >
+          <MoreHorizontal aria-hidden="true" size={16} />
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          {isOwner && (
+            <button disabled role="menuitem" type="button">
+              <Pencil aria-hidden="true" size={14} />
+              <span>Επεξεργασία</span>
+              <span className="annotation-item-menu-status">Read only</span>
+            </button>
+          )}
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              close();
+              onNavigateToPage(annotation.target.pageNumber);
             }}
           >
-            {isOwner && (
-              <button disabled role="menuitem" type="button">
-                <Pencil aria-hidden="true" size={14} />
-                <span>Επεξεργασία</span>
-                <span className="annotation-item-menu-status">Read only</span>
-              </button>
-            )}
+            <FileText aria-hidden="true" size={14} />
+            <span>Μετάβαση στη σελίδα</span>
+          </button>
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              close();
+              onCopyLink(annotation);
+            }}
+          >
+            <Copy aria-hidden="true" size={14} />
+            <span>Αντιγραφή συνδέσμου</span>
+          </button>
+          {isOwner && (
             <button
+              className="annotation-item-menu-danger"
+              disabled
               role="menuitem"
               type="button"
-              onClick={() => {
-                setOpen(false);
-                onNavigateToPage(annotation.target.pageNumber);
-              }}
             >
-              <FileText aria-hidden="true" size={14} />
-              <span>Μετάβαση στη σελίδα</span>
+              <Trash2 aria-hidden="true" size={14} />
+              <span>Διαγραφή</span>
+              <span className="annotation-item-menu-status">Read only</span>
             </button>
-            <button
-              role="menuitem"
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onCopyLink(annotation);
-              }}
-            >
-              <Copy aria-hidden="true" size={14} />
-              <span>Αντιγραφή συνδέσμου</span>
-            </button>
-            {isOwner && (
-              <button
-                className="annotation-item-menu-danger"
-                disabled
-                role="menuitem"
-                type="button"
-              >
-                <Trash2 aria-hidden="true" size={14} />
-                <span>Διαγραφή</span>
-                <span className="annotation-item-menu-status">Read only</span>
-              </button>
-            )}
-          </div>,
-          document.body,
-        )}
-    </div>
+          )}
+        </>
+      )}
+    </Popover>
   );
 }
