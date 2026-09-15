@@ -38,6 +38,17 @@
   --workspace-sidebar-collapsed-width: 5.25rem;
   --workspace-toolbar-height: 4.5rem;
   --workspace-page-inset: 1.25rem;
+  --hub-scrollbar-size: 0.5rem;
+  --hub-scrollbar-thumb: color-mix(
+    in srgb,
+    var(--color-hub-muted) 36%,
+    transparent
+  );
+  --hub-scrollbar-thumb-hover: color-mix(
+    in srgb,
+    var(--color-hub-muted) 54%,
+    transparent
+  );
   color-scheme: light;
   font-family:
     'Inter Variable',
@@ -59,6 +70,39 @@ body,
   width: 100%;
   max-width: 100%;
   overflow: hidden;
+}
+
+* {
+  scrollbar-color: var(--hub-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: var(--hub-scrollbar-size);
+  height: var(--hub-scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: var(--hub-scrollbar-thumb);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--hub-scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
 }
 
 :focus-visible {
