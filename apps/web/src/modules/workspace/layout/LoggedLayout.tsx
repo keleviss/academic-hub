@@ -46,6 +46,10 @@ export function LoggedLayout(): React.JSX.Element {
   const [logoutFailed, setLogoutFailed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const routes = workspaceRoutesByRole[user.role];
+  // Only the document viewer manages its own internal scroll areas.
+  const isDocumentViewerRoute = /\/documents\/[^/]+\/?$/.test(
+    location.pathname,
+  );
 
   useEffect(() => {
     const previousRestoration = window.history.scrollRestoration;
@@ -133,7 +137,15 @@ export function LoggedLayout(): React.JSX.Element {
             onNavigate={() => setMobileSidebarOpen(false)}
           />
         </MobileSidebarDrawer>
-        <main ref={contentRef} className="workspace-content" id="main-content">
+        <main
+          ref={contentRef}
+          className={
+            isDocumentViewerRoute
+              ? 'workspace-content is-document-viewer'
+              : 'workspace-content'
+          }
+          id="main-content"
+        >
           <NotificationProvider>
             {logoutFailed && (
               <ErrorNotice>

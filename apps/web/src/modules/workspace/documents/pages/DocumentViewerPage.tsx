@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
@@ -41,6 +41,7 @@ export function DocumentViewerPage(): React.JSX.Element {
   } | null>(null);
   const [annotationsPanelCollapsed, setAnnotationsPanelCollapsed] =
     useState(false);
+  const canvasScrollRef = useRef<HTMLDivElement>(null);
   const documentQuery = useQuery({
     queryKey: documentQueryKey(courseId, documentId),
     queryFn: ({ signal }) => fetchCourseDocument(courseId, documentId, signal),
@@ -49,10 +50,10 @@ export function DocumentViewerPage(): React.JSX.Element {
   useSetWorkspaceBreadcrumb(
     documentQuery.data
       ? [
-          { label: 'Μαθήματα', to: '/app/courses' },
-          { label: 'Μάθημα', to: `/app/courses/${courseId}` },
-          { label: documentQuery.data.data.title },
-        ]
+        { label: 'Μαθήματα', to: '/app/courses' },
+        { label: 'Μάθημα', to: `/app/courses/${courseId}` },
+        { label: documentQuery.data.data.title },
+      ]
       : null,
   );
   const contentQuery = useQuery({
@@ -100,21 +101,27 @@ export function DocumentViewerPage(): React.JSX.Element {
               }
             >
               <div className="document-viewer-canvas-area">
-                <QueryState
-                  query={contentQuery}
-                  loadingLabel="Φόρτωση περιεχομένου…"
-                  errorOptions={contentErrorOptions}
-                  onRetry={() => void contentQuery.refetch()}
+                <div
+                  className="document-viewer-canvas-scroll"
+                  ref={canvasScrollRef}
                 >
-                  {(buffer) => (
-                    <PdfCanvasViewer
-                      data={buffer}
-                      title={detail.title}
-                      onVisiblePageChange={setVisiblePage}
-                      scrollToPage={pageScrollTarget}
-                    />
-                  )}
-                </QueryState>
+                  <QueryState
+                    query={contentQuery}
+                    loadingLabel="Φόρτωση περιεχομένου…"
+                    errorOptions={contentErrorOptions}
+                    onRetry={() => void contentQuery.refetch()}
+                  >
+                    {(buffer) => (
+                      <PdfCanvasViewer
+                        data={buffer}
+                        title={detail.title}
+                        onVisiblePageChange={setVisiblePage}
+                        scrollToPage={pageScrollTarget}
+                        scrollContainerRef={canvasScrollRef}
+                      />
+                    )}
+                  </QueryState>
+                </div>
               </div>
               <DocumentAnnotationsPanel
                 courseId={courseId}

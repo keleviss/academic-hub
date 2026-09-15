@@ -17,11 +17,13 @@ const PAGE_VISIBILITY_THRESHOLDS = [0, 0.25, 0.5, 0.75, 1];
 export function PdfCanvasViewer({
   data,
   onVisiblePageChange,
+  scrollContainerRef,
   scrollToPage,
   title,
 }: {
   data: ArrayBuffer;
   onVisiblePageChange?: (pageNumber: number) => void;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
   scrollToPage?: { pageNumber: number; requestId: number } | null;
   title: string;
 }): React.JSX.Element {
@@ -120,7 +122,7 @@ export function PdfCanvasViewer({
         }
       },
       {
-        root: null,
+        root: scrollContainerRef?.current ?? null,
         rootMargin: '-10% 0px -30% 0px',
         threshold: PAGE_VISIBILITY_THRESHOLDS,
       },
@@ -133,7 +135,7 @@ export function PdfCanvasViewer({
     return () => {
       observer.disconnect();
     };
-  }, [onVisiblePageChange, pageCount]);
+  }, [onVisiblePageChange, pageCount, scrollContainerRef]);
 
   useEffect(() => {
     if (!scrollToPage) return;
