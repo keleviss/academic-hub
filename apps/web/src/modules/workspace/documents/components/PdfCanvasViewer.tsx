@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { ErrorNotice } from '../../../../components/feedback';
 import { Spinner } from '../../../../components/Spinner';
@@ -43,6 +43,7 @@ export function PdfCanvasViewer({
   const canvasRefs = useRef(new Map<number, HTMLCanvasElement>());
   const pageWrapperRefs = useRef(new Map<number, HTMLDivElement>());
   const lastVisiblePageRef = useRef<number | null>(null);
+  const renderTasksRef = useRef(new Map<number, RenderTask>());
 
   const scale = useMemo(
     () => resolvePdfPageScale(zoomMode, basePageSize, containerSize),
@@ -85,6 +86,8 @@ export function PdfCanvasViewer({
     const container = scrollContainerRef?.current;
     if (!container) return;
 
+    let frameId: number | null = null;
+
     function measure() {
       if (!container) return;
       setContainerSize({
@@ -93,15 +96,28 @@ export function PdfCanvasViewer({
       });
     }
 
+    // Coalesce rapid resize events (e.g. dragging the window edge) into one measurement per frame.
+    function scheduleMeasure() {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        measure();
+      });
+    }
+
     measure();
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(scheduleMeasure);
     observer.observe(container);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
   }, [scrollContainerRef]);
 
   useEffect(() => {
     if (!pdfDocument) return;
     let cancelled = false;
+    const renderTasks = renderTasksRef.current;
 
     async function renderPages(doc: PDFDocumentProxy) {
       for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
@@ -112,15 +128,28 @@ export function PdfCanvasViewer({
         const page = await doc.getPage(pageNumber);
         if (cancelled) return;
 
+        // A previous render for this page may still be in flight (e.g. a fast resize); pdf.js
+        // refuses to render into a canvas that's already rendering, so cancel it first.
+        renderTasks.get(pageNumber)?.cancel();
+
         const viewport = page.getViewport({ scale });
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
-        await page.render({ canvas, viewport }).promise;
+        const renderTask = page.render({ canvas, viewport });
+        renderTasks.set(pageNumber, renderTask);
+        try {
+          await renderTask.promise;
+        } finally {
+          if (renderTasks.get(pageNumber) === renderTask) {
+            renderTasks.delete(pageNumber);
+          }
+        }
       }
     }
 
     void renderPages(pdfDocument).catch((renderError: unknown) => {
+      if (renderError instanceof pdfjsLib.RenderingCancelledException) return;
       if (cancelled) return;
       console.error('Failed to render PDF pages', renderError);
       setError('Το έγγραφο δεν μπόρεσε να αποδοθεί για προβολή.');
@@ -128,6 +157,8 @@ export function PdfCanvasViewer({
 
     return () => {
       cancelled = true;
+      for (const task of renderTasks.values()) task.cancel();
+      renderTasks.clear();
     };
   }, [pdfDocument, scale]);
 

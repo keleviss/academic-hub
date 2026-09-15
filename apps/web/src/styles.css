@@ -877,26 +877,6 @@ button:disabled {
   gap: 0.625rem;
 }
 
-.app-sidebar--logged.is-collapsed .sidebar-brand {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid #2c4a68;
-  border-radius: 0.5rem;
-  background: rgb(255 255 255 / 6%);
-  padding: 0;
-}
-
-.app-sidebar--logged.is-collapsed .sidebar-brand::before {
-  content: 'U';
-  color: white;
-  font-size: 0.95rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
 .app-sidebar--logged.is-collapsed .sidebar-brand > div,
 .app-sidebar--logged.is-collapsed .sidebar-search input,
 .app-sidebar--logged.is-collapsed .sidebar-search kbd,

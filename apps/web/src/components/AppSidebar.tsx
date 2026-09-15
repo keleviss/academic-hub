@@ -287,7 +287,7 @@ function LoggedSidebar({
     >
       <div className="sidebar-main">
         <div className="sidebar-brand-row">
-          <BrandLockup />
+          {!collapsed && <BrandLockup />}
           {onToggleCollapsed && (
             <button
               type="button"
@@ -312,7 +312,6 @@ function LoggedSidebar({
             placeholder="Αναζήτηση"
             aria-label="Αναζήτηση διαθέσιμων σελίδων"
           />
-          <kbd>⌘ K</kbd>
         </label>
         <nav className="sidebar-nav" aria-label="Πλοήγηση workspace">
           {filteredNavItems.length ? (
