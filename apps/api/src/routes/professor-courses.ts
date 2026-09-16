@@ -5,7 +5,6 @@ import {
   ProfessorCourseDetailResponseSchema,
   ProfessorCourseListResponseSchema,
   type CourseInstructor,
-  type ProfessorCourseDetail,
   type ProfessorCourseDetailResponse,
   type ProfessorCourseListItem,
   type ProfessorCourseListResponse,
