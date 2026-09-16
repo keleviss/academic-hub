@@ -41,6 +41,7 @@ import {
   type ProfessorCourseListResponse,
   type StudentCourseDetailResponse,
   type StudentCourseListResponse,
+  type UpdateCourseDocumentAnnotationRequest,
   type UpdateCourseDocumentMetadataRequest,
   type UpdateEnrollmentStatusRequest,
 } from '@web-app/contracts';
@@ -180,6 +181,51 @@ function requestMutation<T>(
   const result = mutationQueue.then(
     () => performMutation(path, schema, init),
     () => performMutation(path, schema, init),
+  );
+  mutationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+async function performEmptyMutation(
+  path: `/${string}`,
+  init: RequestInit,
+): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    const { csrfToken } = await fetchCsrfToken();
+    const response = await fetch(`${getApiBaseUrl()}${path}`, {
+      ...init,
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'x-csrf-token': csrfToken,
+        ...init.headers,
+      },
+    });
+
+    if (response.ok) return;
+
+    const error = await readError(response);
+    if (
+      attempt === 0 &&
+      error.status === 403 &&
+      error.code === 'CSRF_TOKEN_INVALID'
+    )
+      continue;
+    throw error;
+  }
+}
+
+function requestEmptyMutation(
+  path: `/${string}`,
+  init: RequestInit,
+): Promise<void> {
+  const result = mutationQueue.then(
+    () => performEmptyMutation(path, init),
+    () => performEmptyMutation(path, init),
   );
   mutationQueue = result.then(
     () => undefined,
@@ -429,6 +475,30 @@ export function createCourseDocumentAnnotation(
     `/api/courses/${courseId}/documents/${documentId}/annotations`,
     CourseDocumentAnnotationResponseSchema,
     { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function updateCourseDocumentAnnotation(
+  courseId: string,
+  documentId: string,
+  annotationId: string,
+  input: UpdateCourseDocumentAnnotationRequest,
+): Promise<CourseDocumentAnnotationResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/documents/${documentId}/annotations/${annotationId}`,
+    CourseDocumentAnnotationResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function deleteCourseDocumentAnnotation(
+  courseId: string,
+  documentId: string,
+  annotationId: string,
+): Promise<void> {
+  return requestEmptyMutation(
+    `/api/courses/${courseId}/documents/${documentId}/annotations/${annotationId}`,
+    { method: 'DELETE' },
   );
 }
 

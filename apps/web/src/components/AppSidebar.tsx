@@ -8,6 +8,8 @@ import {
   Home,
   LogOut,
   Mail,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Settings,
   ShieldCheck,
@@ -47,6 +49,8 @@ type LoggedSidebarProps = {
   navItems: WorkspaceRoute[];
   onLogout: () => void;
   logoutPending: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   onNavigate?: () => void;
 };
 
@@ -67,9 +71,6 @@ function BrandLockup({
         compact ? 'sidebar-brand sidebar-brand--compact' : 'sidebar-brand'
       }
     >
-      <span className="sidebar-seal" aria-hidden="true">
-        AH
-      </span>
       <div>
         <span>UNIWA</span>
         <p>Academic Hub</p>
@@ -125,9 +126,11 @@ function initialsFor(user: CurrentUser): string {
 
 function NavItem({
   item,
+  collapsed,
   onNavigate,
 }: {
   item: WorkspaceNavItem;
+  collapsed?: boolean;
   onNavigate?: () => void;
 }): React.JSX.Element {
   const location = useLocation();
@@ -154,13 +157,15 @@ function NavItem({
         <Link
           to={navTarget(item.path)}
           className="sidebar-nav-link"
+          data-sidebar-tooltip={collapsed ? item.label : undefined}
+          aria-label={item.label}
           aria-current={active ? 'page' : undefined}
           onClick={onNavigate}
         >
           <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
-          <span>{item.label}</span>
+          <span className="sidebar-nav-label">{item.label}</span>
         </Link>
-        {hasChildren && (
+        {hasChildren && !collapsed && (
           <button
             type="button"
             className="sidebar-nav-toggle"
@@ -177,7 +182,7 @@ function NavItem({
           </button>
         )}
       </div>
-      {hasChildren && expanded && (
+      {hasChildren && expanded && !collapsed && (
         <ul className="sidebar-subnav" id={subnavId}>
           {children.map((child) => {
             const childTarget = navTarget(child.path);
@@ -230,11 +235,14 @@ function LoggedSidebar({
   navItems,
   onLogout,
   logoutPending,
+  collapsed = false,
+  onToggleCollapsed,
   onNavigate,
 }: Omit<LoggedSidebarProps, 'state'>): React.JSX.Element {
   const [query, setQuery] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
-  const filteredNavItems = useFilteredNavItems(navItems, query);
+  const filteredNavItems = useFilteredNavItems(navItems, collapsed ? '' : query);
+  const CollapseIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -270,12 +278,32 @@ function LoggedSidebar({
 
   return (
     <aside
-      className="app-sidebar app-sidebar--logged"
+      className={
+        collapsed
+          ? 'app-sidebar app-sidebar--logged is-collapsed'
+          : 'app-sidebar app-sidebar--logged'
+      }
       aria-label="Academic Hub"
     >
       <div className="sidebar-main">
-        <BrandLockup />
-        <label className="sidebar-search">
+        <div className="sidebar-brand-row">
+          {!collapsed && <BrandLockup />}
+          {onToggleCollapsed && (
+            <button
+              type="button"
+              className="sidebar-collapse-toggle"
+              aria-label={collapsed ? 'Επέκταση sidebar' : 'Σύμπτυξη sidebar'}
+              aria-pressed={collapsed}
+              onClick={onToggleCollapsed}
+            >
+              <CollapseIcon aria-hidden="true" size={18} />
+            </button>
+          )}
+        </div>
+        <label
+          className="sidebar-search"
+          data-sidebar-tooltip={collapsed ? 'Αναζήτηση' : undefined}
+        >
           <Search aria-hidden="true" size={17} />
           <span className="sr-only">Αναζήτηση διαθέσιμων σελίδων</span>
           <input
@@ -284,7 +312,6 @@ function LoggedSidebar({
             placeholder="Αναζήτηση"
             aria-label="Αναζήτηση διαθέσιμων σελίδων"
           />
-          <kbd>⌘ K</kbd>
         </label>
         <nav className="sidebar-nav" aria-label="Πλοήγηση workspace">
           {filteredNavItems.length ? (
@@ -293,6 +320,7 @@ function LoggedSidebar({
                 <NavItem
                   key={item.path || 'index'}
                   item={item}
+                  collapsed={collapsed}
                   onNavigate={onNavigate}
                 />
               ))}

@@ -1,15 +1,18 @@
-import { useParams } from 'react-router';
+import { useCallback, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft } from 'lucide-react';
 
 import {
   fetchCourseDocument,
   fetchCourseDocumentContent,
 } from '../../../../api/client';
-import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 import { DocumentAnnotationsPanel } from '../components/DocumentAnnotationsPanel';
 import { PdfCanvasViewer } from '../components/PdfCanvasViewer';
+import { PdfZoomControls } from '../components/PdfZoomControls';
+import type { PdfZoomMode } from '../components/pdfZoom';
 
 function documentQueryKey(courseId: string, documentId: string) {
   return ['courses', courseId, 'documents', documentId] as const;
@@ -22,8 +25,26 @@ const accessErrorOptions = {
   },
 };
 
+const contentErrorOptions = {
+  codes: {
+    DOCUMENT_CONTENT_UNAVAILABLE:
+      'Το περιεχόμενο του εγγράφου δεν είναι προσωρινά διαθέσιμο.',
+  },
+  statuses: accessErrorOptions.statuses,
+  fallback: 'Η φόρτωση του περιεχομένου απέτυχε. Δοκίμασε ξανά.',
+};
+
 export function DocumentViewerPage(): React.JSX.Element {
   const { courseId = '', documentId = '' } = useParams();
+  const [visiblePage, setVisiblePage] = useState(1);
+  const [pageScrollTarget, setPageScrollTarget] = useState<{
+    pageNumber: number;
+    requestId: number;
+  } | null>(null);
+  const [annotationsPanelCollapsed, setAnnotationsPanelCollapsed] =
+    useState(false);
+  const [zoomMode, setZoomMode] = useState<PdfZoomMode>('automatic');
+  const canvasScrollRef = useRef<HTMLDivElement>(null);
   const documentQuery = useQuery({
     queryKey: documentQueryKey(courseId, documentId),
     queryFn: ({ signal }) => fetchCourseDocument(courseId, documentId, signal),
@@ -44,46 +65,89 @@ export function DocumentViewerPage(): React.JSX.Element {
       fetchCourseDocumentContent(courseId, documentId, signal),
     enabled: !!courseId && !!documentId,
   });
+  const handleNavigateToPage = useCallback((pageNumber: number) => {
+    setVisiblePage(pageNumber);
+    setPageScrollTarget((current) => ({
+      pageNumber,
+      requestId: (current?.requestId ?? 0) + 1,
+    }));
+  }, []);
 
   return (
-    <QueryState
-      query={documentQuery}
-      loadingLabel="Φόρτωση εγγράφου…"
-      errorOptions={accessErrorOptions}
-    >
-      {(document) => {
-        const detail = document.data;
-        return (
-          <PageLayout
-            title={detail.title}
-            subtitle={detail.description ?? 'Προβολή εγγράφου μαθήματος'}
-            backlink={{
-              href: `/app/courses/${courseId}`,
-              text: 'Επιστροφή στο μάθημα',
-            }}
-          >
-            <div className="document-viewer">
-              <div className="document-viewer-canvas-area">
-                <QueryState
-                  query={contentQuery}
-                  loadingLabel="Φόρτωση περιεχομένου…"
-                  errorOptions={accessErrorOptions}
-                  onRetry={() => void contentQuery.refetch()}
+    <section className="document-viewer-page">
+      <QueryState
+        query={documentQuery}
+        loadingLabel="Φόρτωση εγγράφου…"
+        errorOptions={accessErrorOptions}
+      >
+        {(document) => {
+          const detail = document.data;
+          return (
+            <>
+              <header className="document-viewer-toolbar">
+                <Link
+                  aria-label="Επιστροφή στο μάθημα"
+                  className="document-viewer-back-link"
+                  to={`/app/courses/${courseId}`}
                 >
-                  {(buffer) => (
-                    <PdfCanvasViewer data={buffer} title={detail.title} />
+                  <ArrowLeft aria-hidden="true" size={16} />
+                </Link>
+                <div className="document-viewer-title-block">
+                  <h1>{detail.title}</h1>
+                  {detail.description && <p>{detail.description}</p>}
+                </div>
+              </header>
+              <div
+                className={
+                  annotationsPanelCollapsed
+                    ? 'document-viewer is-annotations-collapsed'
+                    : 'document-viewer'
+                }
+              >
+                <div className="document-viewer-canvas-area">
+                  <div
+                    className="document-viewer-canvas-scroll"
+                    ref={canvasScrollRef}
+                  >
+                    <QueryState
+                      query={contentQuery}
+                      loadingLabel="Φόρτωση περιεχομένου…"
+                      errorOptions={contentErrorOptions}
+                      onRetry={() => void contentQuery.refetch()}
+                    >
+                      {(buffer) => (
+                        <PdfCanvasViewer
+                          data={buffer}
+                          title={detail.title}
+                          onVisiblePageChange={setVisiblePage}
+                          scrollToPage={pageScrollTarget}
+                          scrollContainerRef={canvasScrollRef}
+                          zoomMode={zoomMode}
+                        />
+                      )}
+                    </QueryState>
+                  </div>
+                  {contentQuery.data && (
+                    <PdfZoomControls
+                      zoomMode={zoomMode}
+                      onZoomModeChange={setZoomMode}
+                    />
                   )}
-                </QueryState>
+                </div>
+                <DocumentAnnotationsPanel
+                  courseId={courseId}
+                  currentPage={visiblePage}
+                  documentId={documentId}
+                  onNavigateToPage={handleNavigateToPage}
+                  collapsed={annotationsPanelCollapsed}
+                  onCollapsedChange={setAnnotationsPanelCollapsed}
+                  pageCount={detail.pageCount}
+                />
               </div>
-              <DocumentAnnotationsPanel
-                courseId={courseId}
-                documentId={documentId}
-                pageCount={detail.pageCount}
-              />
-            </div>
-          </PageLayout>
-        );
-      }}
-    </QueryState>
+            </>
+          );
+        }}
+      </QueryState>
+    </section>
   );
 }

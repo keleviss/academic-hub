@@ -66,22 +66,28 @@ function CourseListRow({
   course: ProfessorCourseListItem;
 }): React.JSX.Element {
   return (
-    <div className="course-list-row">
-      <span className="course-card-code">
-        {course.code} · {course.semester}ο εξάμηνο
-      </span>
-      <Link to={`/app/courses/${course.id}`} className="hover:underline">
-        <strong>{course.title}</strong>
-      </Link>
-      <span className="course-card-role">
-        {instructorRoleLabels[course.instructorRole]}
-      </span>
-      <StatusBadge
-        active={course.isActive}
-        activeLabel="Ενεργό"
-        inactiveLabel="Ανενεργό"
-      />
-      <CourseCounts course={course} />
+    <div className="course-list-row justify-between">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-baseline gap-1">
+          <Link to={`/app/courses/${course.id}`} className="hover:underline">
+            <strong>{course.title}</strong>
+          </Link>
+          <span className="course-card-code">
+            · {course.code} · {course.semester}ο εξάμηνο
+          </span>
+        </div>
+        <span className="course-card-role">
+          {instructorRoleLabels[course.instructorRole]}
+        </span>
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <StatusBadge
+          active={course.isActive}
+          activeLabel="Ενεργό"
+          inactiveLabel="Ανενεργό"
+        />
+        <CourseCounts course={course} />
+      </div>
     </div>
   );
 }

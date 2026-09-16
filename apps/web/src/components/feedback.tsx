@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { Spinner } from './Spinner';
+
 export function ErrorNotice({ children }: { children: ReactNode }) {
   return (
     <div className="error-notice" role="alert">
@@ -20,7 +22,7 @@ export function SessionFeedback({
   return (
     <section className="session-feedback" aria-label="Κατάσταση σύνδεσης">
       {pending ? (
-        <p role="status">Έλεγχος σύνδεσης…</p>
+        <Spinner label="Έλεγχος σύνδεσης…" />
       ) : (
         <>
           <ErrorNotice>

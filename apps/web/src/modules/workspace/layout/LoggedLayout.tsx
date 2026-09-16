@@ -20,6 +20,7 @@ import {
 } from '../../../components/AppSidebar';
 import { ErrorNotice } from '../../../components/feedback';
 import { NotificationProvider } from '../../../components/notifications';
+import { Spinner } from '../../../components/Spinner';
 import { WorkspaceBreadcrumbProvider } from '../../../components/workspaceBreadcrumb';
 import { appPath, useLogoutMutation } from '../../../auth/session';
 import { useAuthenticatedUser } from '../../../auth/authenticatedUser';
@@ -44,7 +45,12 @@ export function LoggedLayout(): React.JSX.Element {
   const contentRef = useRef<HTMLElement>(null);
   const [logoutFailed, setLogoutFailed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const routes = workspaceRoutesByRole[user.role];
+  // Only the document viewer manages its own internal scroll areas.
+  const isDocumentViewerRoute = /\/documents\/[^/]+\/?$/.test(
+    location.pathname,
+  );
 
   useEffect(() => {
     const previousRestoration = window.history.scrollRestoration;
@@ -97,15 +103,17 @@ export function LoggedLayout(): React.JSX.Element {
     }
   }
 
+  const shellClassName = [
+    'workspace-shell',
+    mobileSidebarOpen ? 'is-mobile-sidebar-open' : '',
+    sidebarCollapsed ? 'is-sidebar-collapsed' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <WorkspaceBreadcrumbProvider>
-      <div
-        className={
-          mobileSidebarOpen
-            ? 'workspace-shell is-mobile-sidebar-open'
-            : 'workspace-shell'
-        }
-      >
+      <div className={shellClassName}>
         <div className="workspace-sidebar-desktop">
           <AppSidebar
             state="logged"
@@ -113,6 +121,10 @@ export function LoggedLayout(): React.JSX.Element {
             navItems={routes}
             logoutPending={logout.isPending}
             onLogout={() => void signOut()}
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() =>
+              setSidebarCollapsed((collapsed) => !collapsed)
+            }
           />
         </div>
         <WorkspaceToolbar
@@ -132,7 +144,15 @@ export function LoggedLayout(): React.JSX.Element {
             onNavigate={() => setMobileSidebarOpen(false)}
           />
         </MobileSidebarDrawer>
-        <main ref={contentRef} className="workspace-content" id="main-content">
+        <main
+          ref={contentRef}
+          className={
+            isDocumentViewerRoute
+              ? 'workspace-content is-document-viewer'
+              : 'workspace-content'
+          }
+          id="main-content"
+        >
           <NotificationProvider>
             {logoutFailed && (
               <ErrorNotice>
@@ -170,7 +190,7 @@ export function LoggedLayout(): React.JSX.Element {
                 <Route
                   path="courses/:courseId/documents/:documentId"
                   element={
-                    <Suspense fallback={<p role="status">Φόρτωση προβολέα…</p>}>
+                    <Suspense fallback={<Spinner label="Φόρτωση προβολέα…" />}>
                       <DocumentViewerPage />
                     </Suspense>
                   }

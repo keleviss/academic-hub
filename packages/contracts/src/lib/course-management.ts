@@ -23,6 +23,11 @@ export const CourseDocumentIdParamsSchema = CourseIdParamsSchema.extend({
   documentId: z.uuid(),
 });
 
+export const CourseDocumentAnnotationIdParamsSchema =
+  CourseDocumentIdParamsSchema.extend({
+    annotationId: z.uuid(),
+  });
+
 export const CourseStatusFilterSchema = z.enum(['all', 'active', 'inactive']);
 
 export const CourseSemesterSchema = z.coerce.number().int().min(1).max(12);
@@ -257,6 +262,16 @@ export const CreateCourseDocumentAnnotationRequestSchema = z.object({
   selectedText: CourseDocumentAnnotationSelectedTextSchema,
 });
 
+export const UpdateCourseDocumentAnnotationRequestSchema = z
+  .object({
+    type: AnnotationTypeSchema.optional(),
+    visibility: AnnotationVisibilitySchema.optional(),
+    body: CourseDocumentAnnotationBodySchema,
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one annotation field must be provided.',
+  });
+
 export const CourseDocumentAnnotationsResponseSchema = z.object({
   data: z.array(CourseDocumentAnnotationSchema),
 });
@@ -352,6 +367,9 @@ export type CourseMemberIdParams = z.infer<typeof CourseMemberIdParamsSchema>;
 export type CourseDocumentIdParams = z.infer<
   typeof CourseDocumentIdParamsSchema
 >;
+export type CourseDocumentAnnotationIdParams = z.infer<
+  typeof CourseDocumentAnnotationIdParamsSchema
+>;
 export type CourseStatusFilter = z.infer<typeof CourseStatusFilterSchema>;
 export type CourseCreateRequest = z.infer<typeof CourseCreateRequestSchema>;
 export type CourseUpdateRequest = z.infer<typeof CourseUpdateRequestSchema>;
@@ -404,6 +422,9 @@ export type CourseDocumentAnnotation = z.infer<
 >;
 export type CreateCourseDocumentAnnotationRequest = z.infer<
   typeof CreateCourseDocumentAnnotationRequestSchema
+>;
+export type UpdateCourseDocumentAnnotationRequest = z.infer<
+  typeof UpdateCourseDocumentAnnotationRequestSchema
 >;
 export type CourseDocumentAnnotationsResponse = z.infer<
   typeof CourseDocumentAnnotationsResponseSchema

@@ -152,14 +152,11 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                     ) : (
                       <DocumentsTable
                         documents={filteredDocuments}
-                        renderName={(document) => (
-                          <div className="document-row-main">
-                            <span className="document-row-title">
-                              {document.title}
-                            </span>
-                            <span>{document.originalFilename}</span>
-                          </div>
-                        )}
+                        onDocTitleClick={(document) =>
+                          navigate(
+                            `/app/courses/${courseId}/documents/${document.id}`,
+                          )
+                        }
                         renderActions={(document) => (
                           <ActionsMenu
                             label={`Ενέργειες για ${document.title}`}

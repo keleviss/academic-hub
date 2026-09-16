@@ -13,6 +13,7 @@ import type {
   UserRole,
 } from '@prisma/client';
 import {
+  CourseDocumentAnnotationIdParamsSchema,
   CourseDocumentIdParamsSchema,
   CourseDocumentAnnotationResponseSchema,
   CourseDocumentAnnotationsResponseSchema,
@@ -22,6 +23,7 @@ import {
   CreateCourseDocumentAnnotationRequestSchema,
   CreateCourseDocumentRequestSchema,
   MAX_COURSE_DOCUMENT_UPLOAD_BYTES,
+  UpdateCourseDocumentAnnotationRequestSchema,
   UpdateCourseDocumentMetadataRequestSchema,
   type CourseDocumentAnnotation,
   type CourseDocumentAnnotationResponse,
@@ -31,6 +33,7 @@ import {
   type CourseDocumentsResponse,
   type CreateCourseDocumentAnnotationRequest,
   type CreateCourseDocumentRequest,
+  type UpdateCourseDocumentAnnotationRequest,
   type UpdateCourseDocumentMetadataRequest,
 } from '@web-app/contracts';
 
@@ -56,12 +59,20 @@ import {
 
 type CourseDocumentsPrismaClient = Pick<
   PrismaClient,
+  | '$transaction'
   | 'annotation'
   | 'annotationTarget'
   | 'course'
   | 'courseInstructor'
   | 'document'
   | 'enrollment'
+  | 'forumCategory'
+  | 'forumThread'
+>;
+
+type CourseDocumentsTransactionClient = Pick<
+  Prisma.TransactionClient,
+  'annotation' | 'annotationTarget' | 'forumCategory' | 'forumThread'
 >;
 
 export interface CourseDocumentsRouteOptions {
@@ -74,6 +85,8 @@ export interface CourseDocumentsRouteOptions {
 }
 
 const PDF_MAGIC_BYTES = Buffer.from('%PDF-', 'ascii');
+const DOCUMENT_DISCUSSION_CATEGORY_NAME = 'Συζητήσεις εγγράφων';
+const QUESTION_THREAD_TITLE_MAX_LENGTH = 120;
 
 interface CourseDocumentRecord {
   checksumSha256?: string | null;
@@ -308,6 +321,91 @@ export function createCourseDocumentsRouter(
     }),
   );
 
+  router.patch(
+    '/:documentId/annotations/:annotationId',
+    requireRole(['admin', 'professor', 'student'], gateOptions),
+    validateRequest({
+      body: UpdateCourseDocumentAnnotationRequestSchema,
+      params: CourseDocumentAnnotationIdParamsSchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { annotationId, courseId, documentId } = request.params as {
+        annotationId: string;
+        courseId: string;
+        documentId: string;
+      };
+      const input = request.body as UpdateCourseDocumentAnnotationRequest;
+      const document = await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+
+      const annotation = await getCourseDocumentAnnotationOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        annotationId,
+      );
+      assertAnnotationOwner(annotation, request.currentSession!.user.id);
+
+      const payload: CourseDocumentAnnotationResponse = {
+        data: toCourseDocumentAnnotation(
+          await updateCourseDocumentAnnotation(
+            prisma,
+            annotationId,
+            request.currentSession!.user.id,
+            input,
+            document,
+          ),
+        ),
+      };
+
+      sendJson(response, 200, CourseDocumentAnnotationResponseSchema, payload);
+    }),
+  );
+
+  router.delete(
+    '/:documentId/annotations/:annotationId',
+    requireRole(['admin', 'professor', 'student'], gateOptions),
+    validateRequest({ params: CourseDocumentAnnotationIdParamsSchema }),
+    asyncHandler(async (request, response) => {
+      const { annotationId, courseId, documentId } = request.params as {
+        annotationId: string;
+        courseId: string;
+        documentId: string;
+      };
+      await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+
+      const annotation = await getCourseDocumentAnnotationOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        annotationId,
+      );
+      assertAnnotationOwner(annotation, request.currentSession!.user.id);
+      await deleteCourseDocumentAnnotation(prisma, annotationId);
+
+      response.status(204).send();
+    }),
+  );
+
   router.get(
     '/:documentId/content',
     requireRole(['admin', 'professor', 'student'], gateOptions),
@@ -455,36 +553,226 @@ async function createCourseDocumentAnnotation(
 ): Promise<CourseDocumentAnnotationRecord> {
   const normalizedBody = input.body?.trim() || null;
   const selectedText = input.selectedText?.trim() || null;
-  const target = await prisma.annotationTarget.create({
-    data: {
-      documentId,
-      documentTitleSnapshot: document.title,
-      documentFilenameSnapshot: document.originalFilename,
-      documentChecksumSnapshot: document.checksumSha256 ?? null,
-      normalizedRects: [],
-      pageNumber: input.pageNumber,
-      selectedText,
-      textQuoteExact: selectedText,
+
+  return await prisma.$transaction(async (transaction) => {
+    const target = await transaction.annotationTarget.create({
+      data: {
+        documentId,
+        documentTitleSnapshot: document.title,
+        documentFilenameSnapshot: document.originalFilename,
+        documentChecksumSnapshot: document.checksumSha256 ?? null,
+        normalizedRects: [],
+        pageNumber: input.pageNumber,
+        selectedText,
+        textQuoteExact: selectedText,
+      },
+      select: {
+        id: true,
+        pageNumber: true,
+        selectedText: true,
+      },
+    });
+
+    const annotation = (await transaction.annotation.create({
+      data: {
+        authorId: actorId,
+        body: normalizedBody,
+        courseId,
+        documentId,
+        targetId: target.id,
+        type: input.type,
+        visibility: input.visibility,
+      },
+      include: courseDocumentAnnotationInclude(),
+    })) as CourseDocumentAnnotationRecord;
+
+    if (shouldCreateQuestionThread(input.type, input.visibility)) {
+      await createQuestionThread(transaction, {
+        actorId,
+        annotation,
+        courseId,
+        document,
+        documentId,
+        normalizedBody,
+        selectedText,
+      });
+    }
+
+    return annotation;
+  });
+}
+
+async function createQuestionThread(
+  prisma: CourseDocumentsTransactionClient,
+  input: {
+    actorId: string;
+    annotation: CourseDocumentAnnotationRecord;
+    courseId: string;
+    document: CourseDocumentRecord;
+    documentId: string;
+    normalizedBody: string | null;
+    selectedText: string | null;
+  },
+): Promise<void> {
+  const category = await prisma.forumCategory.upsert({
+    create: {
+      courseId: input.courseId,
+      description:
+        'Νήματα που δημιουργούνται από δημόσιες ή μόνο προς διδάσκοντες ερωτήσεις σε έγγραφα.',
+      kind: 'document_discussion',
+      name: DOCUMENT_DISCUSSION_CATEGORY_NAME,
+      orderIndex: 1,
     },
-    select: {
-      id: true,
-      pageNumber: true,
-      selectedText: true,
+    update: {
+      isVisible: true,
+      kind: 'document_discussion',
+    },
+    where: {
+      courseId_name: {
+        courseId: input.courseId,
+        name: DOCUMENT_DISCUSSION_CATEGORY_NAME,
+      },
     },
   });
 
-  return (await prisma.annotation.create({
+  await prisma.forumThread.create({
     data: {
-      authorId: actorId,
-      body: normalizedBody,
+      annotationId: input.annotation.id,
+      authorId: input.actorId,
+      categoryId: category.id,
+      courseId: input.courseId,
+      documentId: input.documentId,
+      documentTitleSnapshot: input.document.title,
+      pageNumberSnapshot: input.annotation.target.pageNumber,
+      selectedTextSnapshot: input.selectedText,
+      targetId: input.annotation.target.id,
+      title: buildQuestionThreadTitle(input),
+      visibility: input.annotation.visibility,
+    },
+  });
+}
+
+function shouldCreateQuestionThread(
+  type: AnnotationType,
+  visibility: AnnotationVisibility,
+): boolean {
+  return type === 'question' && visibility !== 'private';
+}
+
+function buildQuestionThreadTitle(input: {
+  normalizedBody: string | null;
+  selectedText: string | null;
+}): string {
+  const title =
+    input.normalizedBody ??
+    (input.selectedText ? `Ερώτηση για: ${input.selectedText}` : 'Νέα ερώτηση');
+
+  return truncateThreadTitle(title);
+}
+
+function truncateThreadTitle(title: string): string {
+  if (title.length <= QUESTION_THREAD_TITLE_MAX_LENGTH) {
+    return title;
+  }
+
+  return `${title.slice(0, QUESTION_THREAD_TITLE_MAX_LENGTH - 3)}...`;
+}
+
+async function getCourseDocumentAnnotationOrThrow(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  annotationId: string,
+): Promise<CourseDocumentAnnotationRecord> {
+  const annotation = await prisma.annotation.findFirst({
+    include: courseDocumentAnnotationInclude(),
+    where: {
       courseId,
       documentId,
-      targetId: target.id,
-      type: input.type,
-      visibility: input.visibility,
+      id: annotationId,
+      isDeleted: false,
     },
-    include: courseDocumentAnnotationInclude(),
-  })) as CourseDocumentAnnotationRecord;
+  });
+
+  if (!annotation) {
+    throw annotationNotFound(courseId, documentId, annotationId);
+  }
+
+  return annotation as CourseDocumentAnnotationRecord;
+}
+
+async function updateCourseDocumentAnnotation(
+  prisma: CourseDocumentsPrismaClient,
+  annotationId: string,
+  actorId: string,
+  input: UpdateCourseDocumentAnnotationRequest,
+  document: CourseDocumentRecord,
+): Promise<CourseDocumentAnnotationRecord> {
+  return await prisma.$transaction(async (transaction) => {
+    const annotation = (await transaction.annotation.update({
+      data: normalizeCourseDocumentAnnotationUpdateData(input),
+      include: courseDocumentAnnotationInclude(),
+      where: { id: annotationId },
+    })) as CourseDocumentAnnotationRecord;
+
+    if (shouldCreateQuestionThread(annotation.type, annotation.visibility)) {
+      const existingThread = await transaction.forumThread.findUnique({
+        where: { annotationId: annotation.id },
+      });
+
+      if (!existingThread) {
+        await createQuestionThread(transaction, {
+          actorId,
+          annotation,
+          courseId: annotation.courseId,
+          document,
+          documentId: annotation.documentId,
+          normalizedBody: annotation.body,
+          selectedText: annotation.target.selectedText,
+        });
+      }
+    }
+
+    return annotation;
+  });
+}
+
+async function deleteCourseDocumentAnnotation(
+  prisma: CourseDocumentsPrismaClient,
+  annotationId: string,
+): Promise<void> {
+  await prisma.annotation.update({
+    data: { isDeleted: true },
+    where: { id: annotationId },
+  });
+}
+
+function normalizeCourseDocumentAnnotationUpdateData(
+  input: UpdateCourseDocumentAnnotationRequest,
+): Prisma.AnnotationUpdateInput {
+  const data: Prisma.AnnotationUpdateInput = {};
+
+  if (input.type !== undefined) data.type = input.type;
+  if (input.visibility !== undefined) data.visibility = input.visibility;
+  if (Object.prototype.hasOwnProperty.call(input, 'body')) {
+    data.body = input.body?.trim() || null;
+  }
+
+  return data;
+}
+
+function assertAnnotationOwner(
+  annotation: CourseDocumentAnnotationRecord,
+  actorId: string,
+): void {
+  if (annotation.author.id !== actorId) {
+    throw new HttpError(
+      403,
+      'Only the annotation creator can modify this annotation.',
+      { annotationId: annotation.id },
+      'ANNOTATION_FORBIDDEN',
+    );
+  }
 }
 
 function annotationVisibilityWhere(
@@ -843,6 +1131,19 @@ function documentNotFound(courseId: string, documentId: string): HttpError {
     'Document not found',
     { courseId, documentId },
     'DOCUMENT_NOT_FOUND',
+  );
+}
+
+function annotationNotFound(
+  courseId: string,
+  documentId: string,
+  annotationId: string,
+): HttpError {
+  return new HttpError(
+    404,
+    'Annotation not found',
+    { annotationId, courseId, documentId },
+    'ANNOTATION_NOT_FOUND',
   );
 }
 
