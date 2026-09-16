@@ -17,12 +17,13 @@ import { EmptyState } from '../../../../components/EmptyState';
 import { QueryState } from '../../../../components/QueryState';
 import { Tabs } from '../../../../components/Tabs';
 import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
+import { CourseForumTab } from '../../../workspace/discussions/components/CourseForumTab';
 import { downloadBlob } from '../../../../lib/download-file';
 import { normalizeSearch } from '../../../../lib/normalize-search';
 import { PageLayout } from '../../../../components/PageLayout';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 
-type Tab = 'documents' | 'details';
+type Tab = 'documents' | 'discussions' | 'details';
 
 const instructorRoleLabels = {
   owner: 'Υπεύθυνος μαθήματος',
@@ -137,9 +138,11 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                       value: 'documents',
                       label: `Υλικό (${totalDocuments})`,
                     },
+                    { value: 'discussions', label: 'Συζητήσεις' },
                     { value: 'details', label: 'Στοιχεία μαθήματος' },
                   ]}
                 />
+                {tab === 'discussions' && <CourseForumTab courseId={courseId} />}
                 {tab === 'documents' && (
                   <div className="course-members">
                     <div className="course-filter-row text-sm">
@@ -354,7 +357,7 @@ function StudentDocumentActivitySummary({
               }}
             >
               <strong>{question.title}</strong>
-              <span>{question.answer?.body ?? 'Επίσημη απάντηση'}</span>
+              <span>Επίσημη απάντηση</span>
             </button>
           ))
         )}

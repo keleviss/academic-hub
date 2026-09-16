@@ -10,20 +10,20 @@ import {
   CourseListResponseSchema,
   CourseMemberCandidatesResponseSchema,
   CourseMutationResponseSchema,
-  ContextualQuestionResponseSchema,
-  ContextualQuestionsResponseSchema,
   CurrentSessionSchema,
+  ForumThreadResponseSchema,
+  ForumThreadsResponseSchema,
   HealthResponseSchema,
   LoginRequestSchema,
   ProfessorCourseDetailResponseSchema,
   ProfessorCourseListResponseSchema,
+  ProfessorDashboardResponseSchema,
   StudentDocumentActivitySummaryResponseSchema,
   StudentCourseDetailResponseSchema,
   StudentCourseListResponseSchema,
+  StudentDashboardResponseSchema,
   type CurrentSession,
   type AssignCourseInstructorRequest,
-  type ContextualQuestionResponse,
-  type ContextualQuestionsResponse,
   type CourseCreateRequest,
   type CourseDetailResponse,
   type CourseDocumentAnnotationResponse,
@@ -39,20 +39,26 @@ import {
   type CourseMutationResponse,
   type CourseUpdateRequest,
   type CreateCourseDocumentAnnotationRequest,
-  type CreateContextualQuestionAnswerRequest,
+  type CreateForumPostRequest,
+  type CreateForumThreadRequest,
   type EnrollStudentRequest,
+  type ForumThreadFilter,
+  type ForumThreadResponse,
+  type ForumThreadsResponse,
   type HealthResponse,
   type LoginRequest,
   type ProfessorCourseDetailResponse,
   type ProfessorCourseListResponse,
+  type ProfessorDashboardResponse,
   type StudentDocumentActivitySummaryResponse,
   type StudentCourseDetailResponse,
   type StudentCourseListResponse,
+  type StudentDashboardResponse,
   type UpdateCourseDocumentAnnotationRequest,
-  type UpdateContextualQuestionStatusRequest,
   type UpdateCourseDocumentMetadataRequest,
   type UpdateEnrollmentStatusRequest,
-  type VerifyContextualQuestionAnswerRequest,
+  type UpdateForumPostRequest,
+  type UpdateForumThreadRequest,
 } from '@web-app/contracts';
 import { z } from 'zod';
 
@@ -511,57 +517,6 @@ export function deleteCourseDocumentAnnotation(
   );
 }
 
-export function fetchCourseDocumentQuestions(
-  courseId: string,
-  documentId: string,
-  signal?: AbortSignal,
-): Promise<ContextualQuestionsResponse> {
-  return requestJson(
-    `/api/courses/${courseId}/documents/${documentId}/questions`,
-    ContextualQuestionsResponseSchema,
-    { signal },
-  );
-}
-
-export function createContextualQuestionAnswer(
-  courseId: string,
-  documentId: string,
-  threadId: string,
-  input: CreateContextualQuestionAnswerRequest,
-): Promise<ContextualQuestionResponse> {
-  return requestMutation(
-    `/api/courses/${courseId}/documents/${documentId}/questions/${threadId}/answer`,
-    ContextualQuestionResponseSchema,
-    { method: 'POST', body: JSON.stringify(input) },
-  );
-}
-
-export function verifyContextualQuestionAnswer(
-  courseId: string,
-  documentId: string,
-  threadId: string,
-  input: VerifyContextualQuestionAnswerRequest,
-): Promise<ContextualQuestionResponse> {
-  return requestMutation(
-    `/api/courses/${courseId}/documents/${documentId}/questions/${threadId}/verified-answer`,
-    ContextualQuestionResponseSchema,
-    { method: 'PATCH', body: JSON.stringify(input) },
-  );
-}
-
-export function updateContextualQuestionStatus(
-  courseId: string,
-  documentId: string,
-  threadId: string,
-  input: UpdateContextualQuestionStatusRequest,
-): Promise<ContextualQuestionResponse> {
-  return requestMutation(
-    `/api/courses/${courseId}/documents/${documentId}/questions/${threadId}/status`,
-    ContextualQuestionResponseSchema,
-    { method: 'PATCH', body: JSON.stringify(input) },
-  );
-}
-
 export function fetchStudentDocumentActivity(
   courseId: string,
   signal?: AbortSignal,
@@ -573,13 +528,183 @@ export function fetchStudentDocumentActivity(
   );
 }
 
-export function fetchUnresolvedContextualQuestions(
+// A prefix of every forumThreadsQueryKey(courseId, ...) variant, for
+// invalidating all cached filters/documentIds of a course's thread list at once.
+export function forumThreadsBaseKey(courseId: string) {
+  return ['courses', courseId, 'forum', 'threads'] as const;
+}
+
+export function forumThreadsQueryKey(
   courseId: string,
+  filter: ForumThreadFilter,
+  documentId?: string,
+) {
+  return [...forumThreadsBaseKey(courseId), filter, documentId ?? null] as const;
+}
+
+export function forumThreadQueryKey(courseId: string, threadId: string) {
+  return ['courses', courseId, 'forum', 'threads', threadId] as const;
+}
+
+export function studentDashboardQueryKey() {
+  return ['student', 'dashboard'] as const;
+}
+
+export function professorDashboardQueryKey() {
+  return ['professor', 'dashboard'] as const;
+}
+
+function forumThreadsQueryString(
+  filter: ForumThreadFilter,
+  documentId?: string,
+): string {
+  const params = new URLSearchParams({ filter });
+  if (documentId) params.set('documentId', documentId);
+  return `?${params.toString()}`;
+}
+
+export function fetchForumThreads(
+  courseId: string,
+  filter: ForumThreadFilter,
+  documentId?: string,
   signal?: AbortSignal,
-): Promise<ContextualQuestionsResponse> {
+): Promise<ForumThreadsResponse> {
   return requestJson(
-    `/api/courses/${courseId}/documents/questions/unresolved`,
-    ContextualQuestionsResponseSchema,
+    `/api/courses/${courseId}/forum/threads${forumThreadsQueryString(filter, documentId)}`,
+    ForumThreadsResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchForumThread(
+  courseId: string,
+  threadId: string,
+  signal?: AbortSignal,
+): Promise<ForumThreadResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/forum/threads/${threadId}`,
+    ForumThreadResponseSchema,
+    { signal },
+  );
+}
+
+export function createForumThread(
+  courseId: string,
+  input: CreateForumThreadRequest,
+): Promise<ForumThreadResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/forum/threads`,
+    ForumThreadResponseSchema,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function updateForumThread(
+  courseId: string,
+  threadId: string,
+  input: UpdateForumThreadRequest,
+): Promise<ForumThreadResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/forum/threads/${threadId}`,
+    ForumThreadResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function deleteForumThread(
+  courseId: string,
+  threadId: string,
+): Promise<void> {
+  return requestEmptyMutation(
+    `/api/courses/${courseId}/forum/threads/${threadId}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function createForumPost(
+  courseId: string,
+  threadId: string,
+  input: CreateForumPostRequest,
+): Promise<ForumThreadResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/forum/threads/${threadId}/posts`,
+    ForumThreadResponseSchema,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function updateForumPost(
+  courseId: string,
+  threadId: string,
+  postId: string,
+  input: UpdateForumPostRequest,
+): Promise<ForumThreadResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/forum/threads/${threadId}/posts/${postId}`,
+    ForumThreadResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function deleteForumPost(
+  courseId: string,
+  threadId: string,
+  postId: string,
+): Promise<void> {
+  return requestEmptyMutation(
+    `/api/courses/${courseId}/forum/threads/${threadId}/posts/${postId}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function verifyForumPost(
+  courseId: string,
+  threadId: string,
+  postId: string,
+): Promise<ForumThreadResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/forum/threads/${threadId}/posts/${postId}/verify`,
+    ForumThreadResponseSchema,
+    { method: 'PATCH' },
+  );
+}
+
+export function resolveForumThread(
+  courseId: string,
+  threadId: string,
+): Promise<ForumThreadResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/forum/threads/${threadId}/resolve`,
+    ForumThreadResponseSchema,
+    { method: 'PATCH' },
+  );
+}
+
+export function reopenForumThread(
+  courseId: string,
+  threadId: string,
+): Promise<ForumThreadResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/forum/threads/${threadId}/reopen`,
+    ForumThreadResponseSchema,
+    { method: 'PATCH' },
+  );
+}
+
+export function fetchStudentDashboard(
+  signal?: AbortSignal,
+): Promise<StudentDashboardResponse> {
+  return requestJson('/api/student/dashboard', StudentDashboardResponseSchema, {
+    signal,
+  });
+}
+
+export function fetchProfessorDashboard(
+  signal?: AbortSignal,
+): Promise<ProfessorDashboardResponse> {
+  return requestJson(
+    '/api/professor/dashboard',
+    ProfessorDashboardResponseSchema,
     { signal },
   );
 }

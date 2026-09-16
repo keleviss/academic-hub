@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Eye, Pencil } from 'lucide-react';
 import type {
-  ContextualQuestion,
   CourseDocumentMetadata,
   UpdateCourseDocumentMetadataRequest,
 } from '@web-app/contracts';
@@ -12,7 +11,6 @@ import {
   fetchCourseDocumentContent,
   fetchCourseDocuments,
   fetchProfessorCourse,
-  fetchUnresolvedContextualQuestions,
   updateCourseDocumentMetadata,
   uploadCourseDocument,
 } from '../../../../api/client';
@@ -26,6 +24,7 @@ import { ErrorNotice } from '../../../../components/feedback';
 import { QueryState } from '../../../../components/QueryState';
 import { StatusBadge } from '../../../../components/StatusBadge';
 import { Tabs } from '../../../../components/Tabs';
+import { CourseForumTab } from '../../../workspace/discussions/components/CourseForumTab';
 import { useDialogState } from '../../../../hooks/useDialogState';
 import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
 import { downloadBlob } from '../../../../lib/download-file';
@@ -39,7 +38,7 @@ import { professorCoursesKey } from '../utils/ProfessorCourses.const';
 import { PageLayout } from '../../../../components/PageLayout';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 
-type Tab = 'documents' | 'details';
+type Tab = 'documents' | 'discussions' | 'details';
 type DocumentFilter = 'all' | 'visible' | 'hidden';
 type DialogState =
   | { type: 'create' }
@@ -66,10 +65,6 @@ function documentsQueryKey(courseId: string) {
 
 function professorCourseKey(courseId: string) {
   return [...professorCoursesKey, courseId] as const;
-}
-
-function unresolvedQuestionsKey(courseId: string) {
-  return ['professor', 'courses', courseId, 'unresolved-questions'] as const;
 }
 
 export function ProfessorCourseDetailPage(): React.JSX.Element {
@@ -105,12 +100,6 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
   const documentsQuery = useQuery({
     queryKey: documentsQueryKey(courseId),
     queryFn: ({ signal }) => fetchCourseDocuments(courseId, signal),
-    enabled: !!courseId,
-  });
-  const unresolvedQuestionsQuery = useQuery({
-    queryKey: unresolvedQuestionsKey(courseId),
-    queryFn: ({ signal }) =>
-      fetchUnresolvedContextualQuestions(courseId, signal),
     enabled: !!courseId,
   });
 
@@ -251,9 +240,11 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                       value: 'documents',
                       label: `Έγγραφα (${totalDocuments})`,
                     },
+                    { value: 'discussions', label: 'Συζητήσεις' },
                     { value: 'details', label: 'Στοιχεία μαθήματος' },
                   ]}
                 />
+                {tab === 'discussions' && <CourseForumTab courseId={courseId} />}
                 {tab === 'documents' && (
                   <div className="course-members">
                     <div className="course-filter-row text-sm">
@@ -424,26 +415,6 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                     ))}
                   </div>
                 </div>
-                <div className="visibility-explainer">
-                  <h2>Αναπάντητες απορίες</h2>
-                  <QueryState
-                    query={unresolvedQuestionsQuery}
-                    loadingLabel="Φόρτωση αποριών…"
-                    onRetry={() => void unresolvedQuestionsQuery.refetch()}
-                  >
-                    {(questions) => (
-                      <ProfessorUnresolvedQuestions
-                        questions={questions.data}
-                        onOpenQuestion={(question) => {
-                          if (!question.documentId) return;
-                          navigate(
-                            `/app/courses/${courseId}/documents/${question.documentId}`,
-                          );
-                        }}
-                      />
-                    )}
-                  </QueryState>
-                </div>
               </div>
             </div>
             {(dialog?.type === 'create' || dialog?.type === 'edit') && (
@@ -546,38 +517,3 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
   );
 }
 
-function ProfessorUnresolvedQuestions({
-  onOpenQuestion,
-  questions,
-}: {
-  onOpenQuestion: (question: ContextualQuestion) => void;
-  questions: ContextualQuestion[];
-}): React.JSX.Element {
-  if (questions.length === 0) {
-    return <p>Δεν υπάρχουν αναπάντητες απορίες για αυτό το μάθημα.</p>;
-  }
-
-  return (
-    <div className="document-activity-summary">
-      <div className="document-activity-group">
-        {questions.map((question) => (
-          <button
-            key={question.id}
-            type="button"
-            disabled={!question.documentId}
-            onClick={() => onOpenQuestion(question)}
-          >
-            <strong>{question.title}</strong>
-            <span>
-              {question.documentTitle ?? 'Έγγραφο'} ·{' '}
-              {question.pageNumber
-                ? `σελίδα ${question.pageNumber}`
-                : 'χωρίς σελίδα'}
-            </span>
-            <span>{question.author.fullName}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}

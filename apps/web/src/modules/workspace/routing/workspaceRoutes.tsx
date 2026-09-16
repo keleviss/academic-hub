@@ -2,7 +2,9 @@ import type { UserRole } from '@web-app/contracts';
 
 import { roleLabels } from '../../../auth/session';
 import { ProfessorCoursesPage } from '../../professor/courses/pages/ProfessorCoursesPage';
+import { ProfessorDashboardPage } from '../../professor/dashboard/pages/ProfessorDashboardPage';
 import { StudentCoursesPage } from '../../student/courses/pages/StudentCoursesPage';
+import { StudentDashboardPage } from '../../student/dashboard/pages/StudentDashboardPage';
 import { AdminCoursesPage } from '../../admin/courses/pages/AdminCoursesPage';
 
 export type WorkspaceNavIcon =
@@ -56,48 +58,19 @@ function WorkspacePanel({
   );
 }
 
-export function WorkspaceHome({ role }: { role: UserRole }): React.JSX.Element {
-  const label = roleLabels[role];
-
-  const copy: Record<
-    UserRole,
-    { title: string; body: string; items: string[] }
-  > = {
-    admin: {
-      title: 'Διαχειριστικό workspace',
-      body: 'Η αρχική περιοχή για χρήστες, μαθήματα, εγγραφές και audit-oriented εποπτεία.',
-      items: [
+// Admin has no dedicated dashboard yet (out of scope for the forum/dashboards
+// feature); students and professors get real dashboards below instead.
+function AdminWorkspaceHome(): React.JSX.Element {
+  return (
+    <WorkspacePanel
+      eyebrow={roleLabels.admin}
+      title="Διαχειριστικό workspace"
+      body="Η αρχική περιοχή για χρήστες, μαθήματα, εγγραφές και audit-oriented εποπτεία."
+      items={[
         'Διαχείριση ενεργών χρηστών και ρόλων',
         'Οργάνωση μαθημάτων και αναθέσεων',
         'Παρακολούθηση κρίσιμων ενεργειών',
-      ],
-    },
-    professor: {
-      title: 'Teaching Intelligence workspace',
-      body: 'Η αρχική περιοχή για σήματα δυσκολίας, contextual απορίες και διδακτικές παρεμβάσεις.',
-      items: [
-        'Confusion signals ανά μάθημα και έννοια',
-        'Unresolved document thread queue',
-        'Επόμενες διδακτικές ενέργειες',
-      ],
-    },
-    student: {
-      title: 'Φοιτητικό workspace',
-      body: 'Η αρχική περιοχή για πρόοδο, προτεινόμενη επόμενη ενέργεια και πρόσφατη αλληλεπίδραση με το υλικό.',
-      items: [
-        'Προτεινόμενο επόμενο βήμα μελέτης',
-        'Ενεργά μαθήματα και concept progress',
-        'Πρόσφατες απαντήσεις και προσωπικές σημειώσεις',
-      ],
-    },
-  };
-
-  return (
-    <WorkspacePanel
-      eyebrow={label}
-      title={copy[role].title}
-      body={copy[role].body}
-      items={copy[role].items}
+      ]}
     />
   );
 }
@@ -127,7 +100,7 @@ const studentRoutes: WorkspaceRoute[] = [
     label: 'Επισκόπηση',
     icon: 'home',
     keywords: ['αρχική', 'dashboard', 'workspace'],
-    element: <WorkspaceHome role="student" />,
+    element: <StudentDashboardPage />,
     nav: true,
     end: true,
   },
@@ -166,7 +139,7 @@ const professorRoutes: WorkspaceRoute[] = [
     label: 'Επισκόπηση',
     icon: 'home',
     keywords: ['αρχική', 'dashboard', 'workspace'],
-    element: <WorkspaceHome role="professor" />,
+    element: <ProfessorDashboardPage />,
     nav: true,
     end: true,
   },
@@ -205,7 +178,7 @@ const adminRoutes: WorkspaceRoute[] = [
     label: 'Επισκόπηση',
     icon: 'home',
     keywords: ['αρχική', 'dashboard', 'workspace'],
-    element: <WorkspaceHome role="admin" />,
+    element: <AdminWorkspaceHome />,
     nav: true,
     end: true,
   },
@@ -272,25 +245,6 @@ const commonToolRoutes: WorkspaceRoute[] = [
     nav: true,
   },
   {
-    path: 'messages',
-    label: 'Μηνύματα',
-    icon: 'messages',
-    keywords: ['messages', 'inbox', 'threads', 'questions'],
-    element: (
-      <WorkspacePanel
-        eyebrow="Workspace"
-        title="Μηνύματα"
-        body="Προσωρινή protected σελίδα για contextual συζητήσεις, απαντήσεις και ειδοποιήσεις μαθημάτων."
-        items={[
-          'Contextual Q&A threads',
-          'Απαντήσεις διδασκόντων',
-          'Μελλοντικές ειδοποιήσεις συστήματος',
-        ]}
-      />
-    ),
-    nav: true,
-  },
-  {
     path: 'notes',
     label: 'Σημειώσεις',
     icon: 'notes',
@@ -351,7 +305,6 @@ const commonAccountRoutes: WorkspaceRoute[] = [
 ];
 
 // The workspace shell imports this registry to build each role's private routes.
-// eslint-disable-next-line react-refresh/only-export-components
 export const workspaceRoutesByRole: Record<UserRole, WorkspaceRoute[]> = {
   admin: [...adminRoutes, ...commonToolRoutes, ...commonAccountRoutes],
   professor: [...professorRoutes, ...commonToolRoutes, ...commonAccountRoutes],

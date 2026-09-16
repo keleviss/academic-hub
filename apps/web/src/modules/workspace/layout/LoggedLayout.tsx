@@ -29,6 +29,7 @@ import { StudentCourseDetailPage } from '../../student/courses/pages/StudentCour
 import { workspaceRoutesByRole } from '../routing/workspaceRoutes';
 import { WorkspaceToolbar } from '../../../components/WorkspaceToolbar';
 import { AdminCourseDetailPage } from '../../admin/courses/pages/AdminCourseDetailPage';
+import { ThreadDetailPage } from '../discussions/pages/ThreadDetailPage';
 
 // Pulls in pdfjs-dist, which is heavy; keep it out of the main bundle.
 const DocumentViewerPage = lazy(() =>
@@ -194,6 +195,12 @@ export function LoggedLayout(): React.JSX.Element {
                       <DocumentViewerPage />
                     </Suspense>
                   }
+                />
+              )}
+              {(user.role === 'professor' || user.role === 'student') && (
+                <Route
+                  path="courses/:courseId/discussions/:threadId"
+                  element={<ThreadDetailPage />}
                 />
               )}
               <Route path="*" element={<Navigate to={appPath} replace />} />
