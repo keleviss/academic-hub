@@ -5,6 +5,12 @@ dist
 tmp
 out-tsc
 
+# declaration output from `tsc --build --emitDeclarationOnly` (nx `typecheck` targets),
+# colocated with source under packages/*/src instead of dist/
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+packages/*/tsconfig.tsbuildinfo
+
 # dependencies
 node_modules
 
