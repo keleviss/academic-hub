@@ -40,8 +40,17 @@ const ids = {
   annotationConfusing: 'dddddddd-dddd-4ddd-8ddd-ddddddddddd2',
   threadQuestion: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1',
   threadConfusing: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee2',
+  threadGeneral: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee3',
+  threadResolved: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee4',
+  threadReopened: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
   postQuestion: 'ffffffff-ffff-4fff-8fff-fffffffffff1',
   postAnswer: 'ffffffff-ffff-4fff-8fff-fffffffffff2',
+  postGeneralOpening: 'ffffffff-ffff-4fff-8fff-fffffffffff3',
+  postGeneralReplyStudent: 'ffffffff-ffff-4fff-8fff-fffffffffff4',
+  postGeneralReplyProfessor: 'ffffffff-ffff-4fff-8fff-fffffffffff5',
+  postResolvedOpening: 'ffffffff-ffff-4fff-8fff-fffffffffff6',
+  postReopenedOpening: 'ffffffff-ffff-4fff-8fff-fffffffffff7',
+  postReopenedAnswer: 'ffffffff-ffff-4fff-8fff-fffffffffff8',
   threadLink: '12121212-1212-4121-8121-121212121212',
   selfCheck: '13131313-1313-4131-8131-131313131313',
   attemptMaria: '14141414-1414-4141-8141-141414141414',
@@ -902,7 +911,7 @@ async function seedForumAndAnnotations(): Promise<void> {
       name: 'Γενικές ερωτήσεις μαθήματος',
       kind: 'general' as const,
       description:
-        'Γενικός χώρος συζήτησης που παραμένει εκτός της εστίασης του ελάχιστου βιώσιμου προϊόντος.',
+        'Γενικές συζητήσεις μαθήματος, χωρίς σύνδεση με συγκεκριμένο έγγραφο.',
       orderIndex: 2,
     },
     {
@@ -1122,6 +1131,154 @@ async function seedForumAndAnnotations(): Promise<void> {
       targetThreadId: ids.threadQuestion,
       linkType: 'related',
       createdById: ids.professor,
+    },
+  });
+
+  // A general (not document-anchored) discussion with a flat reply chain:
+  // one student opens it, a different student replies publicly, then the
+  // professor answers, which is what moves it to `instructor_answered`.
+  await prisma.forumThread.upsert({
+    where: { id: ids.threadGeneral },
+    update: {
+      status: 'instructor_answered',
+      title: 'Πώς οργανώνουμε ομαδική μελέτη για το τεστ της Εβδομάδας 2;',
+    },
+    create: {
+      id: ids.threadGeneral,
+      courseId: ids.course,
+      categoryId: ids.categoryGeneral,
+      authorId: ids.studentMaria,
+      title: 'Πώς οργανώνουμε ομαδική μελέτη για το τεστ της Εβδομάδας 2;',
+      status: 'instructor_answered',
+      visibility: 'public',
+    },
+  });
+
+  await prisma.forumPost.upsert({
+    where: { id: ids.postGeneralOpening },
+    update: {
+      body: 'Θέλει κανείς άλλος να συναντηθούμε online πριν το τεστ της Εβδομάδας 2;',
+    },
+    create: {
+      id: ids.postGeneralOpening,
+      threadId: ids.threadGeneral,
+      authorId: ids.studentMaria,
+      body: 'Θέλει κανείς άλλος να συναντηθούμε online πριν το τεστ της Εβδομάδας 2;',
+    },
+  });
+
+  await prisma.forumPost.upsert({
+    where: { id: ids.postGeneralReplyStudent },
+    update: {
+      body: 'Ναι, μέσα είμαι. Προτείνω Τετάρτη απόγευμα.',
+    },
+    create: {
+      id: ids.postGeneralReplyStudent,
+      threadId: ids.threadGeneral,
+      authorId: ids.studentNikos,
+      body: 'Ναι, μέσα είμαι. Προτείνω Τετάρτη απόγευμα.',
+    },
+  });
+
+  await prisma.forumPost.upsert({
+    where: { id: ids.postGeneralReplyProfessor },
+    update: {
+      body: 'Καλή ιδέα. Θα ανεβάσω επιπλέον ασκήσεις επανάληψης μέχρι Τρίτη.',
+    },
+    create: {
+      id: ids.postGeneralReplyProfessor,
+      threadId: ids.threadGeneral,
+      authorId: ids.professor,
+      body: 'Καλή ιδέα. Θα ανεβάσω επιπλέον ασκήσεις επανάληψης μέχρι Τρίτη.',
+    },
+  });
+
+  // A resolved general discussion, to exercise the `resolved` state.
+  await prisma.forumThread.upsert({
+    where: { id: ids.threadResolved },
+    update: {
+      status: 'resolved',
+      title: 'Διευκρίνιση για την προθεσμία παράδοσης της εργασίας',
+    },
+    create: {
+      id: ids.threadResolved,
+      courseId: ids.course,
+      categoryId: ids.categoryGeneral,
+      authorId: ids.studentNikos,
+      title: 'Διευκρίνιση για την προθεσμία παράδοσης της εργασίας',
+      status: 'resolved',
+      visibility: 'public',
+      resolvedAt: new Date('2026-09-01T09:00:00.000Z'),
+    },
+  });
+
+  await prisma.forumPost.upsert({
+    where: { id: ids.postResolvedOpening },
+    update: {
+      body: 'Η προθεσμία παράδοσης ισχύει και για όσους έχουν εργαστηριακή εξέταση;',
+    },
+    create: {
+      id: ids.postResolvedOpening,
+      threadId: ids.threadResolved,
+      authorId: ids.studentNikos,
+      body: 'Η προθεσμία παράδοσης ισχύει και για όσους έχουν εργαστηριακή εξέταση;',
+    },
+  });
+
+  // A discussion that was verified, then resolved, then reopened — seeded in
+  // its post-reopen state (`verified`, `resolvedAt: null`, `verifiedPostId`
+  // still set) since seed rows represent end states, not a transition replay.
+  await prisma.forumThread.upsert({
+    where: { id: ids.threadReopened },
+    update: {
+      status: 'verified',
+      resolvedAt: null,
+      title: 'Ασάφεια στον ορισμό του δείκτη προόδου ανά ενότητα',
+    },
+    create: {
+      id: ids.threadReopened,
+      courseId: ids.course,
+      categoryId: ids.categoryGeneral,
+      authorId: ids.studentMaria,
+      title: 'Ασάφεια στον ορισμό του δείκτη προόδου ανά ενότητα',
+      status: 'verified',
+      visibility: 'public',
+      resolvedAt: null,
+    },
+  });
+
+  await prisma.forumPost.upsert({
+    where: { id: ids.postReopenedOpening },
+    update: {
+      body: 'Ο δείκτης προόδου μετράει σελίδες ή ολοκληρωμένες ενότητες;',
+    },
+    create: {
+      id: ids.postReopenedOpening,
+      threadId: ids.threadReopened,
+      authorId: ids.studentMaria,
+      body: 'Ο δείκτης προόδου μετράει σελίδες ή ολοκληρωμένες ενότητες;',
+    },
+  });
+
+  await prisma.forumPost.upsert({
+    where: { id: ids.postReopenedAnswer },
+    update: {
+      body: 'Μετράει ολοκληρωμένες ενότητες, όχι σελίδες.',
+      isVerified: true,
+    },
+    create: {
+      id: ids.postReopenedAnswer,
+      threadId: ids.threadReopened,
+      authorId: ids.professor,
+      body: 'Μετράει ολοκληρωμένες ενότητες, όχι σελίδες.',
+      isVerified: true,
+    },
+  });
+
+  await prisma.forumThread.update({
+    where: { id: ids.threadReopened },
+    data: {
+      verifiedPostId: ids.postReopenedAnswer,
     },
   });
 }

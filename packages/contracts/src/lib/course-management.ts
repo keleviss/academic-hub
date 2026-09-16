@@ -8,7 +8,6 @@ import {
   DocumentStatusSchema,
   DocumentVisibilitySchema,
   EnrollmentStatusSchema,
-  ForumThreadStatusSchema,
   UserRoleSchema,
 } from './enums.js';
 
@@ -27,11 +26,6 @@ export const CourseDocumentIdParamsSchema = CourseIdParamsSchema.extend({
 export const CourseDocumentAnnotationIdParamsSchema =
   CourseDocumentIdParamsSchema.extend({
     annotationId: z.uuid(),
-  });
-
-export const CourseDocumentQuestionIdParamsSchema =
-  CourseDocumentIdParamsSchema.extend({
-    threadId: z.uuid(),
   });
 
 export const CourseStatusFilterSchema = z.enum(['all', 'active', 'inactive']);
@@ -286,70 +280,6 @@ export const CourseDocumentAnnotationResponseSchema = z.object({
   data: CourseDocumentAnnotationSchema,
 });
 
-export const ContextualQuestionAuthorSchema = z.object({
-  id: z.uuid(),
-  fullName: z.string().min(1),
-  role: UserRoleSchema,
-});
-
-export const ContextualQuestionAnswerSchema = z.object({
-  id: z.uuid(),
-  body: z.string().min(1),
-  isVerified: z.boolean(),
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
-  author: ContextualQuestionAuthorSchema,
-});
-
-export const ContextualQuestionSchema = z.object({
-  id: z.uuid(),
-  courseId: z.uuid(),
-  documentId: z.uuid().nullable(),
-  annotationId: z.uuid().nullable(),
-  title: z.string().min(1),
-  status: ForumThreadStatusSchema,
-  visibility: AnnotationVisibilitySchema,
-  pageNumber: z.number().int().min(1).nullable(),
-  selectedText: z.string().nullable(),
-  documentTitle: z.string().nullable(),
-  question: z.string().nullable(),
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
-  author: ContextualQuestionAuthorSchema,
-  answer: ContextualQuestionAnswerSchema.nullable(),
-});
-
-export const ContextualQuestionsResponseSchema = z.object({
-  data: z.array(ContextualQuestionSchema),
-});
-
-export const CreateContextualQuestionAnswerRequestSchema = z.object({
-  body: z.string().trim().min(1).max(2_000),
-  verified: z.boolean().optional().default(false),
-});
-
-export const UpdateContextualQuestionStatusRequestSchema = z.object({
-  status: z.enum(['open', 'resolved']),
-});
-
-export const VerifyContextualQuestionAnswerRequestSchema = z.object({
-  answerId: z.uuid(),
-});
-
-export const ContextualQuestionResponseSchema = z.object({
-  data: ContextualQuestionSchema,
-});
-
-export const StudentDocumentActivitySummarySchema = z.object({
-  annotations: z.array(CourseDocumentAnnotationSchema),
-  openQuestions: z.array(ContextualQuestionSchema),
-  verifiedAnswers: z.array(ContextualQuestionSchema),
-});
-
-export const StudentDocumentActivitySummaryResponseSchema = z.object({
-  data: StudentDocumentActivitySummarySchema,
-});
-
 export const CourseDetailSchema = CourseListItemSchema.extend({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -440,9 +370,6 @@ export type CourseDocumentIdParams = z.infer<
 export type CourseDocumentAnnotationIdParams = z.infer<
   typeof CourseDocumentAnnotationIdParamsSchema
 >;
-export type CourseDocumentQuestionIdParams = z.infer<
-  typeof CourseDocumentQuestionIdParamsSchema
->;
 export type CourseStatusFilter = z.infer<typeof CourseStatusFilterSchema>;
 export type CourseCreateRequest = z.infer<typeof CourseCreateRequestSchema>;
 export type CourseUpdateRequest = z.infer<typeof CourseUpdateRequestSchema>;
@@ -504,34 +431,6 @@ export type CourseDocumentAnnotationsResponse = z.infer<
 >;
 export type CourseDocumentAnnotationResponse = z.infer<
   typeof CourseDocumentAnnotationResponseSchema
->;
-export type ContextualQuestionAuthor = z.infer<
-  typeof ContextualQuestionAuthorSchema
->;
-export type ContextualQuestionAnswer = z.infer<
-  typeof ContextualQuestionAnswerSchema
->;
-export type ContextualQuestion = z.infer<typeof ContextualQuestionSchema>;
-export type ContextualQuestionsResponse = z.infer<
-  typeof ContextualQuestionsResponseSchema
->;
-export type CreateContextualQuestionAnswerRequest = z.infer<
-  typeof CreateContextualQuestionAnswerRequestSchema
->;
-export type UpdateContextualQuestionStatusRequest = z.infer<
-  typeof UpdateContextualQuestionStatusRequestSchema
->;
-export type VerifyContextualQuestionAnswerRequest = z.infer<
-  typeof VerifyContextualQuestionAnswerRequestSchema
->;
-export type ContextualQuestionResponse = z.infer<
-  typeof ContextualQuestionResponseSchema
->;
-export type StudentDocumentActivitySummary = z.infer<
-  typeof StudentDocumentActivitySummarySchema
->;
-export type StudentDocumentActivitySummaryResponse = z.infer<
-  typeof StudentDocumentActivitySummaryResponseSchema
 >;
 export type CourseDetail = z.infer<typeof CourseDetailSchema>;
 export type CourseDetailResponse = z.infer<typeof CourseDetailResponseSchema>;

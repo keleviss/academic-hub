@@ -7,8 +7,6 @@ import {
   CourseDocumentAnnotationsResponseSchema,
   CourseDocumentResponseSchema,
   CourseDocumentsResponseSchema,
-  ContextualQuestionResponseSchema,
-  ContextualQuestionsResponseSchema,
 } from '@web-app/contracts';
 
 import { createApp } from '../app.js';
@@ -1378,113 +1376,6 @@ describe('course document routes', () => {
       expect(forumThread.create).not.toHaveBeenCalled();
     },
   );
-
-  it('lists contextual questions for a visible document', async () => {
-    const { app } = createTestApp('student', {
-      existingThreadForPublicAnnotation: true,
-      visibilityFixtures: true,
-    });
-
-    const response = await request(app)
-      .get(`/api/courses/${courseId}/documents/${visibleDocumentId}/questions`)
-      .set('Cookie', authCookie())
-      .expect(200);
-
-    const body = ContextualQuestionsResponseSchema.parse(response.body);
-    expect(body.data).toEqual([
-      expect.objectContaining({
-        annotationId: publicAnnotation.id,
-        documentId: visibleDocumentId,
-        pageNumber: 2,
-        question: publicAnnotation.body,
-        selectedText: 'βασική έννοια',
-        status: 'open',
-        title: publicAnnotation.body,
-      }),
-    ]);
-  });
-
-  it('lets a professor answer a contextual question', async () => {
-    const { app, forumPost, forumThread } = createTestApp('professor', {
-      existingThreadForPublicAnnotation: true,
-      visibilityFixtures: true,
-    });
-
-    const response = await request(app)
-      .post(
-        `/api/courses/${courseId}/documents/${visibleDocumentId}/questions/20202020-2020-4202-8202-202020202020/answer`,
-      )
-      .set('Cookie', authCookie())
-      .send({ body: '  Η έννοια αφορά τον βρόχο ανατροφοδότησης.  ' })
-      .expect(201);
-
-    const body = ContextualQuestionResponseSchema.parse(response.body);
-    expect(body.data).toMatchObject({
-      status: 'instructor_answered',
-      answer: {
-        body: 'Η έννοια αφορά τον βρόχο ανατροφοδότησης.',
-        isVerified: false,
-      },
-    });
-    expect(forumPost.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          authorId: professorId,
-          body: 'Η έννοια αφορά τον βρόχο ανατροφοδότησης.',
-          isVerified: false,
-        }),
-      }),
-    );
-    expect(forumThread.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { status: 'instructor_answered' },
-      }),
-    );
-  });
-
-  it('lets a professor mark an answer as verified', async () => {
-    const { app, forumPost, forumThread } = createTestApp('professor', {
-      existingThreadForPublicAnnotation: true,
-      visibilityFixtures: true,
-    });
-
-    await request(app)
-      .post(
-        `/api/courses/${courseId}/documents/${visibleDocumentId}/questions/20202020-2020-4202-8202-202020202020/answer`,
-      )
-      .set('Cookie', authCookie())
-      .send({ body: 'Αρχική απάντηση' })
-      .expect(201);
-
-    const response = await request(app)
-      .patch(
-        `/api/courses/${courseId}/documents/${visibleDocumentId}/questions/20202020-2020-4202-8202-202020202020/verified-answer`,
-      )
-      .set('Cookie', authCookie())
-      .send({ answerId: '30303030-3030-4303-8303-303030303030' })
-      .expect(200);
-
-    const body = ContextualQuestionResponseSchema.parse(response.body);
-    expect(body.data).toMatchObject({
-      status: 'verified',
-      answer: {
-        id: '30303030-3030-4303-8303-303030303030',
-        isVerified: true,
-      },
-    });
-    expect(forumPost.update).toHaveBeenCalledWith({
-      data: { isVerified: true },
-      where: { id: '30303030-3030-4303-8303-303030303030' },
-    });
-    expect(forumThread.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: {
-          status: 'verified',
-          verifiedPostId: '30303030-3030-4303-8303-303030303030',
-        },
-      }),
-    );
-  });
 
   it('updates an annotation for its creator', async () => {
     const { annotation, app } = createTestApp('student', {

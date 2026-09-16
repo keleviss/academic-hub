@@ -9,11 +9,19 @@ import {
   createCourseDocumentsRouter,
   type CourseDocumentsRouteOptions,
 } from './course-documents.js';
+import {
+  createCourseForumRouter,
+  type CourseForumRouteOptions,
+} from './course-forum.js';
 import { createHealthRouter, type HealthRouteOptions } from './health.js';
 import {
   createProfessorCoursesRouter,
   type ProfessorCoursesRouteOptions,
 } from './professor-courses.js';
+import {
+  createProfessorDashboardRouter,
+  type ProfessorDashboardRouteOptions,
+} from './professor-dashboard.js';
 import {
   createReadinessRouter,
   type ReadinessRouteOptions,
@@ -22,6 +30,10 @@ import {
   createStudentCoursesRouter,
   type StudentCoursesRouteOptions,
 } from './student-courses.js';
+import {
+  createStudentDashboardRouter,
+  type StudentDashboardRouteOptions,
+} from './student-dashboard.js';
 
 export type ApiRouterOptions = AuthRouteOptions &
   HealthRouteOptions &
@@ -29,9 +41,12 @@ export type ApiRouterOptions = AuthRouteOptions &
     courseDocumentsPrisma?: CourseDocumentsRouteOptions['prisma'];
     courseDocumentsMaxUploadBytes?: CourseDocumentsRouteOptions['maxUploadBytes'];
     courseDocumentsStorage?: CourseDocumentsRouteOptions['storageService'];
+    courseForumPrisma?: CourseForumRouteOptions['prisma'];
     coursesPrisma?: AdminCoursesRouteOptions['prisma'];
     professorCoursesPrisma?: ProfessorCoursesRouteOptions['prisma'];
+    professorDashboardPrisma?: ProfessorDashboardRouteOptions['prisma'];
     studentCoursesPrisma?: StudentCoursesRouteOptions['prisma'];
+    studentDashboardPrisma?: StudentDashboardRouteOptions['prisma'];
   };
 
 export function createApiRouter(options: ApiRouterOptions = {}): Router {
@@ -51,6 +66,14 @@ export function createApiRouter(options: ApiRouterOptions = {}): Router {
     }),
   );
   router.use(
+    '/courses/:courseId/forum',
+    createCourseForumRouter({
+      auditLogger: options.auditLogger,
+      prisma: options.courseForumPrisma,
+      sessionService: options.sessionService,
+    }),
+  );
+  router.use(
     '/admin/courses',
     createAdminCoursesRouter({
       auditLogger: options.auditLogger,
@@ -67,10 +90,26 @@ export function createApiRouter(options: ApiRouterOptions = {}): Router {
     }),
   );
   router.use(
+    '/professor/dashboard',
+    createProfessorDashboardRouter({
+      auditLogger: options.auditLogger,
+      prisma: options.professorDashboardPrisma,
+      sessionService: options.sessionService,
+    }),
+  );
+  router.use(
     '/student/courses',
     createStudentCoursesRouter({
       auditLogger: options.auditLogger,
       prisma: options.studentCoursesPrisma,
+      sessionService: options.sessionService,
+    }),
+  );
+  router.use(
+    '/student/dashboard',
+    createStudentDashboardRouter({
+      auditLogger: options.auditLogger,
+      prisma: options.studentDashboardPrisma,
       sessionService: options.sessionService,
     }),
   );
