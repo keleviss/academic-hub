@@ -2536,16 +2536,42 @@ select {
   gap: var(--hub-space-3);
 }
 
-.document-annotations-heading h2 {
-  margin: 0;
-  color: var(--color-hub-navy);
-  font-size: 1rem;
-}
-
 .document-annotations-heading p {
   margin: 0.25rem 0 0;
   color: var(--color-hub-muted);
   font-size: 0.75rem;
+}
+
+.annotation-panel-tabs {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.annotation-panel-tabs button {
+  min-height: 2rem;
+  border: 0;
+  border-bottom: 0.1875rem solid transparent;
+  background: transparent;
+  color: var(--color-hub-navy);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0 0 0.1875rem;
+}
+
+.annotation-panel-tabs button[aria-selected='true'] {
+  border-bottom-color: var(--color-hub-teal);
+}
+
+.annotation-panel-tabs button:hover {
+  color: var(--color-hub-teal);
+}
+
+.annotation-panel-tabs button:focus-visible {
+  outline: 2px solid var(--color-hub-accent);
+  outline-offset: 0.1875rem;
 }
 
 .annotation-panel-actions {
@@ -2626,6 +2652,12 @@ select {
 
 .annotation-form-toggle {
   width: 100%;
+}
+
+.annotation-panel-tab-content {
+  display: grid;
+  gap: var(--hub-space-3);
+  min-height: 0;
 }
 
 .annotation-form label {
@@ -2817,27 +2849,6 @@ select {
 .contextual-questions-section {
   display: grid;
   gap: 0.75rem;
-  border-top: 1px solid var(--color-hub-border);
-  padding-top: var(--hub-space-3);
-}
-
-.contextual-questions-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.contextual-questions-heading h3 {
-  margin: 0;
-  color: var(--color-hub-navy);
-  font-size: 0.9375rem;
-}
-
-.contextual-questions-heading p {
-  margin: 0.25rem 0 0;
-  color: var(--color-hub-muted);
-  font-size: 0.75rem;
 }
 
 .contextual-question-list {
@@ -3106,7 +3117,7 @@ select {
   }
 
   .document-annotations-panel {
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     height: 100%;
     max-height: 100%;
     min-height: 0;
@@ -3122,6 +3133,15 @@ select {
   .document-annotations-results {
     overflow-y: auto;
     padding-right: 0.25rem;
+  }
+
+  .annotation-panel-tab-content {
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .annotation-panel-tab-content.is-questions {
+    grid-template-rows: minmax(0, 1fr);
   }
 }
 

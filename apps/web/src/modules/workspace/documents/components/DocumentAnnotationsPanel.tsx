@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   Copy,
   FileText,
-  MessageSquare,
   Pencil,
   MoreHorizontal,
   PanelRightClose,
@@ -90,6 +89,8 @@ type AnnotationFilter =
   | 'important'
   | 'mine'
   | 'other';
+
+type AnnotationPanelTab = 'annotations' | 'questions';
 
 interface AnnotationEditDraft {
   annotationId: string;
@@ -235,6 +236,7 @@ export function DocumentAnnotationsPanel({
     useState<CourseDocumentAnnotation | null>(null);
   const [annotationFilter, setAnnotationFilter] =
     useState<AnnotationFilter>('all');
+  const [activeTab, setActiveTab] = useState<AnnotationPanelTab>('annotations');
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState(() =>
     annotationIdFromLocationHash(),
   );
@@ -444,6 +446,7 @@ export function DocumentAnnotationsPanel({
 
   useEffect(() => {
     function handleHashChange() {
+      setActiveTab('annotations');
       setHighlightedAnnotationId(annotationIdFromLocationHash());
     }
 
@@ -507,11 +510,36 @@ export function DocumentAnnotationsPanel({
     <>
       <aside
         className="document-annotations-panel"
-        aria-labelledby="annotations-heading"
+        aria-label="Σημειώσεις και απορίες εγγράφου"
       >
         <div className="document-annotations-heading">
           <div>
-            <h2 id="annotations-heading">Σχόλια</h2>
+            <div
+              className="annotation-panel-tabs"
+              role="tablist"
+              aria-label="Περιεχόμενο εγγράφου"
+            >
+              <button
+                id={`${formId}-annotations-tab`}
+                role="tab"
+                aria-controls={`${formId}-annotations-panel`}
+                aria-selected={activeTab === 'annotations'}
+                type="button"
+                onClick={() => setActiveTab('annotations')}
+              >
+                Σχόλια
+              </button>
+              <button
+                id={`${formId}-questions-tab`}
+                role="tab"
+                aria-controls={`${formId}-questions-panel`}
+                aria-selected={activeTab === 'questions'}
+                type="button"
+                onClick={() => setActiveTab('questions')}
+              >
+                Απορίες
+              </button>
+            </div>
             <p>Σημειώσεις και απορίες για το έγγραφο</p>
           </div>
           <div className="annotation-panel-actions">
@@ -523,289 +551,315 @@ export function DocumentAnnotationsPanel({
             >
               <PanelRightClose aria-hidden="true" size={18} />
             </button>
-            <Popover
-              align="end"
-              panelClassName="annotation-panel-menu-popover"
-              renderTrigger={({ open, triggerRef, toggle }) => (
-                <button
-                  aria-expanded={open}
-                  aria-haspopup="menu"
-                  aria-label="Ενέργειες σχολίων"
-                  className="annotation-panel-menu-trigger"
-                  ref={triggerRef}
-                  type="button"
-                  onClick={toggle}
-                >
-                  <MoreHorizontal aria-hidden="true" size={18} />
-                </button>
-              )}
-            >
-              {(close) => (
-                <div className="annotation-panel-menu-section">
-                  <p>Φίλτρο σχολίων</p>
-                  {annotationFilterOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      role="menuitemradio"
-                      aria-checked={annotationFilter === option.value}
-                      type="button"
-                      onClick={() => {
-                        setAnnotationFilter(option.value);
-                        close();
-                      }}
-                    >
-                      <Check
-                        aria-hidden="true"
-                        className="annotation-panel-menu-check"
-                        size={14}
-                      />
-                      <span>{option.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Popover>
+            {activeTab === 'annotations' && (
+              <Popover
+                align="end"
+                panelClassName="annotation-panel-menu-popover"
+                renderTrigger={({ open, triggerRef, toggle }) => (
+                  <button
+                    aria-expanded={open}
+                    aria-haspopup="menu"
+                    aria-label="Ενέργειες σχολίων"
+                    className="annotation-panel-menu-trigger"
+                    ref={triggerRef}
+                    type="button"
+                    onClick={toggle}
+                  >
+                    <MoreHorizontal aria-hidden="true" size={18} />
+                  </button>
+                )}
+              >
+                {(close) => (
+                  <div className="annotation-panel-menu-section">
+                    <p>Φίλτρο σχολίων</p>
+                    {annotationFilterOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        role="menuitemradio"
+                        aria-checked={annotationFilter === option.value}
+                        type="button"
+                        onClick={() => {
+                          setAnnotationFilter(option.value);
+                          close();
+                        }}
+                      >
+                        <Check
+                          aria-hidden="true"
+                          className="annotation-panel-menu-check"
+                          size={14}
+                        />
+                        <span>{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Popover>
+            )}
           </div>
         </div>
 
-        {formExpanded ? (
-          <form
-            className="annotation-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!body.trim()) {
-                setBodyError('Συμπλήρωσε περιεχόμενο για το σχόλιο.');
-                return;
-              }
-              createMutation.mutate();
-            }}
+        {activeTab === 'annotations' ? (
+          <div
+            className="annotation-panel-tab-content"
+            id={`${formId}-annotations-panel`}
+            role="tabpanel"
+            aria-labelledby={`${formId}-annotations-tab`}
           >
-            <div className="annotation-form-grid">
-              <label htmlFor={`${formId}-page`}>
-                Σελίδα
-                <input
-                  id={`${formId}-page`}
-                  type="number"
-                  min={1}
-                  max={pageCount ?? undefined}
-                  required
-                  value={currentPage}
-                  readOnly
-                />
-              </label>
-              <label htmlFor={`${formId}-type`}>
-                Τύπος
-                <select
-                  id={`${formId}-type`}
-                  value={type}
-                  onChange={(event) =>
-                    setType(event.target.value as AnnotationType)
+            {formExpanded ? (
+              <form
+                className="annotation-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!body.trim()) {
+                    setBodyError('Συμπλήρωσε περιεχόμενο για το σχόλιο.');
+                    return;
                   }
-                  disabled={pending}
-                >
-                  {annotationTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label htmlFor={`${formId}-visibility`}>
-              Ορατότητα
-              <select
-                id={`${formId}-visibility`}
-                value={visibility}
-                onChange={(event) =>
-                  setVisibility(event.target.value as AnnotationVisibility)
-                }
-                disabled={pending}
-              >
-                {annotationVisibilityOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label htmlFor={`${formId}-selected-text`}>
-              Επιλεγμένο κείμενο (προεραιτικό)
-              <input
-                id={`${formId}-selected-text`}
-                type="text"
-                maxLength={1000}
-                value={selectedText}
-                onChange={(event) => setSelectedText(event.target.value)}
-                disabled={pending}
-              />
-            </label>
-            <label htmlFor={`${formId}-body`}>
-              Περιεχόμενο
-              <textarea
-                id={`${formId}-body`}
-                aria-describedby={bodyError ? bodyErrorId : undefined}
-                aria-invalid={bodyError ? true : undefined}
-                maxLength={2000}
-                rows={3}
-                value={body}
-                onChange={(event) => {
-                  setBody(event.target.value);
-                  if (bodyError && event.target.value.trim()) {
-                    setBodyError(null);
-                  }
-                }}
-                disabled={pending}
-              />
-            </label>
-            {bodyError && (
-              <p
-                className="annotation-form-error"
-                id={bodyErrorId}
-                role="alert"
-              >
-                {bodyError}
-              </p>
-            )}
-            <div className="annotation-form-actions">
-              <button
-                className="primary-button"
-                type="submit"
-                disabled={pending}
-              >
-                {pending ? 'Αποθήκευση…' : 'Αποθήκευση'}
-              </button>
-              <button
-                className="secondary-button"
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  setBodyError(null);
-                  setFormExpanded(false);
+                  createMutation.mutate();
                 }}
               >
-                Άκυρο
-              </button>
-            </div>
-          </form>
-        ) : (
-          <button
-            className="primary-button annotation-form-toggle"
-            type="button"
-            onClick={() => setFormExpanded(true)}
-          >
-            Προσθήκη σχολίου
-          </button>
-        )}
-
-        <div className="document-annotations-results">
-          <QueryState
-            query={annotationsQuery}
-            loadingLabel="Φόρτωση σχολίων…"
-            onRetry={() => void annotationsQuery.refetch()}
-          >
-            {(response) => {
-              const filteredAnnotations = filterAnnotations(
-                response.data,
-                annotationFilter,
-                currentUser.id,
-              );
-
-              if (response.data.length === 0) {
-                return (
-                  <EmptyState message="Δεν υπάρχουν σχόλια για αυτό το έγγραφο." />
-                );
-              }
-
-              const filterLabel = labelForAnnotationFilter(annotationFilter);
-              const hasActiveFilter = annotationFilter !== 'all';
-
-              if (filteredAnnotations.length === 0) {
-                return (
-                  <>
-                    <AnnotationCountSummary totalCount={response.data.length} />
-                    {hasActiveFilter && (
-                      <AnnotationFilterSummary
-                        label={filterLabel}
-                        onReset={() => setAnnotationFilter('all')}
-                      />
-                    )}
-                    <EmptyState message="Δεν υπάρχουν σχόλια για αυτό το φίλτρο." />
-                  </>
-                );
-              }
-
-              return (
-                <>
-                  <AnnotationCountSummary totalCount={response.data.length} />
-                  {hasActiveFilter && (
-                    <AnnotationFilterSummary
-                      label={filterLabel}
-                      onReset={() => setAnnotationFilter('all')}
+                <div className="annotation-form-grid">
+                  <label htmlFor={`${formId}-page`}>
+                    Σελίδα
+                    <input
+                      id={`${formId}-page`}
+                      type="number"
+                      min={1}
+                      max={pageCount ?? undefined}
+                      required
+                      value={currentPage}
+                      readOnly
                     />
-                  )}
-                  <div className="annotation-list">
-                    {filteredAnnotations.map((annotation) => (
-                      <AnnotationItem
-                        key={annotation.id}
-                        annotation={annotation}
-                        currentUserId={currentUser.id}
-                        editDraft={editDraft}
-                        isDeleting={deletingAnnotationId === annotation.id}
-                        isHighlighted={
-                          annotation.id === highlightedAnnotationId
-                        }
-                        isSavingEdit={
-                          updateMutation.isPending &&
-                          updateMutation.variables?.annotationId ===
-                          annotation.id
-                        }
-                        onCancelEdit={handleCancelEdit}
-                        onCopyLink={handleCopyAnnotationLink}
-                        onDelete={handleDeleteAnnotation}
-                        onEditDraftChange={setEditDraft}
-                        onNavigateToPage={onNavigateToPage}
-                        onStartEdit={handleStartEdit}
-                        onSubmitEdit={handleSubmitEdit}
-                        registerElement={registerAnnotationElement}
-                      />
+                  </label>
+                  <label htmlFor={`${formId}-type`}>
+                    Τύπος
+                    <select
+                      id={`${formId}-type`}
+                      value={type}
+                      onChange={(event) =>
+                        setType(event.target.value as AnnotationType)
+                      }
+                      disabled={pending}
+                    >
+                      {annotationTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label htmlFor={`${formId}-visibility`}>
+                  Ορατότητα
+                  <select
+                    id={`${formId}-visibility`}
+                    value={visibility}
+                    onChange={(event) =>
+                      setVisibility(event.target.value as AnnotationVisibility)
+                    }
+                    disabled={pending}
+                  >
+                    {annotationVisibilityOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
                     ))}
-                  </div>
-                </>
-              );
-            }}
-          </QueryState>
-          <ContextualQuestionsSection
-            answerDraft={answerDraft}
-            answerPendingThreadId={
-              answerMutation.isPending
-                ? answerMutation.variables?.threadId
-                : undefined
-            }
-            currentUserId={currentUser.id}
-            currentUserRole={currentUser.role}
-            questionsQuery={questionsQuery}
-            statusPendingThreadId={
-              statusMutation.isPending
-                ? statusMutation.variables?.threadId
-                : undefined
-            }
-            verifyPendingThreadId={
-              verifyMutation.isPending
-                ? verifyMutation.variables?.threadId
-                : undefined
-            }
-            onAnswerDraftChange={setAnswerDraft}
-            onNavigateToPage={onNavigateToPage}
-            onRetry={() => void questionsQuery.refetch()}
-            onSubmitAnswer={handleSubmitAnswer}
-            onUpdateStatus={(threadId, status) =>
-              statusMutation.mutate({ threadId, status })
-            }
-            onVerifyAnswer={(threadId, answerId) =>
-              verifyMutation.mutate({ answerId, threadId })
-            }
-          />
-        </div>
+                  </select>
+                </label>
+                <label htmlFor={`${formId}-selected-text`}>
+                  Επιλεγμένο κείμενο (προεραιτικό)
+                  <input
+                    id={`${formId}-selected-text`}
+                    type="text"
+                    maxLength={1000}
+                    value={selectedText}
+                    onChange={(event) => setSelectedText(event.target.value)}
+                    disabled={pending}
+                  />
+                </label>
+                <label htmlFor={`${formId}-body`}>
+                  Περιεχόμενο
+                  <textarea
+                    id={`${formId}-body`}
+                    aria-describedby={bodyError ? bodyErrorId : undefined}
+                    aria-invalid={bodyError ? true : undefined}
+                    maxLength={2000}
+                    rows={3}
+                    value={body}
+                    onChange={(event) => {
+                      setBody(event.target.value);
+                      if (bodyError && event.target.value.trim()) {
+                        setBodyError(null);
+                      }
+                    }}
+                    disabled={pending}
+                  />
+                </label>
+                {bodyError && (
+                  <p
+                    className="annotation-form-error"
+                    id={bodyErrorId}
+                    role="alert"
+                  >
+                    {bodyError}
+                  </p>
+                )}
+                <div className="annotation-form-actions">
+                  <button
+                    className="primary-button"
+                    type="submit"
+                    disabled={pending}
+                  >
+                    {pending ? 'Αποθήκευση…' : 'Αποθήκευση'}
+                  </button>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      setBodyError(null);
+                      setFormExpanded(false);
+                    }}
+                  >
+                    Άκυρο
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                className="primary-button annotation-form-toggle"
+                type="button"
+                onClick={() => setFormExpanded(true)}
+              >
+                Προσθήκη σχολίου
+              </button>
+            )}
+
+            <div className="document-annotations-results">
+              <QueryState
+                query={annotationsQuery}
+                loadingLabel="Φόρτωση σχολίων…"
+                onRetry={() => void annotationsQuery.refetch()}
+              >
+                {(response) => {
+                  const filteredAnnotations = filterAnnotations(
+                    response.data,
+                    annotationFilter,
+                    currentUser.id,
+                  );
+
+                  if (response.data.length === 0) {
+                    return (
+                      <EmptyState message="Δεν υπάρχουν σχόλια για αυτό το έγγραφο." />
+                    );
+                  }
+
+                  const filterLabel =
+                    labelForAnnotationFilter(annotationFilter);
+                  const hasActiveFilter = annotationFilter !== 'all';
+
+                  if (filteredAnnotations.length === 0) {
+                    return (
+                      <>
+                        <AnnotationCountSummary
+                          totalCount={response.data.length}
+                        />
+                        {hasActiveFilter && (
+                          <AnnotationFilterSummary
+                            label={filterLabel}
+                            onReset={() => setAnnotationFilter('all')}
+                          />
+                        )}
+                        <EmptyState message="Δεν υπάρχουν σχόλια για αυτό το φίλτρο." />
+                      </>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <AnnotationCountSummary
+                        totalCount={response.data.length}
+                      />
+                      {hasActiveFilter && (
+                        <AnnotationFilterSummary
+                          label={filterLabel}
+                          onReset={() => setAnnotationFilter('all')}
+                        />
+                      )}
+                      <div className="annotation-list">
+                        {filteredAnnotations.map((annotation) => (
+                          <AnnotationItem
+                            key={annotation.id}
+                            annotation={annotation}
+                            currentUserId={currentUser.id}
+                            editDraft={editDraft}
+                            isDeleting={deletingAnnotationId === annotation.id}
+                            isHighlighted={
+                              annotation.id === highlightedAnnotationId
+                            }
+                            isSavingEdit={
+                              updateMutation.isPending &&
+                              updateMutation.variables?.annotationId ===
+                                annotation.id
+                            }
+                            onCancelEdit={handleCancelEdit}
+                            onCopyLink={handleCopyAnnotationLink}
+                            onDelete={handleDeleteAnnotation}
+                            onEditDraftChange={setEditDraft}
+                            onNavigateToPage={onNavigateToPage}
+                            onStartEdit={handleStartEdit}
+                            onSubmitEdit={handleSubmitEdit}
+                            registerElement={registerAnnotationElement}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  );
+                }}
+              </QueryState>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="annotation-panel-tab-content is-questions"
+            id={`${formId}-questions-panel`}
+            role="tabpanel"
+            aria-labelledby={`${formId}-questions-tab`}
+          >
+            <div className="document-annotations-results">
+              <ContextualQuestionsSection
+                answerDraft={answerDraft}
+                answerPendingThreadId={
+                  answerMutation.isPending
+                    ? answerMutation.variables?.threadId
+                    : undefined
+                }
+                currentUserId={currentUser.id}
+                currentUserRole={currentUser.role}
+                questionsQuery={questionsQuery}
+                statusPendingThreadId={
+                  statusMutation.isPending
+                    ? statusMutation.variables?.threadId
+                    : undefined
+                }
+                verifyPendingThreadId={
+                  verifyMutation.isPending
+                    ? verifyMutation.variables?.threadId
+                    : undefined
+                }
+                onAnswerDraftChange={setAnswerDraft}
+                onNavigateToPage={onNavigateToPage}
+                onRetry={() => void questionsQuery.refetch()}
+                onSubmitAnswer={handleSubmitAnswer}
+                onUpdateStatus={(threadId, status) =>
+                  statusMutation.mutate({ threadId, status })
+                }
+                onVerifyAnswer={(threadId, answerId) =>
+                  verifyMutation.mutate({ answerId, threadId })
+                }
+              />
+            </div>
+          </div>
+        )}
       </aside>
       {annotationPendingDelete && (
         <Dialog title="Διαγραφή σχολίου" onClose={handleCloseDeleteDialog}>
@@ -879,17 +933,7 @@ function ContextualQuestionsSection({
     currentUserRole === 'admin' || currentUserRole === 'professor';
 
   return (
-    <section
-      className="contextual-questions-section"
-      aria-labelledby="contextual-questions-heading"
-    >
-      <div className="contextual-questions-heading">
-        <div>
-          <h3 id="contextual-questions-heading">Απορίες εγγράφου</h3>
-          <p>Contextual ερωτήσεις που δημιουργήθηκαν από σχόλια.</p>
-        </div>
-        <MessageSquare aria-hidden="true" size={18} />
-      </div>
+    <div className="contextual-questions-section">
       <QueryState
         query={questionsQuery}
         loadingLabel="Φόρτωση αποριών…"
@@ -897,33 +941,40 @@ function ContextualQuestionsSection({
       >
         {(response) => {
           if (response.data.length === 0) {
-            return <EmptyState message="Δεν υπάρχουν απορίες για αυτό το έγγραφο." />;
+            return (
+              <EmptyState message="Δεν υπάρχουν απορίες για αυτό το έγγραφο." />
+            );
           }
 
           return (
-            <div className="contextual-question-list">
-              {response.data.map((question) => (
-                <ContextualQuestionItem
-                  key={question.id}
-                  answerDraft={answerDraft}
-                  answerPending={answerPendingThreadId === question.id}
-                  canAnswer={canAnswer}
-                  currentUserId={currentUserId}
-                  question={question}
-                  statusPending={statusPendingThreadId === question.id}
-                  verifyPending={verifyPendingThreadId === question.id}
-                  onAnswerDraftChange={onAnswerDraftChange}
-                  onNavigateToPage={onNavigateToPage}
-                  onSubmitAnswer={onSubmitAnswer}
-                  onUpdateStatus={onUpdateStatus}
-                  onVerifyAnswer={onVerifyAnswer}
-                />
-              ))}
-            </div>
+            <>
+              <p className="annotation-count-summary">
+                Απορίες αρχείου: {response.data.length}
+              </p>
+              <div className="contextual-question-list">
+                {response.data.map((question) => (
+                  <ContextualQuestionItem
+                    key={question.id}
+                    answerDraft={answerDraft}
+                    answerPending={answerPendingThreadId === question.id}
+                    canAnswer={canAnswer}
+                    currentUserId={currentUserId}
+                    question={question}
+                    statusPending={statusPendingThreadId === question.id}
+                    verifyPending={verifyPendingThreadId === question.id}
+                    onAnswerDraftChange={onAnswerDraftChange}
+                    onNavigateToPage={onNavigateToPage}
+                    onSubmitAnswer={onSubmitAnswer}
+                    onUpdateStatus={onUpdateStatus}
+                    onVerifyAnswer={onVerifyAnswer}
+                  />
+                ))}
+              </div>
+            </>
           );
         }}
       </QueryState>
-    </section>
+    </div>
   );
 }
 
@@ -990,7 +1041,9 @@ function ContextualQuestionItem({
           </>
         )}
       </p>
-      {questionText && <p className="contextual-question-body">{questionText}</p>}
+      {questionText && (
+        <p className="contextual-question-body">{questionText}</p>
+      )}
       {question.selectedText && (
         <blockquote>
           <span>Απόσπασμα</span>
@@ -1277,9 +1330,9 @@ function AnnotationItem({
                   onEditDraftChange((draft) =>
                     draft?.annotationId === annotation.id
                       ? {
-                        ...draft,
-                        type: event.target.value as AnnotationType,
-                      }
+                          ...draft,
+                          type: event.target.value as AnnotationType,
+                        }
                       : draft,
                   )
                 }
@@ -1301,10 +1354,10 @@ function AnnotationItem({
                   onEditDraftChange((draft) =>
                     draft?.annotationId === annotation.id
                       ? {
-                        ...draft,
-                        visibility: event.target
-                          .value as AnnotationVisibility,
-                      }
+                          ...draft,
+                          visibility: event.target
+                            .value as AnnotationVisibility,
+                        }
                       : draft,
                   )
                 }
@@ -1333,12 +1386,12 @@ function AnnotationItem({
                 onEditDraftChange((draft) =>
                   draft?.annotationId === annotation.id
                     ? {
-                      ...draft,
-                      body: event.target.value,
-                      bodyError: event.target.value.trim()
-                        ? null
-                        : draft.bodyError,
-                    }
+                        ...draft,
+                        body: event.target.value,
+                        bodyError: event.target.value.trim()
+                          ? null
+                          : draft.bodyError,
+                      }
                     : draft,
                 )
               }
