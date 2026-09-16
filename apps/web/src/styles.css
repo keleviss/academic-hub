@@ -2405,7 +2405,7 @@ select {
 
 .document-viewer-zoom-toolbar {
   position: absolute;
-  top: 0.75rem;
+  top: 0.25rem;
   right: 0.75rem;
   z-index: 15;
   display: inline-flex;
@@ -2558,7 +2558,6 @@ select {
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  padding: 0 0 0.1875rem;
 }
 
 .annotation-panel-tabs button[aria-selected='true'] {

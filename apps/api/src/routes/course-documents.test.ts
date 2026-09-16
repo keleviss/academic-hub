@@ -258,36 +258,37 @@ function createTestApp(
     },
   ];
   const forumPosts: ForumPostRecord[] = [];
-  const forumThreads: ForumThreadRecord[] = options.existingThreadForPublicAnnotation
-    ? [
-        {
-          annotationId: publicAnnotation.id,
-          annotation: { body: publicAnnotation.body },
-          authorId: studentId,
-          author: {
-            id: studentId,
-            fullName: 'Test User',
-            role: 'student',
+  const forumThreads: ForumThreadRecord[] =
+    options.existingThreadForPublicAnnotation
+      ? [
+          {
+            annotationId: publicAnnotation.id,
+            annotation: { body: publicAnnotation.body },
+            authorId: studentId,
+            author: {
+              id: studentId,
+              fullName: 'Test User',
+              role: 'student',
+            },
+            categoryId: documentDiscussionCategoryId,
+            courseId,
+            createdAt: now,
+            documentId: visibleDocumentId,
+            documentTitleSnapshot: 'Visible handout',
+            id: '20202020-2020-4202-8202-202020202020',
+            pageNumberSnapshot: annotationTargetRecord.pageNumber,
+            posts: [],
+            selectedTextSnapshot: annotationTargetRecord.selectedText,
+            status: 'open',
+            targetId: annotationTargetRecord.id,
+            title: publicAnnotation.body,
+            updatedAt: now,
+            verifiedPost: null,
+            verifiedPostId: null,
+            visibility: 'public',
           },
-          categoryId: documentDiscussionCategoryId,
-          courseId,
-          createdAt: now,
-          documentId: visibleDocumentId,
-          documentTitleSnapshot: 'Visible handout',
-          id: '20202020-2020-4202-8202-202020202020',
-          pageNumberSnapshot: annotationTargetRecord.pageNumber,
-          posts: [],
-          selectedTextSnapshot: annotationTargetRecord.selectedText,
-          status: 'open',
-          targetId: annotationTargetRecord.id,
-          title: publicAnnotation.body,
-          updatedAt: now,
-          verifiedPost: null,
-          verifiedPostId: null,
-          visibility: 'public',
-        },
-      ]
-    : [];
+        ]
+      : [];
   const courseDelegate = {
     findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
       where.id === courseId ? course : null,
