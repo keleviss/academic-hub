@@ -8,6 +8,7 @@ import type {
   AnnotationVisibility,
   DocumentStatus,
   DocumentVisibility,
+  ForumThreadStatus,
   Prisma,
   PrismaClient,
   UserRole,
@@ -15,26 +16,40 @@ import type {
 import {
   CourseDocumentAnnotationIdParamsSchema,
   CourseDocumentIdParamsSchema,
+  CourseDocumentQuestionIdParamsSchema,
   CourseDocumentAnnotationResponseSchema,
   CourseDocumentAnnotationsResponseSchema,
   CourseDocumentResponseSchema,
   CourseDocumentsResponseSchema,
   CourseIdParamsSchema,
+  ContextualQuestionResponseSchema,
+  ContextualQuestionsResponseSchema,
   CreateCourseDocumentAnnotationRequestSchema,
+  CreateContextualQuestionAnswerRequestSchema,
   CreateCourseDocumentRequestSchema,
   MAX_COURSE_DOCUMENT_UPLOAD_BYTES,
   UpdateCourseDocumentAnnotationRequestSchema,
+  UpdateContextualQuestionStatusRequestSchema,
   UpdateCourseDocumentMetadataRequestSchema,
+  VerifyContextualQuestionAnswerRequestSchema,
   type CourseDocumentAnnotation,
   type CourseDocumentAnnotationResponse,
   type CourseDocumentAnnotationsResponse,
   type CourseDocumentMetadata,
   type CourseDocumentResponse,
   type CourseDocumentsResponse,
+  type ContextualQuestion,
+  type ContextualQuestionResponse,
+  type ContextualQuestionsResponse,
   type CreateCourseDocumentAnnotationRequest,
+  type CreateContextualQuestionAnswerRequest,
   type CreateCourseDocumentRequest,
+  type StudentDocumentActivitySummaryResponse,
   type UpdateCourseDocumentAnnotationRequest,
+  type UpdateContextualQuestionStatusRequest,
   type UpdateCourseDocumentMetadataRequest,
+  type VerifyContextualQuestionAnswerRequest,
+  StudentDocumentActivitySummaryResponseSchema,
 } from '@web-app/contracts';
 
 import { createAuditLogger, type AuditLogger } from '../auth/audit-log.js';
@@ -67,12 +82,17 @@ type CourseDocumentsPrismaClient = Pick<
   | 'document'
   | 'enrollment'
   | 'forumCategory'
+  | 'forumPost'
   | 'forumThread'
 >;
 
 type CourseDocumentsTransactionClient = Pick<
   Prisma.TransactionClient,
-  'annotation' | 'annotationTarget' | 'forumCategory' | 'forumThread'
+  | 'annotation'
+  | 'annotationTarget'
+  | 'forumCategory'
+  | 'forumPost'
+  | 'forumThread'
 >;
 
 export interface CourseDocumentsRouteOptions {
@@ -118,6 +138,44 @@ interface CourseDocumentAnnotationRecord {
     pageNumber: number;
     selectedText: string | null;
   };
+  author: {
+    id: string;
+    fullName: string;
+    role: UserRole;
+  };
+}
+
+interface ContextualQuestionRecord {
+  id: string;
+  courseId: string;
+  documentId: string | null;
+  annotationId: string | null;
+  title: string;
+  status: ForumThreadStatus;
+  visibility: AnnotationVisibility;
+  pageNumberSnapshot: number | null;
+  selectedTextSnapshot: string | null;
+  documentTitleSnapshot: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  author: {
+    id: string;
+    fullName: string;
+    role: UserRole;
+  };
+  annotation: {
+    body: string | null;
+  } | null;
+  posts: ContextualQuestionAnswerRecord[];
+  verifiedPost: ContextualQuestionAnswerRecord | null;
+}
+
+interface ContextualQuestionAnswerRecord {
+  id: string;
+  body: string;
+  isVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
   author: {
     id: string;
     fullName: string;
@@ -210,6 +268,56 @@ export function createCourseDocumentsRouter(
       };
 
       sendJson(response, 201, CourseDocumentResponseSchema, payload);
+    }),
+  );
+
+  router.get(
+    '/activity',
+    requireRole(['student'], gateOptions),
+    validateRequest({ params: CourseIdParamsSchema }),
+    asyncHandler(async (request, response) => {
+      const { courseId } = request.params as { courseId: string };
+      const actor = request.currentSession!.user;
+      await authorization.assertCourseAccess(
+        actor,
+        courseId,
+        requestContext(request),
+      );
+
+      const payload: StudentDocumentActivitySummaryResponse = {
+        data: await getStudentDocumentActivitySummary(
+          prisma,
+          courseId,
+          actor.id,
+        ),
+      };
+
+      sendJson(
+        response,
+        200,
+        StudentDocumentActivitySummaryResponseSchema,
+        payload,
+      );
+    }),
+  );
+
+  router.get(
+    '/questions/unresolved',
+    requireRole(['admin', 'professor'], gateOptions),
+    validateRequest({ params: CourseIdParamsSchema }),
+    asyncHandler(async (request, response) => {
+      const { courseId } = request.params as { courseId: string };
+      await authorization.assertCourseAccess(
+        request.currentSession!.user,
+        courseId,
+        requestContext(request),
+      );
+
+      const payload: ContextualQuestionsResponse = {
+        data: await listUnresolvedContextualQuestions(prisma, courseId),
+      };
+
+      sendJson(response, 200, ContextualQuestionsResponseSchema, payload);
     }),
   );
 
@@ -407,6 +515,164 @@ export function createCourseDocumentsRouter(
   );
 
   router.get(
+    '/:documentId/questions',
+    requireRole(['admin', 'professor', 'student'], gateOptions),
+    validateRequest({ params: CourseDocumentIdParamsSchema }),
+    asyncHandler(async (request, response) => {
+      const { courseId, documentId } = request.params as {
+        courseId: string;
+        documentId: string;
+      };
+      await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+
+      const payload: ContextualQuestionsResponse = {
+        data: await listDocumentContextualQuestions(
+          prisma,
+          courseId,
+          documentId,
+          request.currentSession!.user.id,
+          request.currentSession!.user.role,
+        ),
+      };
+
+      sendJson(response, 200, ContextualQuestionsResponseSchema, payload);
+    }),
+  );
+
+  router.post(
+    '/:documentId/questions/:threadId/answer',
+    requireRole(['admin', 'professor'], gateOptions),
+    validateRequest({
+      body: CreateContextualQuestionAnswerRequestSchema,
+      params: CourseDocumentQuestionIdParamsSchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { courseId, documentId, threadId } = request.params as {
+        courseId: string;
+        documentId: string;
+        threadId: string;
+      };
+      const input = request.body as CreateContextualQuestionAnswerRequest;
+      await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+
+      const payload: ContextualQuestionResponse = {
+        data: await createContextualQuestionAnswer(
+          prisma,
+          courseId,
+          documentId,
+          threadId,
+          request.currentSession!.user.id,
+          input,
+        ),
+      };
+
+      sendJson(response, 201, ContextualQuestionResponseSchema, payload);
+    }),
+  );
+
+  router.patch(
+    '/:documentId/questions/:threadId/verified-answer',
+    requireRole(['admin', 'professor'], gateOptions),
+    validateRequest({
+      body: VerifyContextualQuestionAnswerRequestSchema,
+      params: CourseDocumentQuestionIdParamsSchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { courseId, documentId, threadId } = request.params as {
+        courseId: string;
+        documentId: string;
+        threadId: string;
+      };
+      const input = request.body as VerifyContextualQuestionAnswerRequest;
+      await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+
+      const payload: ContextualQuestionResponse = {
+        data: await verifyContextualQuestionAnswer(
+          prisma,
+          courseId,
+          documentId,
+          threadId,
+          input.answerId,
+        ),
+      };
+
+      sendJson(response, 200, ContextualQuestionResponseSchema, payload);
+    }),
+  );
+
+  router.patch(
+    '/:documentId/questions/:threadId/status',
+    requireRole(['admin', 'professor', 'student'], gateOptions),
+    validateRequest({
+      body: UpdateContextualQuestionStatusRequestSchema,
+      params: CourseDocumentQuestionIdParamsSchema,
+    }),
+    asyncHandler(async (request, response) => {
+      const { courseId, documentId, threadId } = request.params as {
+        courseId: string;
+        documentId: string;
+        threadId: string;
+      };
+      const input = request.body as UpdateContextualQuestionStatusRequest;
+      await getCourseDocumentOrThrow(
+        prisma,
+        courseId,
+        documentId,
+        request.currentSession!.user.role,
+      );
+      await authorization.assertDocumentAccess(
+        request.currentSession!.user,
+        documentId,
+        requestContext(request),
+      );
+
+      const payload: ContextualQuestionResponse = {
+        data: await updateContextualQuestionStatus(
+          prisma,
+          courseId,
+          documentId,
+          threadId,
+          request.currentSession!.user.id,
+          request.currentSession!.user.role,
+          input.status,
+        ),
+      };
+
+      sendJson(response, 200, ContextualQuestionResponseSchema, payload);
+    }),
+  );
+
+  router.get(
     '/:documentId/content',
     requireRole(['admin', 'professor', 'student'], gateOptions),
     validateRequest({ params: CourseDocumentIdParamsSchema }),
@@ -500,6 +766,270 @@ export function createCourseDocumentsRouter(
   );
 
   return router;
+}
+
+async function getStudentDocumentActivitySummary(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  actorId: string,
+) {
+  const [annotations, openQuestions, verifiedAnswers] = await Promise.all([
+    prisma.annotation.findMany({
+      include: courseDocumentAnnotationInclude(),
+      orderBy: [{ createdAt: 'desc' }],
+      take: 6,
+      where: {
+        authorId: actorId,
+        courseId,
+        document: {
+          is: {
+            status: 'active',
+            visibility: 'visible_to_students',
+          },
+        },
+        isDeleted: false,
+      },
+    }),
+    prisma.forumThread.findMany({
+      include: contextualQuestionInclude(),
+      orderBy: [{ updatedAt: 'desc' }],
+      take: 5,
+      where: {
+        authorId: actorId,
+        courseId,
+        document: {
+          is: {
+            status: 'active',
+            visibility: 'visible_to_students',
+          },
+        },
+        status: { in: ['open', 'instructor_answered'] },
+        visibility: { in: ['public', 'instructor_only'] },
+      },
+    }),
+    prisma.forumThread.findMany({
+      include: contextualQuestionInclude(),
+      orderBy: [{ updatedAt: 'desc' }],
+      take: 5,
+      where: {
+        authorId: actorId,
+        courseId,
+        document: {
+          is: {
+            status: 'active',
+            visibility: 'visible_to_students',
+          },
+        },
+        verifiedPostId: { not: null },
+        visibility: { in: ['public', 'instructor_only'] },
+      },
+    }),
+  ]);
+
+  return {
+    annotations: (annotations as CourseDocumentAnnotationRecord[]).map(
+      toCourseDocumentAnnotation,
+    ),
+    openQuestions: (openQuestions as ContextualQuestionRecord[]).map(
+      toContextualQuestion,
+    ),
+    verifiedAnswers: (verifiedAnswers as ContextualQuestionRecord[]).map(
+      toContextualQuestion,
+    ),
+  };
+}
+
+async function listUnresolvedContextualQuestions(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+): Promise<ContextualQuestion[]> {
+  const threads = await prisma.forumThread.findMany({
+    include: contextualQuestionInclude(),
+    orderBy: [{ updatedAt: 'desc' }],
+    where: {
+      courseId,
+      document: {
+        is: {
+          status: 'active',
+        },
+      },
+      status: 'open',
+      visibility: { in: ['public', 'instructor_only'] },
+    },
+  });
+
+  return (threads as ContextualQuestionRecord[]).map(toContextualQuestion);
+}
+
+async function listDocumentContextualQuestions(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  actorId: string,
+  role: UserRole,
+): Promise<ContextualQuestion[]> {
+  const threads = await prisma.forumThread.findMany({
+    include: contextualQuestionInclude(),
+    orderBy: [{ pageNumberSnapshot: 'asc' }, { updatedAt: 'desc' }],
+    where: {
+      courseId,
+      documentId,
+      status: { not: 'archived' },
+      OR: contextualQuestionVisibilityWhere(actorId, role),
+    },
+  });
+
+  return (threads as ContextualQuestionRecord[]).map(toContextualQuestion);
+}
+
+async function createContextualQuestionAnswer(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  threadId: string,
+  actorId: string,
+  input: CreateContextualQuestionAnswerRequest,
+): Promise<ContextualQuestion> {
+  await prisma.$transaction(async (transaction) => {
+    const thread = await getContextualQuestionRecordOrThrow(
+      transaction,
+      courseId,
+      documentId,
+      threadId,
+    );
+    if (thread.posts.length > 0) {
+      throw new HttpError(
+        409,
+        'This contextual question already has an instructor answer.',
+        { threadId },
+        'CONTEXTUAL_QUESTION_ANSWER_EXISTS',
+      );
+    }
+
+    const answer = await transaction.forumPost.create({
+      data: {
+        authorId: actorId,
+        body: input.body.trim(),
+        isVerified: input.verified,
+        threadId,
+      },
+      select: { id: true },
+    });
+
+    await transaction.forumThread.update({
+      data: input.verified
+        ? {
+            status: 'verified',
+            verifiedPostId: answer.id,
+          }
+        : {
+            status: 'instructor_answered',
+          },
+      where: { id: threadId },
+    });
+  });
+
+  return getContextualQuestionOrThrow(prisma, courseId, documentId, threadId);
+}
+
+async function verifyContextualQuestionAnswer(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  threadId: string,
+  answerId: string,
+): Promise<ContextualQuestion> {
+  await prisma.$transaction(async (transaction) => {
+    await getContextualQuestionRecordOrThrow(
+      transaction,
+      courseId,
+      documentId,
+      threadId,
+    );
+
+    const answer = await transaction.forumPost.findFirst({
+      include: {
+        author: {
+          select: {
+            role: true,
+          },
+        },
+      },
+      where: {
+        id: answerId,
+        isDeleted: false,
+        threadId,
+      },
+    });
+    if (!answer || !['admin', 'professor'].includes(answer.author.role)) {
+      throw new HttpError(
+        404,
+        'Contextual question answer not found.',
+        { answerId, threadId },
+        'CONTEXTUAL_QUESTION_ANSWER_NOT_FOUND',
+      );
+    }
+
+    await transaction.forumPost.update({
+      data: { isVerified: true },
+      where: { id: answerId },
+    });
+    await transaction.forumThread.update({
+      data: {
+        status: 'verified',
+        verifiedPostId: answerId,
+      },
+      where: { id: threadId },
+    });
+  });
+
+  return getContextualQuestionOrThrow(prisma, courseId, documentId, threadId);
+}
+
+async function updateContextualQuestionStatus(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  threadId: string,
+  actorId: string,
+  role: UserRole,
+  status: 'open' | 'resolved',
+): Promise<ContextualQuestion> {
+  const thread = await prisma.forumThread.findFirst({
+    select: {
+      authorId: true,
+      id: true,
+    },
+    where: {
+      courseId,
+      documentId,
+      id: threadId,
+      status: { not: 'archived' },
+      OR: contextualQuestionVisibilityWhere(actorId, role),
+    },
+  });
+
+  if (!thread) {
+    throw contextualQuestionNotFound(courseId, documentId, threadId);
+  }
+  if (role === 'student' && thread.authorId !== actorId) {
+    throw new HttpError(
+      403,
+      'Only the question creator or an instructor can update the question status.',
+      { threadId },
+      'CONTEXTUAL_QUESTION_FORBIDDEN',
+    );
+  }
+
+  await prisma.forumThread.update({
+    data: {
+      resolvedAt: status === 'resolved' ? new Date() : null,
+      status,
+    },
+    where: { id: threadId },
+  });
+
+  return getContextualQuestionOrThrow(prisma, courseId, documentId, threadId);
 }
 
 async function listCourseDocuments(
@@ -786,6 +1316,67 @@ function annotationVisibilityWhere(
       ? [{ visibility: 'instructor_only' as const }]
       : [{ authorId: actorId, visibility: 'instructor_only' as const }]),
   ];
+}
+
+function contextualQuestionVisibilityWhere(
+  actorId: string,
+  role: UserRole,
+): Prisma.ForumThreadWhereInput[] {
+  return [
+    { visibility: 'public' },
+    { authorId: actorId, visibility: 'private' },
+    ...(role === 'admin' || role === 'professor'
+      ? [{ visibility: 'instructor_only' as const }]
+      : [{ authorId: actorId, visibility: 'instructor_only' as const }]),
+  ];
+}
+
+async function getContextualQuestionRecordOrThrow(
+  prisma: CourseDocumentsTransactionClient,
+  courseId: string,
+  documentId: string,
+  threadId: string,
+): Promise<ContextualQuestionRecord> {
+  const thread = await prisma.forumThread.findFirst({
+    include: contextualQuestionInclude(),
+    where: {
+      courseId,
+      documentId,
+      id: threadId,
+      status: { not: 'archived' },
+      visibility: { in: ['public', 'instructor_only'] },
+    },
+  });
+
+  if (!thread) {
+    throw contextualQuestionNotFound(courseId, documentId, threadId);
+  }
+
+  return thread as ContextualQuestionRecord;
+}
+
+async function getContextualQuestionOrThrow(
+  prisma: CourseDocumentsPrismaClient,
+  courseId: string,
+  documentId: string,
+  threadId: string,
+): Promise<ContextualQuestion> {
+  const thread = await prisma.forumThread.findFirst({
+    include: contextualQuestionInclude(),
+    where: {
+      courseId,
+      documentId,
+      id: threadId,
+      status: { not: 'archived' },
+      visibility: { in: ['public', 'instructor_only'] },
+    },
+  });
+
+  if (!thread) {
+    throw contextualQuestionNotFound(courseId, documentId, threadId);
+  }
+
+  return toContextualQuestion(thread as ContextualQuestionRecord);
 }
 
 function validateAnnotationPage(
@@ -1081,6 +1672,54 @@ function courseDocumentAnnotationInclude() {
   } satisfies Prisma.AnnotationInclude;
 }
 
+function contextualQuestionInclude() {
+  return {
+    annotation: {
+      select: {
+        body: true,
+      },
+    },
+    author: {
+      select: {
+        fullName: true,
+        id: true,
+        role: true,
+      },
+    },
+    posts: {
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+      where: {
+        author: {
+          role: { in: ['admin', 'professor'] },
+        },
+        isDeleted: false,
+      },
+      select: contextualQuestionAnswerSelect(),
+    },
+    verifiedPost: {
+      select: contextualQuestionAnswerSelect(),
+    },
+  } satisfies Prisma.ForumThreadInclude;
+}
+
+function contextualQuestionAnswerSelect() {
+  return {
+    author: {
+      select: {
+        fullName: true,
+        id: true,
+        role: true,
+      },
+    },
+    body: true,
+    createdAt: true,
+    id: true,
+    isVerified: true,
+    updatedAt: true,
+  } satisfies Prisma.ForumPostSelect;
+}
+
 function toCourseDocumentMetadata(
   document: CourseDocumentRecord,
 ): CourseDocumentMetadata {
@@ -1125,6 +1764,51 @@ function toCourseDocumentAnnotation(
   };
 }
 
+function toContextualQuestion(
+  thread: ContextualQuestionRecord,
+): ContextualQuestion {
+  const answer = thread.verifiedPost ?? thread.posts[0] ?? null;
+
+  return {
+    id: thread.id,
+    courseId: thread.courseId,
+    documentId: thread.documentId,
+    annotationId: thread.annotationId,
+    title: thread.title,
+    status: thread.status,
+    visibility: thread.visibility,
+    pageNumber: thread.pageNumberSnapshot,
+    selectedText: thread.selectedTextSnapshot,
+    documentTitle: thread.documentTitleSnapshot,
+    question: thread.annotation?.body ?? null,
+    createdAt: thread.createdAt.toISOString(),
+    updatedAt: thread.updatedAt.toISOString(),
+    author: {
+      id: thread.author.id,
+      fullName: thread.author.fullName,
+      role: thread.author.role,
+    },
+    answer: answer ? toContextualQuestionAnswer(answer) : null,
+  };
+}
+
+function toContextualQuestionAnswer(
+  answer: ContextualQuestionAnswerRecord,
+): ContextualQuestion['answer'] {
+  return {
+    id: answer.id,
+    body: answer.body,
+    isVerified: answer.isVerified,
+    createdAt: answer.createdAt.toISOString(),
+    updatedAt: answer.updatedAt.toISOString(),
+    author: {
+      id: answer.author.id,
+      fullName: answer.author.fullName,
+      role: answer.author.role,
+    },
+  };
+}
+
 function documentNotFound(courseId: string, documentId: string): HttpError {
   return new HttpError(
     404,
@@ -1144,6 +1828,19 @@ function annotationNotFound(
     'Annotation not found',
     { annotationId, courseId, documentId },
     'ANNOTATION_NOT_FOUND',
+  );
+}
+
+function contextualQuestionNotFound(
+  courseId: string,
+  documentId: string,
+  threadId: string,
+): HttpError {
+  return new HttpError(
+    404,
+    'Contextual question not found',
+    { courseId, documentId, threadId },
+    'CONTEXTUAL_QUESTION_NOT_FOUND',
   );
 }
 

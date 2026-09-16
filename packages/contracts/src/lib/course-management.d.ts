@@ -15,6 +15,11 @@ export declare const CourseDocumentAnnotationIdParamsSchema: z.ZodObject<{
     documentId: z.ZodUUID;
     annotationId: z.ZodUUID;
 }, z.core.$strip>;
+export declare const CourseDocumentQuestionIdParamsSchema: z.ZodObject<{
+    courseId: z.ZodUUID;
+    documentId: z.ZodUUID;
+    threadId: z.ZodUUID;
+}, z.core.$strip>;
 export declare const CourseStatusFilterSchema: z.ZodEnum<{
     all: "all";
     active: "active";
@@ -453,6 +458,472 @@ export declare const CourseDocumentAnnotationResponseSchema: z.ZodObject<{
         updatedAt: z.ZodISODateTime;
     }, z.core.$strip>;
 }, z.core.$strip>;
+export declare const ContextualQuestionAuthorSchema: z.ZodObject<{
+    id: z.ZodUUID;
+    fullName: z.ZodString;
+    role: z.ZodEnum<{
+        professor: "professor";
+        student: "student";
+        admin: "admin";
+    }>;
+}, z.core.$strip>;
+export declare const ContextualQuestionAnswerSchema: z.ZodObject<{
+    id: z.ZodUUID;
+    body: z.ZodString;
+    isVerified: z.ZodBoolean;
+    createdAt: z.ZodISODateTime;
+    updatedAt: z.ZodISODateTime;
+    author: z.ZodObject<{
+        id: z.ZodUUID;
+        fullName: z.ZodString;
+        role: z.ZodEnum<{
+            professor: "professor";
+            student: "student";
+            admin: "admin";
+        }>;
+    }, z.core.$strip>;
+}, z.core.$strip>;
+export declare const ContextualQuestionSchema: z.ZodObject<{
+    id: z.ZodUUID;
+    courseId: z.ZodUUID;
+    documentId: z.ZodNullable<z.ZodUUID>;
+    annotationId: z.ZodNullable<z.ZodUUID>;
+    title: z.ZodString;
+    status: z.ZodEnum<{
+        open: "open";
+        instructor_answered: "instructor_answered";
+        verified: "verified";
+        resolved: "resolved";
+        archived: "archived";
+    }>;
+    visibility: z.ZodEnum<{
+        private: "private";
+        public: "public";
+        instructor_only: "instructor_only";
+    }>;
+    pageNumber: z.ZodNullable<z.ZodNumber>;
+    selectedText: z.ZodNullable<z.ZodString>;
+    documentTitle: z.ZodNullable<z.ZodString>;
+    question: z.ZodNullable<z.ZodString>;
+    createdAt: z.ZodISODateTime;
+    updatedAt: z.ZodISODateTime;
+    author: z.ZodObject<{
+        id: z.ZodUUID;
+        fullName: z.ZodString;
+        role: z.ZodEnum<{
+            professor: "professor";
+            student: "student";
+            admin: "admin";
+        }>;
+    }, z.core.$strip>;
+    answer: z.ZodNullable<z.ZodObject<{
+        id: z.ZodUUID;
+        body: z.ZodString;
+        isVerified: z.ZodBoolean;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+        author: z.ZodObject<{
+            id: z.ZodUUID;
+            fullName: z.ZodString;
+            role: z.ZodEnum<{
+                professor: "professor";
+                student: "student";
+                admin: "admin";
+            }>;
+        }, z.core.$strip>;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+export declare const ContextualQuestionsResponseSchema: z.ZodObject<{
+    data: z.ZodArray<z.ZodObject<{
+        id: z.ZodUUID;
+        courseId: z.ZodUUID;
+        documentId: z.ZodNullable<z.ZodUUID>;
+        annotationId: z.ZodNullable<z.ZodUUID>;
+        title: z.ZodString;
+        status: z.ZodEnum<{
+            open: "open";
+            instructor_answered: "instructor_answered";
+            verified: "verified";
+            resolved: "resolved";
+            archived: "archived";
+        }>;
+        visibility: z.ZodEnum<{
+            private: "private";
+            public: "public";
+            instructor_only: "instructor_only";
+        }>;
+        pageNumber: z.ZodNullable<z.ZodNumber>;
+        selectedText: z.ZodNullable<z.ZodString>;
+        documentTitle: z.ZodNullable<z.ZodString>;
+        question: z.ZodNullable<z.ZodString>;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+        author: z.ZodObject<{
+            id: z.ZodUUID;
+            fullName: z.ZodString;
+            role: z.ZodEnum<{
+                professor: "professor";
+                student: "student";
+                admin: "admin";
+            }>;
+        }, z.core.$strip>;
+        answer: z.ZodNullable<z.ZodObject<{
+            id: z.ZodUUID;
+            body: z.ZodString;
+            isVerified: z.ZodBoolean;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+            author: z.ZodObject<{
+                id: z.ZodUUID;
+                fullName: z.ZodString;
+                role: z.ZodEnum<{
+                    professor: "professor";
+                    student: "student";
+                    admin: "admin";
+                }>;
+            }, z.core.$strip>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+export declare const CreateContextualQuestionAnswerRequestSchema: z.ZodObject<{
+    body: z.ZodString;
+    verified: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+}, z.core.$strip>;
+export declare const UpdateContextualQuestionStatusRequestSchema: z.ZodObject<{
+    status: z.ZodEnum<{
+        open: "open";
+        resolved: "resolved";
+    }>;
+}, z.core.$strip>;
+export declare const VerifyContextualQuestionAnswerRequestSchema: z.ZodObject<{
+    answerId: z.ZodUUID;
+}, z.core.$strip>;
+export declare const ContextualQuestionResponseSchema: z.ZodObject<{
+    data: z.ZodObject<{
+        id: z.ZodUUID;
+        courseId: z.ZodUUID;
+        documentId: z.ZodNullable<z.ZodUUID>;
+        annotationId: z.ZodNullable<z.ZodUUID>;
+        title: z.ZodString;
+        status: z.ZodEnum<{
+            open: "open";
+            instructor_answered: "instructor_answered";
+            verified: "verified";
+            resolved: "resolved";
+            archived: "archived";
+        }>;
+        visibility: z.ZodEnum<{
+            private: "private";
+            public: "public";
+            instructor_only: "instructor_only";
+        }>;
+        pageNumber: z.ZodNullable<z.ZodNumber>;
+        selectedText: z.ZodNullable<z.ZodString>;
+        documentTitle: z.ZodNullable<z.ZodString>;
+        question: z.ZodNullable<z.ZodString>;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+        author: z.ZodObject<{
+            id: z.ZodUUID;
+            fullName: z.ZodString;
+            role: z.ZodEnum<{
+                professor: "professor";
+                student: "student";
+                admin: "admin";
+            }>;
+        }, z.core.$strip>;
+        answer: z.ZodNullable<z.ZodObject<{
+            id: z.ZodUUID;
+            body: z.ZodString;
+            isVerified: z.ZodBoolean;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+            author: z.ZodObject<{
+                id: z.ZodUUID;
+                fullName: z.ZodString;
+                role: z.ZodEnum<{
+                    professor: "professor";
+                    student: "student";
+                    admin: "admin";
+                }>;
+            }, z.core.$strip>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>;
+}, z.core.$strip>;
+export declare const StudentDocumentActivitySummarySchema: z.ZodObject<{
+    annotations: z.ZodArray<z.ZodObject<{
+        id: z.ZodUUID;
+        courseId: z.ZodUUID;
+        documentId: z.ZodUUID;
+        target: z.ZodObject<{
+            id: z.ZodUUID;
+            pageNumber: z.ZodNumber;
+            selectedText: z.ZodNullable<z.ZodString>;
+        }, z.core.$strip>;
+        author: z.ZodObject<{
+            id: z.ZodUUID;
+            fullName: z.ZodString;
+            role: z.ZodEnum<{
+                professor: "professor";
+                student: "student";
+                admin: "admin";
+            }>;
+        }, z.core.$strip>;
+        type: z.ZodEnum<{
+            highlight: "highlight";
+            note: "note";
+            question: "question";
+            important: "important";
+            confusing: "confusing";
+        }>;
+        visibility: z.ZodEnum<{
+            private: "private";
+            public: "public";
+            instructor_only: "instructor_only";
+        }>;
+        body: z.ZodNullable<z.ZodString>;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+    }, z.core.$strip>>;
+    openQuestions: z.ZodArray<z.ZodObject<{
+        id: z.ZodUUID;
+        courseId: z.ZodUUID;
+        documentId: z.ZodNullable<z.ZodUUID>;
+        annotationId: z.ZodNullable<z.ZodUUID>;
+        title: z.ZodString;
+        status: z.ZodEnum<{
+            open: "open";
+            instructor_answered: "instructor_answered";
+            verified: "verified";
+            resolved: "resolved";
+            archived: "archived";
+        }>;
+        visibility: z.ZodEnum<{
+            private: "private";
+            public: "public";
+            instructor_only: "instructor_only";
+        }>;
+        pageNumber: z.ZodNullable<z.ZodNumber>;
+        selectedText: z.ZodNullable<z.ZodString>;
+        documentTitle: z.ZodNullable<z.ZodString>;
+        question: z.ZodNullable<z.ZodString>;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+        author: z.ZodObject<{
+            id: z.ZodUUID;
+            fullName: z.ZodString;
+            role: z.ZodEnum<{
+                professor: "professor";
+                student: "student";
+                admin: "admin";
+            }>;
+        }, z.core.$strip>;
+        answer: z.ZodNullable<z.ZodObject<{
+            id: z.ZodUUID;
+            body: z.ZodString;
+            isVerified: z.ZodBoolean;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+            author: z.ZodObject<{
+                id: z.ZodUUID;
+                fullName: z.ZodString;
+                role: z.ZodEnum<{
+                    professor: "professor";
+                    student: "student";
+                    admin: "admin";
+                }>;
+            }, z.core.$strip>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>;
+    verifiedAnswers: z.ZodArray<z.ZodObject<{
+        id: z.ZodUUID;
+        courseId: z.ZodUUID;
+        documentId: z.ZodNullable<z.ZodUUID>;
+        annotationId: z.ZodNullable<z.ZodUUID>;
+        title: z.ZodString;
+        status: z.ZodEnum<{
+            open: "open";
+            instructor_answered: "instructor_answered";
+            verified: "verified";
+            resolved: "resolved";
+            archived: "archived";
+        }>;
+        visibility: z.ZodEnum<{
+            private: "private";
+            public: "public";
+            instructor_only: "instructor_only";
+        }>;
+        pageNumber: z.ZodNullable<z.ZodNumber>;
+        selectedText: z.ZodNullable<z.ZodString>;
+        documentTitle: z.ZodNullable<z.ZodString>;
+        question: z.ZodNullable<z.ZodString>;
+        createdAt: z.ZodISODateTime;
+        updatedAt: z.ZodISODateTime;
+        author: z.ZodObject<{
+            id: z.ZodUUID;
+            fullName: z.ZodString;
+            role: z.ZodEnum<{
+                professor: "professor";
+                student: "student";
+                admin: "admin";
+            }>;
+        }, z.core.$strip>;
+        answer: z.ZodNullable<z.ZodObject<{
+            id: z.ZodUUID;
+            body: z.ZodString;
+            isVerified: z.ZodBoolean;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+            author: z.ZodObject<{
+                id: z.ZodUUID;
+                fullName: z.ZodString;
+                role: z.ZodEnum<{
+                    professor: "professor";
+                    student: "student";
+                    admin: "admin";
+                }>;
+            }, z.core.$strip>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+export declare const StudentDocumentActivitySummaryResponseSchema: z.ZodObject<{
+    data: z.ZodObject<{
+        annotations: z.ZodArray<z.ZodObject<{
+            id: z.ZodUUID;
+            courseId: z.ZodUUID;
+            documentId: z.ZodUUID;
+            target: z.ZodObject<{
+                id: z.ZodUUID;
+                pageNumber: z.ZodNumber;
+                selectedText: z.ZodNullable<z.ZodString>;
+            }, z.core.$strip>;
+            author: z.ZodObject<{
+                id: z.ZodUUID;
+                fullName: z.ZodString;
+                role: z.ZodEnum<{
+                    professor: "professor";
+                    student: "student";
+                    admin: "admin";
+                }>;
+            }, z.core.$strip>;
+            type: z.ZodEnum<{
+                highlight: "highlight";
+                note: "note";
+                question: "question";
+                important: "important";
+                confusing: "confusing";
+            }>;
+            visibility: z.ZodEnum<{
+                private: "private";
+                public: "public";
+                instructor_only: "instructor_only";
+            }>;
+            body: z.ZodNullable<z.ZodString>;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+        }, z.core.$strip>>;
+        openQuestions: z.ZodArray<z.ZodObject<{
+            id: z.ZodUUID;
+            courseId: z.ZodUUID;
+            documentId: z.ZodNullable<z.ZodUUID>;
+            annotationId: z.ZodNullable<z.ZodUUID>;
+            title: z.ZodString;
+            status: z.ZodEnum<{
+                open: "open";
+                instructor_answered: "instructor_answered";
+                verified: "verified";
+                resolved: "resolved";
+                archived: "archived";
+            }>;
+            visibility: z.ZodEnum<{
+                private: "private";
+                public: "public";
+                instructor_only: "instructor_only";
+            }>;
+            pageNumber: z.ZodNullable<z.ZodNumber>;
+            selectedText: z.ZodNullable<z.ZodString>;
+            documentTitle: z.ZodNullable<z.ZodString>;
+            question: z.ZodNullable<z.ZodString>;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+            author: z.ZodObject<{
+                id: z.ZodUUID;
+                fullName: z.ZodString;
+                role: z.ZodEnum<{
+                    professor: "professor";
+                    student: "student";
+                    admin: "admin";
+                }>;
+            }, z.core.$strip>;
+            answer: z.ZodNullable<z.ZodObject<{
+                id: z.ZodUUID;
+                body: z.ZodString;
+                isVerified: z.ZodBoolean;
+                createdAt: z.ZodISODateTime;
+                updatedAt: z.ZodISODateTime;
+                author: z.ZodObject<{
+                    id: z.ZodUUID;
+                    fullName: z.ZodString;
+                    role: z.ZodEnum<{
+                        professor: "professor";
+                        student: "student";
+                        admin: "admin";
+                    }>;
+                }, z.core.$strip>;
+            }, z.core.$strip>>;
+        }, z.core.$strip>>;
+        verifiedAnswers: z.ZodArray<z.ZodObject<{
+            id: z.ZodUUID;
+            courseId: z.ZodUUID;
+            documentId: z.ZodNullable<z.ZodUUID>;
+            annotationId: z.ZodNullable<z.ZodUUID>;
+            title: z.ZodString;
+            status: z.ZodEnum<{
+                open: "open";
+                instructor_answered: "instructor_answered";
+                verified: "verified";
+                resolved: "resolved";
+                archived: "archived";
+            }>;
+            visibility: z.ZodEnum<{
+                private: "private";
+                public: "public";
+                instructor_only: "instructor_only";
+            }>;
+            pageNumber: z.ZodNullable<z.ZodNumber>;
+            selectedText: z.ZodNullable<z.ZodString>;
+            documentTitle: z.ZodNullable<z.ZodString>;
+            question: z.ZodNullable<z.ZodString>;
+            createdAt: z.ZodISODateTime;
+            updatedAt: z.ZodISODateTime;
+            author: z.ZodObject<{
+                id: z.ZodUUID;
+                fullName: z.ZodString;
+                role: z.ZodEnum<{
+                    professor: "professor";
+                    student: "student";
+                    admin: "admin";
+                }>;
+            }, z.core.$strip>;
+            answer: z.ZodNullable<z.ZodObject<{
+                id: z.ZodUUID;
+                body: z.ZodString;
+                isVerified: z.ZodBoolean;
+                createdAt: z.ZodISODateTime;
+                updatedAt: z.ZodISODateTime;
+                author: z.ZodObject<{
+                    id: z.ZodUUID;
+                    fullName: z.ZodString;
+                    role: z.ZodEnum<{
+                        professor: "professor";
+                        student: "student";
+                        admin: "admin";
+                    }>;
+                }, z.core.$strip>;
+            }, z.core.$strip>>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>;
+}, z.core.$strip>;
 export declare const CourseDetailSchema: z.ZodObject<{
     id: z.ZodUUID;
     code: z.ZodString;
@@ -841,6 +1312,7 @@ export type CourseIdParams = z.infer<typeof CourseIdParamsSchema>;
 export type CourseMemberIdParams = z.infer<typeof CourseMemberIdParamsSchema>;
 export type CourseDocumentIdParams = z.infer<typeof CourseDocumentIdParamsSchema>;
 export type CourseDocumentAnnotationIdParams = z.infer<typeof CourseDocumentAnnotationIdParamsSchema>;
+export type CourseDocumentQuestionIdParams = z.infer<typeof CourseDocumentQuestionIdParamsSchema>;
 export type CourseStatusFilter = z.infer<typeof CourseStatusFilterSchema>;
 export type CourseCreateRequest = z.infer<typeof CourseCreateRequestSchema>;
 export type CourseUpdateRequest = z.infer<typeof CourseUpdateRequestSchema>;
@@ -869,6 +1341,16 @@ export type CreateCourseDocumentAnnotationRequest = z.infer<typeof CreateCourseD
 export type UpdateCourseDocumentAnnotationRequest = z.infer<typeof UpdateCourseDocumentAnnotationRequestSchema>;
 export type CourseDocumentAnnotationsResponse = z.infer<typeof CourseDocumentAnnotationsResponseSchema>;
 export type CourseDocumentAnnotationResponse = z.infer<typeof CourseDocumentAnnotationResponseSchema>;
+export type ContextualQuestionAuthor = z.infer<typeof ContextualQuestionAuthorSchema>;
+export type ContextualQuestionAnswer = z.infer<typeof ContextualQuestionAnswerSchema>;
+export type ContextualQuestion = z.infer<typeof ContextualQuestionSchema>;
+export type ContextualQuestionsResponse = z.infer<typeof ContextualQuestionsResponseSchema>;
+export type CreateContextualQuestionAnswerRequest = z.infer<typeof CreateContextualQuestionAnswerRequestSchema>;
+export type UpdateContextualQuestionStatusRequest = z.infer<typeof UpdateContextualQuestionStatusRequestSchema>;
+export type VerifyContextualQuestionAnswerRequest = z.infer<typeof VerifyContextualQuestionAnswerRequestSchema>;
+export type ContextualQuestionResponse = z.infer<typeof ContextualQuestionResponseSchema>;
+export type StudentDocumentActivitySummary = z.infer<typeof StudentDocumentActivitySummarySchema>;
+export type StudentDocumentActivitySummaryResponse = z.infer<typeof StudentDocumentActivitySummaryResponseSchema>;
 export type CourseDetail = z.infer<typeof CourseDetailSchema>;
 export type CourseDetailResponse = z.infer<typeof CourseDetailResponseSchema>;
 export type CourseMutationResponse = z.infer<typeof CourseMutationResponseSchema>;

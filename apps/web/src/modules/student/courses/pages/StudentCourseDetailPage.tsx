@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Eye } from 'lucide-react';
+import type { StudentDocumentActivitySummary as StudentDocumentActivitySummaryData } from '@web-app/contracts';
 
 import {
   fetchCourseDocumentContent,
   fetchCourseDocuments,
   fetchStudentCourse,
+  fetchStudentDocumentActivity,
 } from '../../../../api/client';
 import { ActionsMenu } from '../../../../components/ActionsMenu';
 import { Avatar } from '../../../../components/Avatar';
@@ -33,6 +35,10 @@ function documentsQueryKey(courseId: string) {
 
 function studentCourseKey(courseId: string) {
   return ['student', 'courses', courseId] as const;
+}
+
+function studentDocumentActivityKey(courseId: string) {
+  return ['student', 'courses', courseId, 'document-activity'] as const;
 }
 
 export function StudentCourseDetailPage(): React.JSX.Element {
@@ -64,6 +70,11 @@ export function StudentCourseDetailPage(): React.JSX.Element {
   const documentsQuery = useQuery({
     queryKey: documentsQueryKey(courseId),
     queryFn: ({ signal }) => fetchCourseDocuments(courseId, signal),
+    enabled: !!courseId,
+  });
+  const activityQuery = useQuery({
+    queryKey: studentDocumentActivityKey(courseId),
+    queryFn: ({ signal }) => fetchStudentDocumentActivity(courseId, signal),
     enabled: !!courseId,
   });
 
@@ -245,11 +256,23 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                   </div>
                 </div>
                 <div className="visibility-explainer">
-                  <h2>Roadmap &amp; Πρόοδος</h2>
-                  <p>
-                    Σύντομα εδώ θα εμφανίζεται η μαθησιακή σου πορεία ανά έννοια
-                    πάνω στο υλικό του μαθήματος.
-                  </p>
+                  <h2>Οι σημειώσεις και απορίες μου</h2>
+                  <QueryState
+                    query={activityQuery}
+                    loadingLabel="Φόρτωση δραστηριότητας…"
+                    onRetry={() => void activityQuery.refetch()}
+                  >
+                    {(activity) => (
+                      <StudentDocumentActivitySummary
+                        data={activity.data}
+                        onOpenDocument={(documentId) =>
+                          navigate(
+                            `/app/courses/${courseId}/documents/${documentId}`,
+                          )
+                        }
+                      />
+                    )}
+                  </QueryState>
                 </div>
               </div>
             </div>
@@ -257,5 +280,100 @@ export function StudentCourseDetailPage(): React.JSX.Element {
         );
       }}
     </QueryState>
+  );
+}
+
+function StudentDocumentActivitySummary({
+  data,
+  onOpenDocument,
+}: {
+  data: StudentDocumentActivitySummaryData;
+  onOpenDocument: (documentId: string) => void;
+}): React.JSX.Element {
+  const hasActivity =
+    data.annotations.length > 0 ||
+    data.openQuestions.length > 0 ||
+    data.verifiedAnswers.length > 0;
+
+  if (!hasActivity) {
+    return <p>Δεν υπάρχουν ακόμα σημειώσεις ή απορίες για αυτό το μάθημα.</p>;
+  }
+
+  return (
+    <div className="document-activity-summary">
+      <ActivityGroup title="Πρόσφατες σημειώσεις">
+        {data.annotations.length === 0 ? (
+          <span>Δεν υπάρχουν πρόσφατες σημειώσεις.</span>
+        ) : (
+          data.annotations.map((annotation) => (
+            <button
+              key={annotation.id}
+              type="button"
+              onClick={() => onOpenDocument(annotation.documentId)}
+            >
+              <strong>{annotation.body ?? 'Χωρίς κείμενο'}</strong>
+              <span>Σελίδα {annotation.target.pageNumber}</span>
+            </button>
+          ))
+        )}
+      </ActivityGroup>
+      <ActivityGroup title="Ανοιχτές απορίες">
+        {data.openQuestions.length === 0 ? (
+          <span>Δεν υπάρχουν ανοιχτές απορίες.</span>
+        ) : (
+          data.openQuestions.map((question) => (
+            <button
+              key={question.id}
+              type="button"
+              disabled={!question.documentId}
+              onClick={() => {
+                if (question.documentId) onOpenDocument(question.documentId);
+              }}
+            >
+              <strong>{question.title}</strong>
+              <span>
+                {question.pageNumber
+                  ? `Σελίδα ${question.pageNumber}`
+                  : 'Χωρίς σελίδα'}
+              </span>
+            </button>
+          ))
+        )}
+      </ActivityGroup>
+      <ActivityGroup title="Πρόσφατες επίσημες απαντήσεις">
+        {data.verifiedAnswers.length === 0 ? (
+          <span>Δεν υπάρχουν ακόμα επίσημες απαντήσεις.</span>
+        ) : (
+          data.verifiedAnswers.map((question) => (
+            <button
+              key={question.id}
+              type="button"
+              disabled={!question.documentId}
+              onClick={() => {
+                if (question.documentId) onOpenDocument(question.documentId);
+              }}
+            >
+              <strong>{question.title}</strong>
+              <span>{question.answer?.body ?? 'Επίσημη απάντηση'}</span>
+            </button>
+          ))
+        )}
+      </ActivityGroup>
+    </div>
+  );
+}
+
+function ActivityGroup({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}): React.JSX.Element {
+  return (
+    <section className="document-activity-group">
+      <h3>{title}</h3>
+      <div>{children}</div>
+    </section>
   );
 }

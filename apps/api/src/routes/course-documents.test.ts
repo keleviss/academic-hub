@@ -7,6 +7,8 @@ import {
   CourseDocumentAnnotationsResponseSchema,
   CourseDocumentResponseSchema,
   CourseDocumentsResponseSchema,
+  ContextualQuestionResponseSchema,
+  ContextualQuestionsResponseSchema,
 } from '@web-app/contracts';
 
 import { createApp } from '../app.js';
@@ -88,6 +90,49 @@ const publicAnnotation = {
     role: 'student',
   },
 };
+
+interface ForumPostRecord {
+  id: string;
+  threadId: string;
+  authorId: string;
+  body: string;
+  isVerified: boolean;
+  isDeleted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  author: {
+    id: string;
+    fullName: string;
+    role: UserRole;
+  };
+}
+
+interface ForumThreadRecord {
+  annotationId: string | null;
+  annotation: { body: string | null } | null;
+  authorId: string;
+  author: {
+    id: string;
+    fullName: string;
+    role: UserRole;
+  };
+  categoryId: string;
+  courseId: string;
+  createdAt: Date;
+  documentId: string;
+  documentTitleSnapshot: string;
+  id: string;
+  pageNumberSnapshot: number;
+  posts: ForumPostRecord[];
+  selectedTextSnapshot: string | null;
+  status: 'open' | 'instructor_answered' | 'verified' | 'resolved' | 'archived';
+  targetId: string;
+  title: string;
+  updatedAt: Date;
+  verifiedPost: ForumPostRecord | null;
+  verifiedPostId: string | null;
+  visibility: 'private' | 'public' | 'instructor_only';
+}
 
 function createTestApp(
   role: UserRole | null = 'professor',
@@ -212,33 +257,33 @@ function createTestApp(
       updatedAt: now,
     },
   ];
-  const forumThreads: Array<{
-    annotationId: string;
-    authorId: string;
-    categoryId: string;
-    courseId: string;
-    documentId: string;
-    documentTitleSnapshot: string;
-    id: string;
-    pageNumberSnapshot: number;
-    selectedTextSnapshot: string | null;
-    targetId: string;
-    title: string;
-    visibility: 'private' | 'public' | 'instructor_only';
-  }> = options.existingThreadForPublicAnnotation
+  const forumPosts: ForumPostRecord[] = [];
+  const forumThreads: ForumThreadRecord[] = options.existingThreadForPublicAnnotation
     ? [
         {
           annotationId: publicAnnotation.id,
+          annotation: { body: publicAnnotation.body },
           authorId: studentId,
+          author: {
+            id: studentId,
+            fullName: 'Test User',
+            role: 'student',
+          },
           categoryId: documentDiscussionCategoryId,
           courseId,
+          createdAt: now,
           documentId: visibleDocumentId,
           documentTitleSnapshot: 'Visible handout',
           id: '20202020-2020-4202-8202-202020202020',
           pageNumberSnapshot: annotationTargetRecord.pageNumber,
+          posts: [],
           selectedTextSnapshot: annotationTargetRecord.selectedText,
+          status: 'open',
           targetId: annotationTargetRecord.id,
           title: publicAnnotation.body,
+          updatedAt: now,
+          verifiedPost: null,
+          verifiedPostId: null,
           visibility: 'public',
         },
       ]
@@ -575,16 +620,194 @@ function createTestApp(
         const record = {
           id: '18181818-1818-4181-8181-181818181818',
           ...data,
+          annotation: { body: data.title },
+          author: {
+            id: data.authorId,
+            fullName: 'Test User',
+            role: role ?? 'student',
+          },
+          createdAt: now,
+          posts: [],
+          status: 'open' as const,
+          updatedAt: now,
+          verifiedPost: null,
+          verifiedPostId: null,
         };
         forumThreads.push(record);
         return record;
       },
+    ),
+    findFirst: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          courseId: string;
+          documentId: string;
+          id: string;
+          status?: { not: string };
+          visibility?: { in: Array<'public' | 'instructor_only'> };
+        };
+      }) =>
+        forumThreads.find(
+          (thread) =>
+            thread.courseId === where.courseId &&
+            thread.documentId === where.documentId &&
+            thread.id === where.id &&
+            (where.status?.not === undefined ||
+              thread.status !== where.status.not) &&
+            (where.visibility?.in === undefined ||
+              where.visibility.in.includes(thread.visibility)),
+        ) ?? null,
+    ),
+    findMany: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          authorId?: string;
+          courseId: string;
+          document?: {
+            is: {
+              status: 'active';
+              visibility?: 'visible_to_students';
+            };
+          };
+          documentId?: string;
+          OR?: Array<{ authorId?: string; visibility: string }>;
+          status?:
+            | 'open'
+            | 'verified'
+            | { in: Array<'open' | 'instructor_answered'> }
+            | { not: 'archived' };
+          verifiedPostId?: { not: null };
+          visibility?: { in: Array<'public' | 'instructor_only'> };
+        };
+      }) =>
+        forumThreads.filter((thread) => {
+          const doc = documents.find((item) => item.id === thread.documentId);
+          return (
+            thread.courseId === where.courseId &&
+            (where.authorId === undefined ||
+              thread.authorId === where.authorId) &&
+            (where.documentId === undefined ||
+              thread.documentId === where.documentId) &&
+            (where.document === undefined ||
+              (doc?.status === where.document.is.status &&
+                (where.document.is.visibility === undefined ||
+                  doc.visibility === where.document.is.visibility))) &&
+            threadMatchesStatus(thread, where.status) &&
+            (where.verifiedPostId === undefined ||
+              thread.verifiedPostId !== null) &&
+            (where.visibility === undefined ||
+              where.visibility.in.includes(thread.visibility)) &&
+            (where.OR === undefined ||
+              where.OR.some(
+                (condition) =>
+                  thread.visibility === condition.visibility &&
+                  (condition.authorId === undefined ||
+                    thread.authorId === condition.authorId),
+              ))
+          );
+        }),
     ),
     findUnique: vi.fn(
       async ({ where }: { where: { annotationId: string } }) =>
         forumThreads.find(
           (thread) => thread.annotationId === where.annotationId,
         ) ?? null,
+    ),
+    update: vi.fn(
+      async ({
+        data,
+        where,
+      }: {
+        data: {
+          resolvedAt?: Date | null;
+          status?: ForumThreadRecord['status'];
+          verifiedPostId?: string;
+        };
+        where: { id: string };
+      }) => {
+        const recordIndex = forumThreads.findIndex(
+          (thread) => thread.id === where.id,
+        );
+        const verifiedPost = data.verifiedPostId
+          ? (forumPosts.find((post) => post.id === data.verifiedPostId) ?? null)
+          : forumThreads[recordIndex].verifiedPost;
+        const next = {
+          ...forumThreads[recordIndex],
+          ...data,
+          updatedAt: now,
+          verifiedPost,
+        };
+        forumThreads[recordIndex] = next;
+        return next;
+      },
+    ),
+  };
+  const forumPost = {
+    create: vi.fn(
+      async ({
+        data,
+      }: {
+        data: {
+          authorId: string;
+          body: string;
+          isVerified: boolean;
+          threadId: string;
+        };
+      }) => {
+        const record: ForumPostRecord = {
+          id: '30303030-3030-4303-8303-303030303030',
+          ...data,
+          createdAt: now,
+          isDeleted: false,
+          updatedAt: now,
+          author: {
+            id: data.authorId,
+            fullName: 'Test User',
+            role: role ?? 'professor',
+          },
+        };
+        forumPosts.push(record);
+        const thread = forumThreads.find((item) => item.id === data.threadId);
+        if (thread) thread.posts = [record];
+        return { id: record.id };
+      },
+    ),
+    findFirst: vi.fn(
+      async ({
+        where,
+      }: {
+        where: { id: string; isDeleted: boolean; threadId: string };
+      }) =>
+        forumPosts.find(
+          (post) =>
+            post.id === where.id &&
+            post.threadId === where.threadId &&
+            post.isDeleted === where.isDeleted,
+        ) ?? null,
+    ),
+    update: vi.fn(
+      async ({
+        data,
+        where,
+      }: {
+        data: { isVerified: boolean };
+        where: { id: string };
+      }) => {
+        const recordIndex = forumPosts.findIndex(
+          (post) => post.id === where.id,
+        );
+        const next = {
+          ...forumPosts[recordIndex],
+          ...data,
+          updatedAt: now,
+        };
+        forumPosts[recordIndex] = next;
+        return next;
+      },
     ),
   };
   const courseDocumentsPrisma = {
@@ -595,6 +818,7 @@ function createTestApp(
     document,
     enrollment,
     forumCategory,
+    forumPost,
     forumThread,
   };
   const courseDocumentsPrismaWithTransaction = {
@@ -645,6 +869,7 @@ function createTestApp(
       | 'document'
       | 'enrollment'
       | 'forumCategory'
+      | 'forumPost'
       | 'forumThread'
     >,
     courseDocumentsStorage: storageService,
@@ -659,9 +884,25 @@ function createTestApp(
     courseInstructor,
     document,
     forumCategory,
+    forumPost,
     forumThread,
     storageService,
   };
+}
+
+function threadMatchesStatus(
+  thread: ForumThreadRecord,
+  status:
+    | 'open'
+    | 'verified'
+    | { in: Array<'open' | 'instructor_answered'> }
+    | { not: 'archived' }
+    | undefined,
+): boolean {
+  if (status === undefined) return true;
+  if (typeof status === 'string') return thread.status === status;
+  if ('in' in status) return status.in.includes(thread.status);
+  return thread.status !== status.not;
 }
 
 function documentMatchesWhere(
@@ -1136,6 +1377,113 @@ describe('course document routes', () => {
       expect(forumThread.create).not.toHaveBeenCalled();
     },
   );
+
+  it('lists contextual questions for a visible document', async () => {
+    const { app } = createTestApp('student', {
+      existingThreadForPublicAnnotation: true,
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .get(`/api/courses/${courseId}/documents/${visibleDocumentId}/questions`)
+      .set('Cookie', authCookie())
+      .expect(200);
+
+    const body = ContextualQuestionsResponseSchema.parse(response.body);
+    expect(body.data).toEqual([
+      expect.objectContaining({
+        annotationId: publicAnnotation.id,
+        documentId: visibleDocumentId,
+        pageNumber: 2,
+        question: publicAnnotation.body,
+        selectedText: 'βασική έννοια',
+        status: 'open',
+        title: publicAnnotation.body,
+      }),
+    ]);
+  });
+
+  it('lets a professor answer a contextual question', async () => {
+    const { app, forumPost, forumThread } = createTestApp('professor', {
+      existingThreadForPublicAnnotation: true,
+      visibilityFixtures: true,
+    });
+
+    const response = await request(app)
+      .post(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/questions/20202020-2020-4202-8202-202020202020/answer`,
+      )
+      .set('Cookie', authCookie())
+      .send({ body: '  Η έννοια αφορά τον βρόχο ανατροφοδότησης.  ' })
+      .expect(201);
+
+    const body = ContextualQuestionResponseSchema.parse(response.body);
+    expect(body.data).toMatchObject({
+      status: 'instructor_answered',
+      answer: {
+        body: 'Η έννοια αφορά τον βρόχο ανατροφοδότησης.',
+        isVerified: false,
+      },
+    });
+    expect(forumPost.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          authorId: professorId,
+          body: 'Η έννοια αφορά τον βρόχο ανατροφοδότησης.',
+          isVerified: false,
+        }),
+      }),
+    );
+    expect(forumThread.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: 'instructor_answered' },
+      }),
+    );
+  });
+
+  it('lets a professor mark an answer as verified', async () => {
+    const { app, forumPost, forumThread } = createTestApp('professor', {
+      existingThreadForPublicAnnotation: true,
+      visibilityFixtures: true,
+    });
+
+    await request(app)
+      .post(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/questions/20202020-2020-4202-8202-202020202020/answer`,
+      )
+      .set('Cookie', authCookie())
+      .send({ body: 'Αρχική απάντηση' })
+      .expect(201);
+
+    const response = await request(app)
+      .patch(
+        `/api/courses/${courseId}/documents/${visibleDocumentId}/questions/20202020-2020-4202-8202-202020202020/verified-answer`,
+      )
+      .set('Cookie', authCookie())
+      .send({ answerId: '30303030-3030-4303-8303-303030303030' })
+      .expect(200);
+
+    const body = ContextualQuestionResponseSchema.parse(response.body);
+    expect(body.data).toMatchObject({
+      status: 'verified',
+      answer: {
+        id: '30303030-3030-4303-8303-303030303030',
+        isVerified: true,
+      },
+    });
+    expect(forumPost.update).toHaveBeenCalledWith({
+      data: { isVerified: true },
+      where: { id: '30303030-3030-4303-8303-303030303030' },
+    });
+    expect(forumThread.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          status: 'verified',
+          verifiedPostId: '30303030-3030-4303-8303-303030303030',
+        },
+      }),
+    );
+  });
 
   it('updates an annotation for its creator', async () => {
     const { annotation, app } = createTestApp('student', {

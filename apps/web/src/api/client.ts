@@ -10,15 +10,20 @@ import {
   CourseListResponseSchema,
   CourseMemberCandidatesResponseSchema,
   CourseMutationResponseSchema,
+  ContextualQuestionResponseSchema,
+  ContextualQuestionsResponseSchema,
   CurrentSessionSchema,
   HealthResponseSchema,
   LoginRequestSchema,
   ProfessorCourseDetailResponseSchema,
   ProfessorCourseListResponseSchema,
+  StudentDocumentActivitySummaryResponseSchema,
   StudentCourseDetailResponseSchema,
   StudentCourseListResponseSchema,
   type CurrentSession,
   type AssignCourseInstructorRequest,
+  type ContextualQuestionResponse,
+  type ContextualQuestionsResponse,
   type CourseCreateRequest,
   type CourseDetailResponse,
   type CourseDocumentAnnotationResponse,
@@ -34,16 +39,20 @@ import {
   type CourseMutationResponse,
   type CourseUpdateRequest,
   type CreateCourseDocumentAnnotationRequest,
+  type CreateContextualQuestionAnswerRequest,
   type EnrollStudentRequest,
   type HealthResponse,
   type LoginRequest,
   type ProfessorCourseDetailResponse,
   type ProfessorCourseListResponse,
+  type StudentDocumentActivitySummaryResponse,
   type StudentCourseDetailResponse,
   type StudentCourseListResponse,
   type UpdateCourseDocumentAnnotationRequest,
+  type UpdateContextualQuestionStatusRequest,
   type UpdateCourseDocumentMetadataRequest,
   type UpdateEnrollmentStatusRequest,
+  type VerifyContextualQuestionAnswerRequest,
 } from '@web-app/contracts';
 import { z } from 'zod';
 
@@ -499,6 +508,79 @@ export function deleteCourseDocumentAnnotation(
   return requestEmptyMutation(
     `/api/courses/${courseId}/documents/${documentId}/annotations/${annotationId}`,
     { method: 'DELETE' },
+  );
+}
+
+export function fetchCourseDocumentQuestions(
+  courseId: string,
+  documentId: string,
+  signal?: AbortSignal,
+): Promise<ContextualQuestionsResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/documents/${documentId}/questions`,
+    ContextualQuestionsResponseSchema,
+    { signal },
+  );
+}
+
+export function createContextualQuestionAnswer(
+  courseId: string,
+  documentId: string,
+  threadId: string,
+  input: CreateContextualQuestionAnswerRequest,
+): Promise<ContextualQuestionResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/documents/${documentId}/questions/${threadId}/answer`,
+    ContextualQuestionResponseSchema,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function verifyContextualQuestionAnswer(
+  courseId: string,
+  documentId: string,
+  threadId: string,
+  input: VerifyContextualQuestionAnswerRequest,
+): Promise<ContextualQuestionResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/documents/${documentId}/questions/${threadId}/verified-answer`,
+    ContextualQuestionResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function updateContextualQuestionStatus(
+  courseId: string,
+  documentId: string,
+  threadId: string,
+  input: UpdateContextualQuestionStatusRequest,
+): Promise<ContextualQuestionResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/documents/${documentId}/questions/${threadId}/status`,
+    ContextualQuestionResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function fetchStudentDocumentActivity(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<StudentDocumentActivitySummaryResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/documents/activity`,
+    StudentDocumentActivitySummaryResponseSchema,
+    { signal },
+  );
+}
+
+export function fetchUnresolvedContextualQuestions(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<ContextualQuestionsResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/documents/questions/unresolved`,
+    ContextualQuestionsResponseSchema,
+    { signal },
   );
 }
 

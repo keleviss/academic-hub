@@ -7,29 +7,41 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import {
   Check,
+  CheckCircle2,
   Copy,
   FileText,
+  MessageSquare,
   Pencil,
   MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
+  Reply,
+  ShieldCheck,
   Trash2,
 } from 'lucide-react';
 import type {
   AnnotationType,
   AnnotationVisibility,
+  ContextualQuestion,
+  ContextualQuestionsResponse,
   CourseDocumentAnnotation,
+  ForumThreadStatus,
   UpdateCourseDocumentAnnotationRequest,
+  UserRole,
 } from '@web-app/contracts';
 
 import {
+  createContextualQuestionAnswer,
   createCourseDocumentAnnotation,
   deleteCourseDocumentAnnotation,
   fetchCourseDocumentAnnotations,
+  fetchCourseDocumentQuestions,
+  updateContextualQuestionStatus,
   updateCourseDocumentAnnotation,
+  verifyContextualQuestionAnswer,
 } from '../../../../api/client';
 import { useAuthenticatedUser } from '../../../../auth/authenticatedUser';
 import { Dialog } from '../../../../components/Dialog';
@@ -63,6 +75,14 @@ const visibilityLabels = Object.fromEntries(
   annotationVisibilityOptions.map((option) => [option.value, option.label]),
 ) as Record<AnnotationVisibility, string>;
 
+const questionStatusLabels = {
+  open: 'Ανοιχτή',
+  instructor_answered: 'Απαντήθηκε',
+  verified: 'Επαληθευμένη',
+  resolved: 'Επιλυμένη',
+  archived: 'Αρχειοθετημένη',
+} satisfies Record<ForumThreadStatus, string>;
+
 type AnnotationFilter =
   | 'all'
   | 'question'
@@ -84,6 +104,28 @@ interface AnnotationUpdateVariables {
   input: UpdateCourseDocumentAnnotationRequest;
 }
 
+interface QuestionAnswerDraft {
+  body: string;
+  error: string | null;
+  threadId: string;
+}
+
+interface QuestionAnswerVariables {
+  body: string;
+  threadId: string;
+  verified: boolean;
+}
+
+interface QuestionVerifyVariables {
+  answerId: string;
+  threadId: string;
+}
+
+interface QuestionStatusVariables {
+  status: 'open' | 'resolved';
+  threadId: string;
+}
+
 const annotationFilterOptions = [
   { value: 'all', label: 'Όλα' },
   { value: 'question', label: 'Μόνο ερωτήσεις' },
@@ -95,6 +137,10 @@ const annotationFilterOptions = [
 
 function annotationsQueryKey(courseId: string, documentId: string) {
   return ['courses', courseId, 'documents', documentId, 'annotations'] as const;
+}
+
+function contextualQuestionsQueryKey(courseId: string, documentId: string) {
+  return ['courses', courseId, 'documents', documentId, 'questions'] as const;
 }
 
 function annotationHash(annotationId: string): string {
@@ -192,6 +238,9 @@ export function DocumentAnnotationsPanel({
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState(() =>
     annotationIdFromLocationHash(),
   );
+  const [answerDraft, setAnswerDraft] = useState<QuestionAnswerDraft | null>(
+    null,
+  );
 
   const annotationsQuery = useQuery({
     queryKey: annotationsQueryKey(courseId, documentId),
@@ -199,6 +248,17 @@ export function DocumentAnnotationsPanel({
       fetchCourseDocumentAnnotations(courseId, documentId, signal),
     enabled: !!courseId && !!documentId,
   });
+  const questionsQuery = useQuery({
+    queryKey: contextualQuestionsQueryKey(courseId, documentId),
+    queryFn: ({ signal }) =>
+      fetchCourseDocumentQuestions(courseId, documentId, signal),
+    enabled: !!courseId && !!documentId,
+  });
+
+  const documentInvalidateKeys = [
+    annotationsQueryKey(courseId, documentId),
+    contextualQuestionsQueryKey(courseId, documentId),
+  ];
 
   const createMutation = useNotifyingMutation({
     mutationFn: () =>
@@ -209,7 +269,7 @@ export function DocumentAnnotationsPanel({
         body: body.trim(),
         selectedText: selectedText.trim() || undefined,
       }),
-    invalidateKeys: [annotationsQueryKey(courseId, documentId)],
+    invalidateKeys: documentInvalidateKeys,
     successMessage: 'Το σχόλιο δημιουργήθηκε.',
     notifyOnError: true,
     onSuccess: () => {
@@ -223,7 +283,7 @@ export function DocumentAnnotationsPanel({
   const updateMutation = useNotifyingMutation({
     mutationFn: ({ annotationId, input }: AnnotationUpdateVariables) =>
       updateCourseDocumentAnnotation(courseId, documentId, annotationId, input),
-    invalidateKeys: [annotationsQueryKey(courseId, documentId)],
+    invalidateKeys: documentInvalidateKeys,
     successMessage: 'Το σχόλιο ενημερώθηκε.',
     notifyOnError: true,
     onSuccess: () => setEditDraft(null),
@@ -232,13 +292,45 @@ export function DocumentAnnotationsPanel({
   const deleteMutation = useNotifyingMutation({
     mutationFn: (annotationId: string) =>
       deleteCourseDocumentAnnotation(courseId, documentId, annotationId),
-    invalidateKeys: [annotationsQueryKey(courseId, documentId)],
+    invalidateKeys: documentInvalidateKeys,
     successMessage: 'Το σχόλιο διαγράφηκε.',
     notifyOnError: true,
     onSuccess: (_data, annotationId) => {
       if (editDraft?.annotationId === annotationId) setEditDraft(null);
       setAnnotationPendingDelete(null);
     },
+  });
+
+  const answerMutation = useNotifyingMutation({
+    mutationFn: ({ body, threadId, verified }: QuestionAnswerVariables) =>
+      createContextualQuestionAnswer(courseId, documentId, threadId, {
+        body,
+        verified,
+      }),
+    invalidateKeys: documentInvalidateKeys,
+    successMessage: 'Η απάντηση αποθηκεύτηκε.',
+    notifyOnError: true,
+    onSuccess: () => setAnswerDraft(null),
+  });
+
+  const verifyMutation = useNotifyingMutation({
+    mutationFn: ({ answerId, threadId }: QuestionVerifyVariables) =>
+      verifyContextualQuestionAnswer(courseId, documentId, threadId, {
+        answerId,
+      }),
+    invalidateKeys: documentInvalidateKeys,
+    successMessage: 'Η απάντηση σημειώθηκε ως επίσημη.',
+    notifyOnError: true,
+  });
+
+  const statusMutation = useNotifyingMutation({
+    mutationFn: ({ status, threadId }: QuestionStatusVariables) =>
+      updateContextualQuestionStatus(courseId, documentId, threadId, {
+        status,
+      }),
+    invalidateKeys: documentInvalidateKeys,
+    successMessage: 'Η κατάσταση της απορίας ενημερώθηκε.',
+    notifyOnError: true,
   });
 
   const pending = createMutation.isPending;
@@ -330,6 +422,25 @@ export function DocumentAnnotationsPanel({
     setAnnotationPendingDelete(null);
     deleteMutation.reset();
   }, [deleteMutation]);
+
+  const handleSubmitAnswer = useCallback(
+    (threadId: string, verified: boolean) => {
+      if (answerMutation.isPending) return;
+      if (!answerDraft || answerDraft.threadId !== threadId) return;
+
+      const trimmedBody = answerDraft.body.trim();
+      if (!trimmedBody) {
+        setAnswerDraft({
+          ...answerDraft,
+          error: 'Συμπλήρωσε απάντηση.',
+        });
+        return;
+      }
+
+      answerMutation.mutate({ body: trimmedBody, threadId, verified });
+    },
+    [answerDraft, answerMutation],
+  );
 
   useEffect(() => {
     function handleHashChange() {
@@ -663,6 +774,37 @@ export function DocumentAnnotationsPanel({
               );
             }}
           </QueryState>
+          <ContextualQuestionsSection
+            answerDraft={answerDraft}
+            answerPendingThreadId={
+              answerMutation.isPending
+                ? answerMutation.variables?.threadId
+                : undefined
+            }
+            currentUserId={currentUser.id}
+            currentUserRole={currentUser.role}
+            questionsQuery={questionsQuery}
+            statusPendingThreadId={
+              statusMutation.isPending
+                ? statusMutation.variables?.threadId
+                : undefined
+            }
+            verifyPendingThreadId={
+              verifyMutation.isPending
+                ? verifyMutation.variables?.threadId
+                : undefined
+            }
+            onAnswerDraftChange={setAnswerDraft}
+            onNavigateToPage={onNavigateToPage}
+            onRetry={() => void questionsQuery.refetch()}
+            onSubmitAnswer={handleSubmitAnswer}
+            onUpdateStatus={(threadId, status) =>
+              statusMutation.mutate({ threadId, status })
+            }
+            onVerifyAnswer={(threadId, answerId) =>
+              verifyMutation.mutate({ answerId, threadId })
+            }
+          />
         </div>
       </aside>
       {annotationPendingDelete && (
@@ -701,6 +843,292 @@ export function DocumentAnnotationsPanel({
         </Dialog>
       )}
     </>
+  );
+}
+
+function ContextualQuestionsSection({
+  answerDraft,
+  answerPendingThreadId,
+  currentUserId,
+  currentUserRole,
+  questionsQuery,
+  statusPendingThreadId,
+  verifyPendingThreadId,
+  onAnswerDraftChange,
+  onNavigateToPage,
+  onRetry,
+  onSubmitAnswer,
+  onUpdateStatus,
+  onVerifyAnswer,
+}: {
+  answerDraft: QuestionAnswerDraft | null;
+  answerPendingThreadId?: string;
+  currentUserId: string;
+  currentUserRole: UserRole;
+  questionsQuery: UseQueryResult<ContextualQuestionsResponse>;
+  statusPendingThreadId?: string;
+  verifyPendingThreadId?: string;
+  onAnswerDraftChange: Dispatch<SetStateAction<QuestionAnswerDraft | null>>;
+  onNavigateToPage: (pageNumber: number) => void;
+  onRetry: () => void;
+  onSubmitAnswer: (threadId: string, verified: boolean) => void;
+  onUpdateStatus: (threadId: string, status: 'open' | 'resolved') => void;
+  onVerifyAnswer: (threadId: string, answerId: string) => void;
+}): React.JSX.Element {
+  const canAnswer =
+    currentUserRole === 'admin' || currentUserRole === 'professor';
+
+  return (
+    <section
+      className="contextual-questions-section"
+      aria-labelledby="contextual-questions-heading"
+    >
+      <div className="contextual-questions-heading">
+        <div>
+          <h3 id="contextual-questions-heading">Απορίες εγγράφου</h3>
+          <p>Contextual ερωτήσεις που δημιουργήθηκαν από σχόλια.</p>
+        </div>
+        <MessageSquare aria-hidden="true" size={18} />
+      </div>
+      <QueryState
+        query={questionsQuery}
+        loadingLabel="Φόρτωση αποριών…"
+        onRetry={onRetry}
+      >
+        {(response) => {
+          if (response.data.length === 0) {
+            return <EmptyState message="Δεν υπάρχουν απορίες για αυτό το έγγραφο." />;
+          }
+
+          return (
+            <div className="contextual-question-list">
+              {response.data.map((question) => (
+                <ContextualQuestionItem
+                  key={question.id}
+                  answerDraft={answerDraft}
+                  answerPending={answerPendingThreadId === question.id}
+                  canAnswer={canAnswer}
+                  currentUserId={currentUserId}
+                  question={question}
+                  statusPending={statusPendingThreadId === question.id}
+                  verifyPending={verifyPendingThreadId === question.id}
+                  onAnswerDraftChange={onAnswerDraftChange}
+                  onNavigateToPage={onNavigateToPage}
+                  onSubmitAnswer={onSubmitAnswer}
+                  onUpdateStatus={onUpdateStatus}
+                  onVerifyAnswer={onVerifyAnswer}
+                />
+              ))}
+            </div>
+          );
+        }}
+      </QueryState>
+    </section>
+  );
+}
+
+function ContextualQuestionItem({
+  answerDraft,
+  answerPending,
+  canAnswer,
+  currentUserId,
+  question,
+  statusPending,
+  verifyPending,
+  onAnswerDraftChange,
+  onNavigateToPage,
+  onSubmitAnswer,
+  onUpdateStatus,
+  onVerifyAnswer,
+}: {
+  answerDraft: QuestionAnswerDraft | null;
+  answerPending: boolean;
+  canAnswer: boolean;
+  currentUserId: string;
+  question: ContextualQuestion;
+  statusPending: boolean;
+  verifyPending: boolean;
+  onAnswerDraftChange: Dispatch<SetStateAction<QuestionAnswerDraft | null>>;
+  onNavigateToPage: (pageNumber: number) => void;
+  onSubmitAnswer: (threadId: string, verified: boolean) => void;
+  onUpdateStatus: (threadId: string, status: 'open' | 'resolved') => void;
+  onVerifyAnswer: (threadId: string, answerId: string) => void;
+}): React.JSX.Element {
+  const answerFormId = useId();
+  const isOwner = question.author.id === currentUserId;
+  const isAnswering = answerDraft?.threadId === question.id;
+  const canResolve = isOwner || canAnswer;
+  const canVerify = canAnswer && question.answer && !question.answer.isVerified;
+  const questionText = question.question ?? question.title;
+
+  return (
+    <article className="contextual-question-item">
+      <div className="contextual-question-topline">
+        <span className={`question-status is-${question.status}`}>
+          {questionStatusLabels[question.status]}
+        </span>
+        {question.answer?.isVerified && (
+          <span className="verified-answer-label">
+            <ShieldCheck aria-hidden="true" size={14} />
+            Επίσημη απάντηση
+          </span>
+        )}
+      </div>
+      <h4>{question.title}</h4>
+      <p className="contextual-question-meta">
+        {question.author.fullName}
+        {question.pageNumber && (
+          <>
+            {' '}
+            · Σελίδα{' '}
+            <button
+              type="button"
+              onClick={() => onNavigateToPage(question.pageNumber!)}
+            >
+              {question.pageNumber}
+            </button>
+          </>
+        )}
+      </p>
+      {questionText && <p className="contextual-question-body">{questionText}</p>}
+      {question.selectedText && (
+        <blockquote>
+          <span>Απόσπασμα</span>
+          {question.selectedText}
+        </blockquote>
+      )}
+      {question.answer ? (
+        <div className="contextual-answer">
+          <div className="contextual-answer-heading">
+            <CheckCircle2 aria-hidden="true" size={15} />
+            <span>Απάντηση διδάσκοντα</span>
+          </div>
+          <p>{question.answer.body}</p>
+          <span>
+            {question.answer.author.fullName} ·{' '}
+            {formatRelativeDateTime(question.answer.createdAt)}
+          </span>
+          {canVerify && (
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={verifyPending}
+              onClick={() => onVerifyAnswer(question.id, question.answer!.id)}
+            >
+              {verifyPending ? 'Επαλήθευση…' : 'Σήμανση ως επίσημη'}
+            </button>
+          )}
+        </div>
+      ) : isAnswering ? (
+        <form
+          className="contextual-answer-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmitAnswer(question.id, false);
+          }}
+        >
+          <label htmlFor={`${answerFormId}-body`}>
+            Απάντηση
+            <textarea
+              id={`${answerFormId}-body`}
+              rows={3}
+              maxLength={2000}
+              value={answerDraft.body}
+              aria-invalid={answerDraft.error ? true : undefined}
+              aria-describedby={
+                answerDraft.error ? `${answerFormId}-error` : undefined
+              }
+              disabled={answerPending}
+              onChange={(event) =>
+                onAnswerDraftChange((draft) =>
+                  draft?.threadId === question.id
+                    ? {
+                        ...draft,
+                        body: event.target.value,
+                        error: event.target.value.trim() ? null : draft.error,
+                      }
+                    : draft,
+                )
+              }
+            />
+          </label>
+          {answerDraft.error && (
+            <p
+              className="annotation-form-error"
+              id={`${answerFormId}-error`}
+              role="alert"
+            >
+              {answerDraft.error}
+            </p>
+          )}
+          <div className="contextual-answer-actions">
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={answerPending}
+            >
+              {answerPending ? 'Αποθήκευση…' : 'Απάντηση'}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={answerPending}
+              onClick={() => onSubmitAnswer(question.id, true)}
+            >
+              {answerPending ? 'Αποθήκευση…' : 'Απάντηση & επίσημη'}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={answerPending}
+              onClick={() => onAnswerDraftChange(null)}
+            >
+              Άκυρο
+            </button>
+          </div>
+        </form>
+      ) : (
+        canAnswer && (
+          <button
+            className="secondary-button contextual-answer-start"
+            type="button"
+            onClick={() =>
+              onAnswerDraftChange({
+                body: '',
+                error: null,
+                threadId: question.id,
+              })
+            }
+          >
+            <Reply aria-hidden="true" size={14} />
+            Απάντηση
+          </button>
+        )
+      )}
+      {canResolve && (
+        <div className="contextual-question-status-actions">
+          {question.status === 'resolved' ? (
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={statusPending}
+              onClick={() => onUpdateStatus(question.id, 'open')}
+            >
+              Άνοιγμα ξανά
+            </button>
+          ) : (
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={statusPending}
+              onClick={() => onUpdateStatus(question.id, 'resolved')}
+            >
+              Σήμανση ως επιλυμένη
+            </button>
+          )}
+        </div>
+      )}
+    </article>
   );
 }
 
