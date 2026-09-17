@@ -1,7 +1,14 @@
 import { useId, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, ShieldCheck } from 'lucide-react';
+import {
+  ChevronRight,
+  FileText,
+  LockKeyhole,
+  MessageSquareText,
+  Plus,
+  ShieldCheck,
+} from 'lucide-react';
 import type {
   ForumThreadFilter,
   ForumThreadListItem,
@@ -48,7 +55,8 @@ export function CourseForumTab({
 
   const threadsQuery = useQuery({
     queryKey: forumThreadsQueryKey(courseId, filter),
-    queryFn: ({ signal }) => fetchForumThreads(courseId, filter, undefined, signal),
+    queryFn: ({ signal }) =>
+      fetchForumThreads(courseId, filter, undefined, signal),
     enabled: !!courseId,
   });
 
@@ -79,13 +87,15 @@ export function CourseForumTab({
           response.data.length === 0 ? (
             <EmptyState message="Δεν υπάρχουν συζητήσεις για αυτό το φίλτρο." />
           ) : (
-            <div className="contextual-question-list">
+            <div className="forum-thread-list">
               {response.data.map((thread) => (
                 <ForumThreadListRow
                   key={thread.id}
                   thread={thread}
                   onOpen={() =>
-                    navigate(`/app/courses/${courseId}/discussions/${thread.id}`)
+                    navigate(
+                      `/app/courses/${courseId}/discussions/${thread.id}`,
+                    )
                   }
                 />
               ))}
@@ -114,31 +124,50 @@ function ForumThreadListRow({
   thread: ForumThreadListItem;
   onOpen: () => void;
 }): React.JSX.Element {
+  const isDocumentThread = Boolean(thread.documentTitle);
+
   return (
-    <article className="contextual-question-item">
-      <div className="contextual-question-topline">
-        <span className={`question-status is-${thread.status}`}>
-          {forumThreadStatusLabels[thread.status]}
-        </span>
-        {thread.verifiedPostId && (
-          <span className="verified-answer-label">
-            <ShieldCheck aria-hidden="true" size={14} />
-            Επίσημη απάντηση
-          </span>
+    <button className="forum-thread-row" type="button" onClick={onOpen}>
+      <span className="forum-thread-kind" aria-hidden="true">
+        {isDocumentThread ? (
+          <FileText size={18} />
+        ) : (
+          <MessageSquareText size={18} />
         )}
-      </div>
-      <h4>
-        <button className="forum-thread-title-link" type="button" onClick={onOpen}>
-          {thread.title}
-        </button>
-      </h4>
-      <p className="contextual-question-meta">
-        {thread.author.fullName} · {formatRelativeDateTime(thread.updatedAt)}
-        {thread.documentTitle && <> · {thread.documentTitle}</>}
-        {' · '}
-        {thread.postCount} {thread.postCount === 1 ? 'απάντηση' : 'απαντήσεις'}
-      </p>
-    </article>
+      </span>
+      <span className="forum-thread-copy">
+        <span className="forum-thread-badges">
+          <span className={`question-status is-${thread.status}`}>
+            {forumThreadStatusLabels[thread.status]}
+          </span>
+          {thread.visibility === 'instructor_only' && (
+            <span className="thread-visibility-badge">
+              <LockKeyhole aria-hidden="true" size={12} />
+              Μόνο διδάσκοντες
+            </span>
+          )}
+          {thread.verifiedPostId && (
+            <span className="verified-answer-label">
+              <ShieldCheck aria-hidden="true" size={14} />
+              Επίσημη απάντηση
+            </span>
+          )}
+        </span>
+        <strong className="forum-thread-title">{thread.title}</strong>
+        <span className="forum-thread-meta">
+          {thread.author.fullName} · {formatRelativeDateTime(thread.updatedAt)}
+          {thread.documentTitle && <> · {thread.documentTitle}</>}
+          {' · '}
+          {thread.postCount}{' '}
+          {thread.postCount === 1 ? 'απάντηση' : 'απαντήσεις'}
+        </span>
+      </span>
+      <ChevronRight
+        className="forum-thread-chevron"
+        aria-hidden="true"
+        size={19}
+      />
+    </button>
   );
 }
 

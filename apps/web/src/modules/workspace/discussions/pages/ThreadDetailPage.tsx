@@ -1,7 +1,18 @@
 import { useId, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShieldCheck } from 'lucide-react';
+import {
+  CheckCircle2,
+  FileText,
+  Globe2,
+  LockKeyhole,
+  MessageSquareText,
+  Pencil,
+  RotateCcw,
+  Send,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import type { ForumPost } from '@web-app/contracts';
 
 import {
@@ -75,7 +86,8 @@ export function ThreadDetailPage(): React.JSX.Element {
   ];
 
   const replyMutation = useNotifyingMutation({
-    mutationFn: () => createForumPost(courseId, threadId, { body: replyBody.trim() }),
+    mutationFn: () =>
+      createForumPost(courseId, threadId, { body: replyBody.trim() }),
     invalidateKeys,
     successMessage: 'Η απάντηση δημοσιεύτηκε.',
     notifyOnError: true,
@@ -83,7 +95,8 @@ export function ThreadDetailPage(): React.JSX.Element {
   });
 
   const updateThreadMutation = useNotifyingMutation({
-    mutationFn: (title: string) => updateForumThread(courseId, threadId, { title }),
+    mutationFn: (title: string) =>
+      updateForumThread(courseId, threadId, { title }),
     invalidateKeys,
     successMessage: 'Ο τίτλος ενημερώθηκε.',
     notifyOnError: true,
@@ -95,7 +108,9 @@ export function ThreadDetailPage(): React.JSX.Element {
     successMessage: 'Η συζήτηση διαγράφηκε.',
     notifyOnError: true,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: forumThreadsBaseKey(courseId) });
+      await queryClient.invalidateQueries({
+        queryKey: forumThreadsBaseKey(courseId),
+      });
       navigate(`/app/courses/${courseId}`);
     },
   });
@@ -146,9 +161,11 @@ export function ThreadDetailPage(): React.JSX.Element {
       {(response) => {
         const thread = response.data;
         const isAuthor = thread.author.id === currentUser.id;
-        const isStaff = currentUser.role === 'admin' || currentUser.role === 'professor';
+        const isStaff =
+          currentUser.role === 'admin' || currentUser.role === 'professor';
         const canManageThread = isAuthor || isStaff;
-        const openingPost = thread.openingBody === null ? thread.posts[0] : null;
+        const openingPost =
+          thread.openingBody === null ? thread.posts[0] : null;
         const replyPosts = openingPost ? thread.posts.slice(1) : thread.posts;
 
         return (
@@ -159,204 +176,247 @@ export function ThreadDetailPage(): React.JSX.Element {
                 ? `Συζήτηση για το έγγραφο «${thread.documentTitle}»`
                 : 'Συζήτηση μαθήματος'
             }
-            backlink={{ href: `/app/courses/${courseId}`, text: 'Επιστροφή στο μάθημα' }}
+            backlink={{
+              href: `/app/courses/${courseId}`,
+              text: 'Επιστροφή στο μάθημα',
+            }}
           >
-            <div className="course-list-card thread-detail-card">
-              <div className="contextual-question-topline">
-                <span className={`question-status is-${thread.status}`}>
-                  {forumThreadStatusLabels[thread.status]}
-                </span>
-                <span className="thread-visibility-badge">
-                  {visibilityLabels[thread.visibility]}
-                </span>
-              </div>
-              <p className="contextual-question-meta">
-                {thread.author.fullName} · {formatRelativeDateTime(thread.createdAt)}
-              </p>
-              {thread.documentId && (
-                <p>
+            <div className="thread-page-content">
+              <article className="course-list-card thread-detail-card">
+                <div className="thread-detail-topline">
+                  <div className="contextual-question-topline">
+                    <span className={`question-status is-${thread.status}`}>
+                      {forumThreadStatusLabels[thread.status]}
+                    </span>
+                    <span className="thread-visibility-badge">
+                      {thread.visibility === 'instructor_only' ? (
+                        <LockKeyhole aria-hidden="true" size={12} />
+                      ) : (
+                        <Globe2 aria-hidden="true" size={12} />
+                      )}
+                      {visibilityLabels[thread.visibility]}
+                    </span>
+                  </div>
+                  <span className="thread-author-meta">
+                    {thread.author.fullName} ·{' '}
+                    {formatRelativeDateTime(thread.createdAt)}
+                  </span>
+                </div>
+                {thread.documentId && (
                   <button
-                    className="secondary-button"
+                    className="secondary-button thread-document-link"
                     type="button"
                     onClick={() =>
-                      navigate(`/app/courses/${courseId}/documents/${thread.documentId}`)
+                      navigate(
+                        `/app/courses/${courseId}/documents/${thread.documentId}`,
+                      )
                     }
                   >
+                    <FileText aria-hidden="true" size={16} />
                     Άνοιγμα εγγράφου
                   </button>
-                </p>
-              )}
-              {thread.selectedText && (
-                <blockquote>
-                  <span>Απόσπασμα</span>
-                  {thread.selectedText}
-                </blockquote>
-              )}
+                )}
+                {thread.selectedText && (
+                  <blockquote className="thread-context-quote">
+                    <span>Απόσπασμα</span>
+                    {thread.selectedText}
+                  </blockquote>
+                )}
 
-              {editingThread ? (
+                {editingThread ? (
+                  <form
+                    className="annotation-edit-form thread-edit-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (editTitle.trim())
+                        updateThreadMutation.mutate(editTitle.trim());
+                    }}
+                  >
+                    <label htmlFor="thread-title-input">
+                      Τίτλος
+                      <input
+                        id="thread-title-input"
+                        type="text"
+                        maxLength={160}
+                        value={editTitle}
+                        disabled={updateThreadMutation.isPending}
+                        onChange={(event) => setEditTitle(event.target.value)}
+                      />
+                    </label>
+                    <div className="annotation-edit-actions">
+                      <button
+                        className="primary-button"
+                        type="submit"
+                        disabled={updateThreadMutation.isPending}
+                      >
+                        {updateThreadMutation.isPending
+                          ? 'Αποθήκευση…'
+                          : 'Αποθήκευση'}
+                      </button>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        disabled={updateThreadMutation.isPending}
+                        onClick={() => setEditingThread(false)}
+                      >
+                        Άκυρο
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="thread-opening-body">
+                    {thread.openingBody ?? openingPost?.body}
+                  </p>
+                )}
+
+                {canManageThread && (
+                  <div className="thread-action-bar">
+                    {!editingThread && (
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => {
+                          setEditTitle(thread.title);
+                          setEditingThread(true);
+                        }}
+                      >
+                        <Pencil aria-hidden="true" size={15} />
+                        Επεξεργασία τίτλου
+                      </button>
+                    )}
+                    {thread.status === 'resolved' ? (
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        disabled={reopenMutation.isPending}
+                        onClick={() => reopenMutation.mutate()}
+                      >
+                        <RotateCcw aria-hidden="true" size={15} />
+                        {reopenMutation.isPending ? 'Άνοιγμα…' : 'Άνοιγμα ξανά'}
+                      </button>
+                    ) : (
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        disabled={resolveMutation.isPending}
+                        onClick={() => resolveMutation.mutate()}
+                      >
+                        <CheckCircle2 aria-hidden="true" size={15} />
+                        {resolveMutation.isPending
+                          ? 'Ενημέρωση…'
+                          : 'Σήμανση ως επιλυμένη'}
+                      </button>
+                    )}
+                    <button
+                      className="danger-button thread-delete-button"
+                      type="button"
+                      onClick={() => setDeleteConfirmOpen(true)}
+                    >
+                      <Trash2 aria-hidden="true" size={15} />
+                      Διαγραφή συζήτησης
+                    </button>
+                  </div>
+                )}
+              </article>
+
+              <section className="course-list-card thread-replies-card">
+                <div className="thread-replies-heading">
+                  <span className="thread-replies-title">
+                    <MessageSquareText aria-hidden="true" size={18} />
+                    <h2>Απαντήσεις</h2>
+                  </span>
+                  <span className="dashboard-widget-count">
+                    {replyPosts.length}
+                  </span>
+                </div>
+                {replyPosts.length === 0 ? (
+                  <p className="thread-empty-state">
+                    Δεν υπάρχουν ακόμα απαντήσεις.
+                  </p>
+                ) : (
+                  <div className="thread-post-list">
+                    {replyPosts.map((post) => (
+                      <ThreadPostItem
+                        key={post.id}
+                        post={post}
+                        isEditing={editingPostId === post.id}
+                        editingBody={editingPostBody}
+                        canEdit={post.author.id === currentUser.id}
+                        canVerify={
+                          isStaff &&
+                          !post.isVerified &&
+                          (post.author.role === 'admin' ||
+                            post.author.role === 'professor')
+                        }
+                        onChangeEditingBody={setEditingPostBody}
+                        onStartEdit={() => {
+                          setEditingPostId(post.id);
+                          setEditingPostBody(post.body);
+                        }}
+                        onCancelEdit={() => setEditingPostId(null)}
+                        onSubmitEdit={() =>
+                          updatePostMutation.mutate({
+                            postId: post.id,
+                            body: editingPostBody.trim(),
+                          })
+                        }
+                        onDelete={() => deletePostMutation.mutate(post.id)}
+                        onVerify={() => verifyPostMutation.mutate(post.id)}
+                        isSavingEdit={
+                          updatePostMutation.isPending &&
+                          updatePostMutation.variables?.postId === post.id
+                        }
+                        isDeleting={
+                          deletePostMutation.isPending &&
+                          deletePostMutation.variables === post.id
+                        }
+                        isVerifying={
+                          verifyPostMutation.isPending &&
+                          verifyPostMutation.variables === post.id
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+
                 <form
-                  className="annotation-edit-form"
+                  className="contextual-answer-form thread-reply-composer"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    if (editTitle.trim()) updateThreadMutation.mutate(editTitle.trim());
+                    if (replyBody.trim()) replyMutation.mutate();
                   }}
                 >
-                  <label htmlFor="thread-title-input">
-                    Τίτλος
-                    <input
-                      id="thread-title-input"
-                      type="text"
-                      maxLength={160}
-                      value={editTitle}
-                      disabled={updateThreadMutation.isPending}
-                      onChange={(event) => setEditTitle(event.target.value)}
+                  <label htmlFor="thread-reply-body">
+                    Νέα απάντηση
+                    <textarea
+                      id="thread-reply-body"
+                      rows={3}
+                      maxLength={4000}
+                      placeholder="Γράψε την απάντησή σου…"
+                      value={replyBody}
+                      disabled={replyMutation.isPending}
+                      onChange={(event) => setReplyBody(event.target.value)}
                     />
                   </label>
-                  <div className="annotation-edit-actions">
+                  <div className="contextual-answer-actions">
                     <button
                       className="primary-button"
                       type="submit"
-                      disabled={updateThreadMutation.isPending}
+                      disabled={replyMutation.isPending || !replyBody.trim()}
                     >
-                      {updateThreadMutation.isPending ? 'Αποθήκευση…' : 'Αποθήκευση'}
-                    </button>
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      disabled={updateThreadMutation.isPending}
-                      onClick={() => setEditingThread(false)}
-                    >
-                      Άκυρο
+                      <Send aria-hidden="true" size={15} />
+                      {replyMutation.isPending ? 'Αποστολή…' : 'Απάντηση'}
                     </button>
                   </div>
                 </form>
-              ) : (
-                <p className="contextual-question-body">
-                  {thread.openingBody ?? openingPost?.body}
-                </p>
-              )}
-
-              {canManageThread && (
-                <div className="contextual-question-status-actions">
-                  {!editingThread && (
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => {
-                        setEditTitle(thread.title);
-                        setEditingThread(true);
-                      }}
-                    >
-                      Επεξεργασία τίτλου
-                    </button>
-                  )}
-                  {thread.status === 'resolved' ? (
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      disabled={reopenMutation.isPending}
-                      onClick={() => reopenMutation.mutate()}
-                    >
-                      {reopenMutation.isPending ? 'Άνοιγμα…' : 'Άνοιγμα ξανά'}
-                    </button>
-                  ) : (
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      disabled={resolveMutation.isPending}
-                      onClick={() => resolveMutation.mutate()}
-                    >
-                      {resolveMutation.isPending ? 'Ενημέρωση…' : 'Σήμανση ως επιλυμένη'}
-                    </button>
-                  )}
-                  <button
-                    className="danger-button"
-                    type="button"
-                    onClick={() => setDeleteConfirmOpen(true)}
-                  >
-                    Διαγραφή συζήτησης
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="course-list-card thread-replies-card">
-              <h2>{replyPosts.length === 0 ? 'Απαντήσεις' : `Απαντήσεις (${replyPosts.length})`}</h2>
-              {replyPosts.length === 0 ? (
-                <p>Δεν υπάρχουν ακόμα απαντήσεις.</p>
-              ) : (
-                <div className="annotation-list">
-                  {replyPosts.map((post) => (
-                    <ThreadPostItem
-                      key={post.id}
-                      post={post}
-                      isEditing={editingPostId === post.id}
-                      editingBody={editingPostBody}
-                      canEdit={post.author.id === currentUser.id}
-                      canVerify={isStaff && !post.isVerified}
-                      onChangeEditingBody={setEditingPostBody}
-                      onStartEdit={() => {
-                        setEditingPostId(post.id);
-                        setEditingPostBody(post.body);
-                      }}
-                      onCancelEdit={() => setEditingPostId(null)}
-                      onSubmitEdit={() =>
-                        updatePostMutation.mutate({
-                          postId: post.id,
-                          body: editingPostBody.trim(),
-                        })
-                      }
-                      onDelete={() => deletePostMutation.mutate(post.id)}
-                      onVerify={() => verifyPostMutation.mutate(post.id)}
-                      isSavingEdit={
-                        updatePostMutation.isPending &&
-                        updatePostMutation.variables?.postId === post.id
-                      }
-                      isDeleting={
-                        deletePostMutation.isPending &&
-                        deletePostMutation.variables === post.id
-                      }
-                      isVerifying={
-                        verifyPostMutation.isPending &&
-                        verifyPostMutation.variables === post.id
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-
-              <form
-                className="contextual-answer-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (replyBody.trim()) replyMutation.mutate();
-                }}
-              >
-                <label htmlFor="thread-reply-body">
-                  Νέα απάντηση
-                  <textarea
-                    id="thread-reply-body"
-                    rows={3}
-                    maxLength={4000}
-                    value={replyBody}
-                    disabled={replyMutation.isPending}
-                    onChange={(event) => setReplyBody(event.target.value)}
-                  />
-                </label>
-                <div className="contextual-answer-actions">
-                  <button
-                    className="primary-button"
-                    type="submit"
-                    disabled={replyMutation.isPending || !replyBody.trim()}
-                  >
-                    {replyMutation.isPending ? 'Αποστολή…' : 'Απάντηση'}
-                  </button>
-                </div>
-              </form>
+              </section>
             </div>
 
             {deleteConfirmOpen && (
-              <Dialog title="Διαγραφή συζήτησης" onClose={() => setDeleteConfirmOpen(false)}>
+              <Dialog
+                title="Διαγραφή συζήτησης"
+                onClose={() => setDeleteConfirmOpen(false)}
+              >
                 <div className="confirm-dialog">
                   <p>Να διαγραφεί οριστικά αυτή η συζήτηση;</p>
                   {deleteThreadMutation.isError && (
@@ -381,7 +441,9 @@ export function ThreadDetailPage(): React.JSX.Element {
                       disabled={deleteThreadMutation.isPending}
                       onClick={() => deleteThreadMutation.mutate()}
                     >
-                      {deleteThreadMutation.isPending ? 'Διαγραφή…' : 'Διαγραφή'}
+                      {deleteThreadMutation.isPending
+                        ? 'Διαγραφή…'
+                        : 'Διαγραφή'}
                     </button>
                   </footer>
                 </div>
@@ -428,10 +490,10 @@ function ThreadPostItem({
   const bodyId = useId();
 
   return (
-    <article className="annotation-item">
-      <div className="annotation-item-topline">
-        <div className="annotation-item-header">
-          <span>{post.author.fullName}</span>
+    <article className={`thread-post${post.isVerified ? ' is-verified' : ''}`}>
+      <div className="thread-post-header">
+        <div className="thread-post-author">
+          <strong>{post.author.fullName}</strong>
           {post.isVerified && (
             <span className="verified-answer-label">
               <ShieldCheck aria-hidden="true" size={14} />
@@ -439,13 +501,13 @@ function ThreadPostItem({
             </span>
           )}
         </div>
+        <span className="thread-post-time">
+          {formatRelativeDateTime(post.createdAt)}
+        </span>
       </div>
-      <p className="annotation-item-page">
-        <span>{formatRelativeDateTime(post.createdAt)}</span>
-      </p>
       {isEditing ? (
         <form
-          className="annotation-edit-form"
+          className="annotation-edit-form thread-edit-form"
           onSubmit={(event) => {
             event.preventDefault();
             onSubmitEdit();
@@ -463,7 +525,11 @@ function ThreadPostItem({
             />
           </label>
           <div className="annotation-edit-actions">
-            <button className="primary-button" type="submit" disabled={isSavingEdit}>
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={isSavingEdit}
+            >
               {isSavingEdit ? 'Αποθήκευση…' : 'Αποθήκευση'}
             </button>
             <button
@@ -477,13 +543,18 @@ function ThreadPostItem({
           </div>
         </form>
       ) : (
-        <p className="annotation-item-content">{post.body}</p>
+        <p className="thread-post-body">{post.body}</p>
       )}
       {(canEdit || canVerify) && !isEditing && (
-        <div className="contextual-question-status-actions">
+        <div className="thread-post-actions">
           {canEdit && (
             <>
-              <button className="secondary-button" type="button" onClick={onStartEdit}>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={onStartEdit}
+              >
+                <Pencil aria-hidden="true" size={14} />
                 Επεξεργασία
               </button>
               <button
@@ -492,6 +563,7 @@ function ThreadPostItem({
                 disabled={isDeleting}
                 onClick={onDelete}
               >
+                <Trash2 aria-hidden="true" size={14} />
                 {isDeleting ? 'Διαγραφή…' : 'Διαγραφή'}
               </button>
             </>
@@ -503,6 +575,7 @@ function ThreadPostItem({
               disabled={isVerifying}
               onClick={onVerify}
             >
+              <ShieldCheck aria-hidden="true" size={14} />
               {isVerifying ? 'Επαλήθευση…' : 'Σήμανση ως επίσημη'}
             </button>
           )}

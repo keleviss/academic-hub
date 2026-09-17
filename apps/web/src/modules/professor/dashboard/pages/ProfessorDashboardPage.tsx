@@ -1,12 +1,23 @@
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import {
+  BookOpen,
+  ChartNoAxesColumn,
+  ChevronRight,
+  CircleHelp,
+  MessageCircleWarning,
+  MessagesSquare,
+} from 'lucide-react';
 import type { DashboardForumThreadItem } from '@web-app/contracts';
 
 import {
   fetchProfessorDashboard,
   professorDashboardQueryKey,
 } from '../../../../api/client';
-import { DashboardThreadButton, DashboardWidget } from '../../../../components/DashboardWidget';
+import {
+  DashboardThreadButton,
+  DashboardWidget,
+} from '../../../../components/DashboardWidget';
 import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
 
@@ -37,23 +48,31 @@ export function ProfessorDashboardPage(): React.JSX.Element {
               <DashboardWidget
                 title="Τα μαθήματά μου"
                 viewAllHref="/app/courses"
+                icon={<BookOpen size={18} />}
+                count={data.courses.length}
                 isEmpty={data.courses.length === 0}
                 emptyMessage="Δεν έχεις αναθέσεις μαθημάτων ακόμα."
               >
                 {data.courses.map((course) => (
                   <button
+                    className="dashboard-list-item"
                     key={course.id}
                     type="button"
                     onClick={() => navigate(`/app/courses/${course.id}`)}
                   >
-                    <strong>{course.title}</strong>
-                    <span>{course.code}</span>
+                    <span className="dashboard-list-item-copy">
+                      <strong>{course.title}</strong>
+                      <span>{course.code}</span>
+                    </span>
+                    <ChevronRight aria-hidden="true" size={17} />
                   </button>
                 ))}
               </DashboardWidget>
               <DashboardWidget
                 title="Χρειάζονται απάντηση"
                 viewAllHref="/app/courses"
+                icon={<MessageCircleWarning size={18} />}
+                count={data.unansweredThreads.length}
                 isEmpty={data.unansweredThreads.length === 0}
                 emptyMessage="Δεν υπάρχουν αναπάντητες συζητήσεις."
               >
@@ -68,6 +87,8 @@ export function ProfessorDashboardPage(): React.JSX.Element {
               <DashboardWidget
                 title="Ανοιχτές απορίες"
                 viewAllHref="/app/courses"
+                icon={<CircleHelp size={18} />}
+                count={data.openThreads.length}
                 isEmpty={data.openThreads.length === 0}
                 emptyMessage="Δεν υπάρχουν ανοιχτές συζητήσεις."
               >
@@ -82,6 +103,8 @@ export function ProfessorDashboardPage(): React.JSX.Element {
               <DashboardWidget
                 title="Πρόσφατη δραστηριότητα συζητήσεων"
                 viewAllHref="/app/courses"
+                icon={<MessagesSquare size={18} />}
+                count={data.recentActivity.length}
                 isEmpty={data.recentActivity.length === 0}
                 emptyMessage="Δεν υπάρχει πρόσφατη δραστηριότητα."
               >
@@ -95,6 +118,9 @@ export function ProfessorDashboardPage(): React.JSX.Element {
               </DashboardWidget>
               <DashboardWidget
                 title="Αριθμοί ανά μάθημα"
+                icon={<ChartNoAxesColumn size={18} />}
+                count={data.perCourseCounters.length}
+                wide
                 isEmpty={data.perCourseCounters.length === 0}
                 emptyMessage="Δεν έχεις αναθέσεις μαθημάτων ακόμα."
               >
@@ -113,7 +139,9 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                         <td>
                           <button
                             type="button"
-                            onClick={() => navigate(`/app/courses/${row.courseId}`)}
+                            onClick={() =>
+                              navigate(`/app/courses/${row.courseId}`)
+                            }
                           >
                             {row.courseCode}
                           </button>
