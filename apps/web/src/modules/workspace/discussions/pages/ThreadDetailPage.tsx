@@ -180,10 +180,6 @@ export function ThreadDetailPage(): React.JSX.Element {
                 ? `Συζήτηση για το έγγραφο «${thread.documentTitle}»`
                 : 'Συζήτηση μαθήματος'
             }
-            backlink={{
-              href: `/app/courses/${courseId}`,
-              text: 'Επιστροφή στο μάθημα',
-            }}
           >
             <div className="thread-page-content">
               <article className="course-list-card thread-detail-card">

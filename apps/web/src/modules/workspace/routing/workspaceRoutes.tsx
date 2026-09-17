@@ -1,6 +1,7 @@
 import type { UserRole } from '@web-app/contracts';
 
 import { roleLabels } from '../../../auth/session';
+import { ProfessorAnalyticsPage } from '../../professor/analytics/pages/ProfessorAnalyticsPage';
 import { ProfessorCoursesPage } from '../../professor/courses/pages/ProfessorCoursesPage';
 import { ProfessorDashboardPage } from '../../professor/dashboard/pages/ProfessorDashboardPage';
 import { StudentCoursesPage } from '../../student/courses/pages/StudentCoursesPage';
@@ -155,19 +156,8 @@ const professorRoutes: WorkspaceRoute[] = [
     path: 'analytics',
     label: 'Analytics',
     icon: 'analytics',
-    keywords: ['teaching action queue', 'signals', 'heatmaps'],
-    element: (
-      <WorkspacePanel
-        eyebrow="Διδάσκων"
-        title="Teaching Action Queue"
-        body="Τα learning analytics παρουσιάζονται ως ενδείξεις που οδηγούν σε συγκεκριμένες διδακτικές ενέργειες."
-        items={[
-          'Confusion heatmaps',
-          'Progress bottlenecks',
-          'Unresolved document threads',
-        ]}
-      />
-    ),
+    keywords: ['teaching action queue', 'signals', 'confusion points'],
+    element: <ProfessorAnalyticsPage />,
     nav: true,
   },
 ];

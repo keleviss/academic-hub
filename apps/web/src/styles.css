@@ -1490,18 +1490,11 @@ select {
   font-size: 0.75rem;
 }
 
-.course-row-link,
-.back-link {
+.course-row-link {
   color: var(--color-hub-teal);
   font-size: 0.8125rem;
   font-weight: 700;
   text-decoration: none;
-}
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
 }
 
 .course-pagination {

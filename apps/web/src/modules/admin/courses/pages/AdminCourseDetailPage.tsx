@@ -295,7 +295,6 @@ export function AdminCourseDetailPage(): React.JSX.Element {
                 Επεξεργασία
               </button>
             }
-            backlink={{ href: '/app/courses', text: 'Όλα τα μαθήματα' }}
           >
             <div className="course-detail-layout">
               <div className="course-list-card">

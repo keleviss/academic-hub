@@ -147,7 +147,6 @@ export function StudentCourseDetailPage(): React.JSX.Element {
           <PageLayout
             title={detail.title}
             subtitle={`Υλικό και στοιχεία για το μάθημα ${detail.title}`}
-            backlink={{ href: '/app/courses', text: 'Τα μαθήματά μου' }}
           >
             <div
               className={`course-detail-layout${

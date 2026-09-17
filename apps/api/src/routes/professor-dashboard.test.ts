@@ -11,8 +11,14 @@ import { env } from '../config/env.js';
 const professorId = '11111111-1111-4111-8111-111111111111';
 const courseAId = '22222222-2222-4222-8222-222222222222';
 const courseBId = '33333333-3333-4333-8333-333333333333';
+const courseCId = '35555555-5555-4555-8555-555555555555';
 const studentId = '44444444-4444-4444-8444-444444444444';
+const studentId2 = '45555555-5555-4555-8555-555555555555';
+const studentId3 = '46666666-6666-4666-8666-666666666666';
 const now = new Date('2026-09-12T09:00:00.000Z');
+
+const RECENT_ANNOTATION_AT = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+const STALE_ANNOTATION_AT = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
 
 const courseA = {
   id: courseAId,
@@ -101,7 +107,94 @@ function threadRecord(thread: ThreadFixture) {
   };
 }
 
-function createTestApp() {
+interface AnnotationFixture {
+  documentId: string;
+  documentTitle: string;
+  courseId: string;
+  courseCode: string;
+  courseTitle: string;
+  authorId: string;
+  authorRole: UserRole;
+  type: 'question' | 'confusing' | 'note' | 'highlight' | 'important';
+  visibility: 'private' | 'public' | 'instructor_only';
+  isDeleted: boolean;
+  documentStatus: 'active' | 'archived';
+  createdAt: Date;
+}
+
+function annotation(
+  overrides: Partial<AnnotationFixture> & {
+    documentId: string;
+    authorId: string;
+    type: AnnotationFixture['type'];
+  },
+): AnnotationFixture {
+  return {
+    documentTitle: 'Document',
+    courseId: courseAId,
+    courseCode: courseA.code,
+    courseTitle: courseA.title,
+    authorRole: 'student',
+    visibility: 'public',
+    isDeleted: false,
+    documentStatus: 'active',
+    createdAt: RECENT_ANNOTATION_AT,
+    ...overrides,
+  };
+}
+
+interface WhereClause {
+  isDeleted?: boolean;
+  visibility?: { in: string[] };
+  type?: { in: string[] };
+  createdAt?: { gte: Date };
+  author?: { role: string };
+  document?: { status: string; courseId: { in: string[] } };
+}
+
+function createAnnotationFindMany(fixtures: AnnotationFixture[]) {
+  return vi.fn(async ({ where }: { where: WhereClause }) =>
+    fixtures
+      .filter(
+        (item) => where.isDeleted === undefined || item.isDeleted === where.isDeleted,
+      )
+      .filter(
+        (item) =>
+          where.visibility === undefined ||
+          where.visibility.in.includes(item.visibility),
+      )
+      .filter(
+        (item) => where.type === undefined || where.type.in.includes(item.type),
+      )
+      .filter(
+        (item) =>
+          where.createdAt === undefined ||
+          item.createdAt.getTime() >= where.createdAt.gte.getTime(),
+      )
+      .filter(
+        (item) => where.author === undefined || item.authorRole === where.author.role,
+      )
+      .filter(
+        (item) =>
+          where.document === undefined ||
+          (item.documentStatus === where.document.status &&
+            where.document.courseId.in.includes(item.courseId)),
+      )
+      .map((item) => ({
+        documentId: item.documentId,
+        authorId: item.authorId,
+        type: item.type,
+        createdAt: item.createdAt,
+        document: {
+          title: item.documentTitle,
+          courseId: item.courseId,
+          course: { code: item.courseCode, title: item.courseTitle },
+        },
+      })),
+  );
+}
+
+function createTestApp(annotationFixtures: AnnotationFixture[] = []) {
   const auditLogger: AuditLogger = {
     logAuditEvent: vi.fn().mockResolvedValue(undefined),
   };
@@ -114,6 +207,7 @@ function createTestApp() {
 
   const document = { count: vi.fn(async () => 0) };
   const course = { findUnique: vi.fn(async () => null) };
+  const annotationClient = { findMany: createAnnotationFindMany(annotationFixtures) };
 
   const forumThread = {
     findMany: vi.fn(
@@ -208,13 +302,14 @@ function createTestApp() {
     auditLogger,
     sessionService,
     professorDashboardPrisma: {
+      annotation: annotationClient,
       course,
       courseInstructor,
       document,
       forumThread,
     } as unknown as Pick<
       PrismaClient,
-      'course' | 'courseInstructor' | 'document' | 'forumThread'
+      'annotation' | 'course' | 'courseInstructor' | 'document' | 'forumThread'
     >,
   });
 
@@ -247,7 +342,7 @@ describe('professor dashboard route', () => {
         '62222222-2222-4222-8222-222222222222',
       ].sort(),
     );
-    expect(body.data.recentActivity).toHaveLength(4);
+    expect(body.data.confusionPoints).toEqual([]);
 
     const counterA = body.data.perCourseCounters.find(
       (row) => row.courseId === courseAId,
@@ -267,6 +362,212 @@ describe('professor dashboard route', () => {
       // Only one of the two verified threads in course B falls inside the
       // recently-verified window; the other is far in the past.
       recentlyVerifiedCount: 1,
+    });
+  });
+
+  describe('confusion points widget', () => {
+    it('counts only non-deleted, public/instructor_only, student-authored question and confusing signals', async () => {
+      const documentId = 'a1111111-1111-4111-8111-111111111111';
+      const fixtures: AnnotationFixture[] = [
+        annotation({ documentId, authorId: studentId, type: 'question', visibility: 'public' }),
+        annotation({
+          documentId,
+          authorId: studentId2,
+          type: 'confusing',
+          visibility: 'instructor_only',
+        }),
+        // Excluded: private visibility, even though otherwise qualifying.
+        annotation({
+          documentId,
+          authorId: studentId3,
+          type: 'confusing',
+          visibility: 'private',
+        }),
+        // Excluded: soft-deleted.
+        annotation({
+          documentId,
+          authorId: studentId3,
+          type: 'question',
+          visibility: 'public',
+          isDeleted: true,
+        }),
+        // Excluded: not a question/confusing annotation type.
+        annotation({
+          documentId,
+          authorId: studentId3,
+          type: 'note',
+          visibility: 'public',
+        }),
+        // Excluded: authored by a professor, not a student.
+        annotation({
+          documentId,
+          authorId: professorId,
+          type: 'question',
+          visibility: 'public',
+          authorRole: 'professor',
+        }),
+      ];
+
+      const { app } = createTestApp(fixtures);
+
+      const response = await request(app)
+        .get('/api/professor/dashboard')
+        .set('Cookie', authCookie())
+        .expect(200);
+
+      const body = ProfessorDashboardResponseSchema.parse(response.body);
+      expect(body.data.confusionPoints).toEqual([
+        expect.objectContaining({
+          documentId,
+          questionCount: 1,
+          confusingCount: 1,
+          studentCount: 2,
+        }),
+      ]);
+    });
+
+    it('only surfaces signals on active documents belonging to the requesting professor', async () => {
+      const ownDocumentId = 'a2222222-2222-4222-8222-222222222222';
+      const otherCourseDocumentId = 'a3333333-3333-4333-8333-333333333333';
+      const archivedDocumentId = 'a4444444-4444-4444-8444-444444444444';
+
+      const fixtures: AnnotationFixture[] = [
+        annotation({ documentId: ownDocumentId, authorId: studentId, type: 'question' }),
+        annotation({ documentId: ownDocumentId, authorId: studentId2, type: 'confusing' }),
+        // Excluded: belongs to a course the professor does not teach.
+        annotation({
+          documentId: otherCourseDocumentId,
+          authorId: studentId,
+          type: 'question',
+          courseId: courseCId,
+        }),
+        annotation({
+          documentId: otherCourseDocumentId,
+          authorId: studentId2,
+          type: 'confusing',
+          courseId: courseCId,
+        }),
+        // Excluded: document is not active.
+        annotation({
+          documentId: archivedDocumentId,
+          authorId: studentId,
+          type: 'question',
+          documentStatus: 'archived',
+        }),
+        annotation({
+          documentId: archivedDocumentId,
+          authorId: studentId2,
+          type: 'confusing',
+          documentStatus: 'archived',
+        }),
+      ];
+
+      const { app } = createTestApp(fixtures);
+
+      const response = await request(app)
+        .get('/api/professor/dashboard')
+        .set('Cookie', authCookie())
+        .expect(200);
+
+      const body = ProfessorDashboardResponseSchema.parse(response.body);
+      expect(body.data.confusionPoints.map((item) => item.documentId)).toEqual([
+        ownDocumentId,
+      ]);
+    });
+
+    it('only counts signals within the last 14 days', async () => {
+      const documentId = 'a5555555-5555-4555-8555-555555555555';
+      const fixtures: AnnotationFixture[] = [
+        annotation({
+          documentId,
+          authorId: studentId,
+          type: 'question',
+          createdAt: STALE_ANNOTATION_AT,
+        }),
+        annotation({
+          documentId,
+          authorId: studentId2,
+          type: 'confusing',
+          createdAt: STALE_ANNOTATION_AT,
+        }),
+      ];
+
+      const { app } = createTestApp(fixtures);
+
+      const response = await request(app)
+        .get('/api/professor/dashboard')
+        .set('Cookie', authCookie())
+        .expect(200);
+
+      const body = ProfessorDashboardResponseSchema.parse(response.body);
+      expect(body.data.confusionPoints).toEqual([]);
+    });
+
+    it('requires at least two signals from two distinct students, and sorts by signal volume', async () => {
+      const belowThresholdDocumentId = 'a6666666-6666-4666-8666-666666666666';
+      const sameStudentDocumentId = 'a7777777-7777-4777-8777-777777777777';
+      const highVolumeDocumentId = 'a8888888-8888-4888-8888-888888888888';
+      const lowVolumeDocumentId = 'a9999999-9999-4999-8999-999999999999';
+
+      const fixtures: AnnotationFixture[] = [
+        // Excluded: only a single signal.
+        annotation({
+          documentId: belowThresholdDocumentId,
+          authorId: studentId,
+          type: 'question',
+        }),
+        // Excluded: two signals, but from the same student.
+        annotation({
+          documentId: sameStudentDocumentId,
+          authorId: studentId,
+          type: 'question',
+        }),
+        annotation({
+          documentId: sameStudentDocumentId,
+          authorId: studentId,
+          type: 'confusing',
+        }),
+        // Included: 3 signals from 2 students -> ranks first.
+        annotation({
+          documentId: highVolumeDocumentId,
+          authorId: studentId,
+          type: 'question',
+        }),
+        annotation({
+          documentId: highVolumeDocumentId,
+          authorId: studentId,
+          type: 'confusing',
+        }),
+        annotation({
+          documentId: highVolumeDocumentId,
+          authorId: studentId2,
+          type: 'confusing',
+        }),
+        // Included: 2 signals from 2 students -> ranks second.
+        annotation({
+          documentId: lowVolumeDocumentId,
+          authorId: studentId,
+          type: 'question',
+        }),
+        annotation({
+          documentId: lowVolumeDocumentId,
+          authorId: studentId2,
+          type: 'confusing',
+        }),
+      ];
+
+      const { app } = createTestApp(fixtures);
+
+      const response = await request(app)
+        .get('/api/professor/dashboard')
+        .set('Cookie', authCookie())
+        .expect(200);
+
+      const body = ProfessorDashboardResponseSchema.parse(response.body);
+      expect(body.data.confusionPoints.map((item) => item.documentId)).toEqual([
+        highVolumeDocumentId,
+        lowVolumeDocumentId,
+      ]);
     });
   });
 });

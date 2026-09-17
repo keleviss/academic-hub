@@ -46,7 +46,7 @@ const emptyProfessorDashboard = {
     courses: [],
     unansweredThreads: [],
     openThreads: [],
-    recentActivity: [],
+    confusionPoints: [],
     perCourseCounters: [],
   },
 };
