@@ -2673,6 +2673,17 @@ select {
   font: inherit;
 }
 
+.annotation-form input:focus-visible,
+.annotation-form select:focus-visible,
+.annotation-form textarea:focus-visible,
+.annotation-edit-form input:focus-visible,
+.annotation-edit-form select:focus-visible,
+.annotation-edit-form textarea:focus-visible {
+  border-color: var(--color-hub-teal);
+  outline-width: 2px;
+  outline-offset: -2px;
+}
+
 .annotation-form input,
 .annotation-form select,
 .annotation-edit-form input,

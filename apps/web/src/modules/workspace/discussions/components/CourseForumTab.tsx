@@ -33,6 +33,7 @@ import { forumThreadStatusLabels } from '../../../../lib/forum-thread-status';
 
 const filterItems: { value: ForumThreadFilter; label: string }[] = [
   { value: 'all', label: 'Όλες' },
+  { value: 'mine', label: 'Δικές μου' },
   { value: 'general', label: 'Γενικές' },
   { value: 'document', label: 'Από έγγραφα' },
   { value: 'unanswered', label: 'Αναπάντητες' },

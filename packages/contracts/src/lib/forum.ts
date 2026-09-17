@@ -20,6 +20,7 @@ export const ForumThreadVisibilitySchema = z.enum(forumThreadVisibilityValues);
 
 export const forumThreadFilterValues = [
   'all',
+  'mine',
   'general',
   'document',
   'unanswered',

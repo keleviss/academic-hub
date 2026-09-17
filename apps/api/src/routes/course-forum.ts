@@ -666,7 +666,7 @@ async function listForumThreads(
       status: { not: 'archived' },
       OR: forumThreadVisibilityWhere(actorId, role),
       ...(documentId ? { documentId } : {}),
-      ...forumThreadFilterWhere(filter),
+      ...forumThreadFilterWhere(filter, actorId),
     },
   });
 
@@ -675,8 +675,11 @@ async function listForumThreads(
 
 function forumThreadFilterWhere(
   filter: ForumThreadFilter,
+  actorId: string,
 ): Prisma.ForumThreadWhereInput {
   switch (filter) {
+    case 'mine':
+      return { authorId: actorId };
     case 'general':
       return { documentId: null };
     case 'document':

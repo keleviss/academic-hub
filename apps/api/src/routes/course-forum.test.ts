@@ -500,10 +500,36 @@ describe('course forum routes', () => {
       .expect(403);
   });
 
-  it('filters the thread list by general/document/unanswered/resolved', async () => {
+  it('filters the thread list by mine/general/document/unanswered/resolved', async () => {
     const { appAs, documentThread } = createTestApp();
     const app = appAs('professor', professorId);
-    const generalThreadId = await createGeneralThread(appAs, 'student', studentId);
+    const generalThreadId = await createGeneralThread(
+      appAs,
+      'student',
+      studentId,
+    );
+
+    const mine = ForumThreadsResponseSchema.parse(
+      (
+        await request(appAs('student', studentId))
+          .get(`/api/courses/${courseId}/forum/threads?filter=mine`)
+          .set('Cookie', authCookie())
+          .expect(200)
+      ).body,
+    );
+    expect(mine.data.map((thread) => thread.id).sort()).toEqual(
+      [generalThreadId, documentThread.id].sort(),
+    );
+
+    const otherStudentsThreads = ForumThreadsResponseSchema.parse(
+      (
+        await request(appAs('student', otherStudentId))
+          .get(`/api/courses/${courseId}/forum/threads?filter=mine`)
+          .set('Cookie', authCookie())
+          .expect(200)
+      ).body,
+    );
+    expect(otherStudentsThreads.data).toEqual([]);
 
     const general = ForumThreadsResponseSchema.parse(
       (

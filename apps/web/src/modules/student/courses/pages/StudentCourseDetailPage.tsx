@@ -136,13 +136,15 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                   items={[
                     {
                       value: 'documents',
-                      label: `Υλικό (${totalDocuments})`,
+                      label: `Έγγραφα`,
                     },
                     { value: 'discussions', label: 'Συζητήσεις' },
                     { value: 'details', label: 'Στοιχεία μαθήματος' },
                   ]}
                 />
-                {tab === 'discussions' && <CourseForumTab courseId={courseId} />}
+                {tab === 'discussions' && (
+                  <CourseForumTab courseId={courseId} />
+                )}
                 {tab === 'documents' && (
                   <div className="course-members">
                     <div className="course-filter-row text-sm">

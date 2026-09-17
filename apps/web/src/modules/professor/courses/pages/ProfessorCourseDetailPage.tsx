@@ -238,7 +238,7 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                   items={[
                     {
                       value: 'documents',
-                      label: `Έγγραφα (${totalDocuments})`,
+                      label: `Έγγραφα`,
                     },
                     { value: 'discussions', label: 'Συζητήσεις' },
                     { value: 'details', label: 'Στοιχεία μαθήματος' },
