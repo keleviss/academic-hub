@@ -1,8 +1,8 @@
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
+  ArrowRight,
   BookOpen,
-  ChartNoAxesColumn,
   ChevronRight,
   CircleHelp,
   MessageCircleWarning,
@@ -20,6 +20,7 @@ import {
 } from '../../../../components/DashboardWidget';
 import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
+import { formatRelativeDateTime } from '../../../../lib/format-relative-time';
 
 export function ProfessorDashboardPage(): React.JSX.Element {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export function ProfessorDashboardPage(): React.JSX.Element {
   return (
     <PageLayout
       title="Επισκόπηση"
-      subtitle="Τα μαθήματά σου και η κατάσταση των συζητήσεών τους."
+      subtitle="Η εικόνα των μαθημάτων σου και ό,τι χρειάζεται παρέμβαση."
     >
       <QueryState
         query={dashboardQuery}
@@ -43,117 +44,165 @@ export function ProfessorDashboardPage(): React.JSX.Element {
       >
         {(response) => {
           const data = response.data;
+          const countersByCourse = new Map(
+            data.perCourseCounters.map((counters) => [
+              counters.courseId,
+              counters,
+            ]),
+          );
+
           return (
-            <div className="dashboard-grid">
-              <DashboardWidget
-                title="Τα μαθήματά μου"
-                viewAllHref="/app/courses"
-                icon={<BookOpen size={18} />}
-                count={data.courses.length}
-                isEmpty={data.courses.length === 0}
-                emptyMessage="Δεν έχεις αναθέσεις μαθημάτων ακόμα."
-              >
-                {data.courses.map((course) => (
-                  <button
-                    className="dashboard-list-item"
-                    key={course.id}
-                    type="button"
-                    onClick={() => navigate(`/app/courses/${course.id}`)}
-                  >
-                    <span className="dashboard-list-item-copy">
-                      <strong>{course.title}</strong>
-                      <span>{course.code}</span>
-                    </span>
-                    <ChevronRight aria-hidden="true" size={17} />
-                  </button>
-                ))}
-              </DashboardWidget>
-              <DashboardWidget
-                title="Χρειάζονται απάντηση"
-                viewAllHref="/app/courses"
-                icon={<MessageCircleWarning size={18} />}
-                count={data.unansweredThreads.length}
-                isEmpty={data.unansweredThreads.length === 0}
-                emptyMessage="Δεν υπάρχουν αναπάντητες συζητήσεις."
-              >
-                {data.unansweredThreads.map((thread) => (
-                  <DashboardThreadButton
-                    key={thread.id}
-                    thread={thread}
-                    onOpen={() => openThread(thread)}
-                  />
-                ))}
-              </DashboardWidget>
-              <DashboardWidget
-                title="Ανοιχτές απορίες"
-                viewAllHref="/app/courses"
-                icon={<CircleHelp size={18} />}
-                count={data.openThreads.length}
-                isEmpty={data.openThreads.length === 0}
-                emptyMessage="Δεν υπάρχουν ανοιχτές συζητήσεις."
-              >
-                {data.openThreads.map((thread) => (
-                  <DashboardThreadButton
-                    key={thread.id}
-                    thread={thread}
-                    onOpen={() => openThread(thread)}
-                  />
-                ))}
-              </DashboardWidget>
-              <DashboardWidget
-                title="Πρόσφατη δραστηριότητα συζητήσεων"
-                viewAllHref="/app/courses"
-                icon={<MessagesSquare size={18} />}
-                count={data.recentActivity.length}
-                isEmpty={data.recentActivity.length === 0}
-                emptyMessage="Δεν υπάρχει πρόσφατη δραστηριότητα."
-              >
-                {data.recentActivity.map((thread) => (
-                  <DashboardThreadButton
-                    key={thread.id}
-                    thread={thread}
-                    onOpen={() => openThread(thread)}
-                  />
-                ))}
-              </DashboardWidget>
-              <DashboardWidget
-                title="Αριθμοί ανά μάθημα"
-                icon={<ChartNoAxesColumn size={18} />}
-                count={data.perCourseCounters.length}
-                wide
-                isEmpty={data.perCourseCounters.length === 0}
-                emptyMessage="Δεν έχεις αναθέσεις μαθημάτων ακόμα."
-              >
-                <table className="dashboard-counters-table">
-                  <thead>
-                    <tr>
-                      <th>Μάθημα</th>
-                      <th>Αναπάντητες</th>
-                      <th>Ανοιχτές</th>
-                      <th>Πρόσφατα verified</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.perCourseCounters.map((row) => (
-                      <tr key={row.courseId}>
-                        <td>
+            <div className="dashboard-layout dashboard-layout--professor">
+              <div className="dashboard-professor-primary-grid">
+                <section className="dashboard-courses-anchor dashboard-courses-anchor--professor">
+                  <div className="dashboard-section-heading">
+                    <div>
+                      <div className="dashboard-section-header">
+                        <BookOpen aria-hidden="true" size={16} />
+                        <h2>Τα μαθήματά μου</h2>
+                      </div>
+                      <p>Η κατάσταση κάθε μαθήματος με μια ματιά.</p>
+                    </div>
+                    <Link className="dashboard-section-link" to="/app/courses">
+                      Όλα τα μαθήματα
+                      <ArrowRight aria-hidden="true" size={15} />
+                    </Link>
+                  </div>
+
+                  {data.courses.length === 0 ? (
+                    <p className="dashboard-anchor-empty">
+                      Δεν έχεις αναθέσεις μαθημάτων ακόμα.
+                    </p>
+                  ) : (
+                    <div className="dashboard-professor-course-list">
+                      {data.courses.map((course, index) => {
+                        const counters = countersByCourse.get(course.id);
+
+                        return (
                           <button
+                            className="dashboard-course-card dashboard-course-card--professor"
+                            data-accent={String((index % 4) + 1)}
+                            key={course.id}
                             type="button"
                             onClick={() =>
-                              navigate(`/app/courses/${row.courseId}`)
+                              navigate(`/app/courses/${course.id}`)
                             }
                           >
-                            {row.courseCode}
+                            <span className="dashboard-professor-course-copy">
+                              <span className="dashboard-course-code">
+                                {course.code}
+                              </span>
+                              <strong>{course.title}</strong>
+                            </span>
+                            <span className="dashboard-course-health">
+                              <span>
+                                <b>{counters?.openCount ?? 0}</b>
+                                ανοιχτές
+                              </span>
+                              <span className="is-attention">
+                                <b>{counters?.unansweredCount ?? 0}</b>
+                                χρειάζονται απάντηση
+                              </span>
+                              <span className="is-positive">
+                                <b>{counters?.recentlyVerifiedCount ?? 0}</b>
+                                πρόσφατα verified
+                              </span>
+                            </span>
+                            <span className="dashboard-course-action">
+                              Προβολή μαθήματος
+                              <ArrowRight aria-hidden="true" size={16} />
+                            </span>
                           </button>
-                        </td>
-                        <td>{row.unansweredCount}</td>
-                        <td>{row.openCount}</td>
-                        <td>{row.recentlyVerifiedCount}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </DashboardWidget>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <section className="dashboard-attention-panel dashboard-attention-panel--professor">
+                  <div className="dashboard-attention-heading">
+                    <span
+                      className="dashboard-attention-icon"
+                      aria-hidden="true"
+                    >
+                      <MessageCircleWarning size={19} />
+                    </span>
+                    <div>
+                      <span>Προτεραιότητα</span>
+                      <h2>Χρειάζονται απάντηση</h2>
+                    </div>
+                    <strong>{data.unansweredThreads.length}</strong>
+                  </div>
+
+                  {data.unansweredThreads.length === 0 ? (
+                    <p className="dashboard-attention-empty">
+                      Δεν υπάρχουν αναπάντητες συζητήσεις.
+                    </p>
+                  ) : (
+                    <div className="dashboard-attention-list">
+                      {data.unansweredThreads.slice(0, 4).map((thread) => (
+                        <button
+                          className="dashboard-attention-item"
+                          key={thread.id}
+                          type="button"
+                          onClick={() => openThread(thread)}
+                        >
+                          <span>
+                            <strong>{thread.title}</strong>
+                            <small>
+                              {thread.courseCode} ·{' '}
+                              {formatRelativeDateTime(thread.updatedAt)}
+                            </small>
+                          </span>
+                          <ChevronRight aria-hidden="true" size={17} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <Link className="dashboard-attention-link" to="/app/courses">
+                    Προβολή όλων
+                    <ArrowRight aria-hidden="true" size={15} />
+                  </Link>
+                </section>
+              </div>
+
+              <div className="dashboard-support-grid">
+                <DashboardWidget
+                  title="Ανοιχτές απορίες"
+                  viewAllHref="/app/courses"
+                  icon={<CircleHelp size={18} />}
+                  count={data.openThreads.length}
+                  tone="teal"
+                  isEmpty={data.openThreads.length === 0}
+                  emptyMessage="Δεν υπάρχουν ανοιχτές συζητήσεις."
+                >
+                  {data.openThreads.slice(0, 3).map((thread) => (
+                    <DashboardThreadButton
+                      key={thread.id}
+                      thread={thread}
+                      onOpen={() => openThread(thread)}
+                    />
+                  ))}
+                </DashboardWidget>
+                <DashboardWidget
+                  title="Πρόσφατη δραστηριότητα"
+                  viewAllHref="/app/courses"
+                  icon={<MessagesSquare size={18} />}
+                  count={data.recentActivity.length}
+                  tone="blue"
+                  isEmpty={data.recentActivity.length === 0}
+                  emptyMessage="Δεν υπάρχει πρόσφατη δραστηριότητα."
+                >
+                  {data.recentActivity.slice(0, 3).map((thread) => (
+                    <DashboardThreadButton
+                      key={thread.id}
+                      thread={thread}
+                      onOpen={() => openThread(thread)}
+                    />
+                  ))}
+                </DashboardWidget>
+              </div>
             </div>
           );
         }}

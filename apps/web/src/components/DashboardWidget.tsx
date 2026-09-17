@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ChevronRight } from 'lucide-react';
 import type { DashboardForumThreadItem } from '@web-app/contracts';
 
 import { formatRelativeDateTime } from '../lib/format-relative-time';
@@ -12,6 +12,7 @@ export function DashboardWidget({
   icon,
   count,
   wide = false,
+  tone = 'teal',
   isEmpty,
   emptyMessage,
   children,
@@ -22,12 +23,15 @@ export function DashboardWidget({
   icon: React.ReactNode;
   count: number;
   wide?: boolean;
+  tone?: 'teal' | 'blue' | 'amber' | 'green' | 'navy';
   isEmpty: boolean;
   emptyMessage: string;
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <section className={`dashboard-widget${wide ? ' is-wide' : ''}`}>
+    <section
+      className={`dashboard-widget dashboard-widget--${tone}${wide ? ' is-wide' : ''}`}
+    >
       <div className="dashboard-widget-heading">
         <div className="dashboard-widget-title">
           <span className="dashboard-widget-icon" aria-hidden="true">
@@ -39,6 +43,7 @@ export function DashboardWidget({
         {viewAllHref && (
           <Link className="dashboard-widget-viewall" to={viewAllHref}>
             {viewAllLabel}
+            <ArrowUpRight aria-hidden="true" size={14} />
           </Link>
         )}
       </div>
