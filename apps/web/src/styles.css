@@ -1488,6 +1488,12 @@ select {
   text-decoration: none;
 }
 
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
 .course-pagination {
   padding: var(--hub-space-3) var(--hub-space-4);
   border-top: 1px solid var(--color-hub-border);
@@ -3489,12 +3495,9 @@ select {
 .dashboard-courses-anchor {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--color-hub-navy) 16%, var(--color-hub-border));
-  border-radius: 1.125rem;
+  border: 1px solid var(--color-hub-border);
+  border-radius: var(--radius-hub-card);
   background: white;
-  box-shadow:
-    0 1px 2px rgba(16, 36, 58, 0.04),
-    0 18px 42px rgba(16, 36, 58, 0.07);
 }
 
 .dashboard-section-heading {
@@ -3503,10 +3506,8 @@ select {
   justify-content: space-between;
   gap: 1.5rem;
   border-bottom: 1px solid var(--color-hub-border);
-  background: linear-gradient(125deg,
-      color-mix(in srgb, var(--color-hub-navy) 5%, white),
-      white 62%);
-  padding: 1.375rem 1.5rem 1.25rem;
+  background: white;
+  padding: 1.25rem;
 }
 
 .dashboard-section-heading>div {
@@ -3543,14 +3544,11 @@ select {
   color: var(--color-hub-teal-dark);
   font-size: 0.8125rem;
   font-weight: 750;
-  transition:
-    color 160ms ease,
-    gap 160ms ease;
+  transition: color 160ms ease;
 }
 
 .dashboard-section-link:hover,
 .dashboard-attention-link:hover {
-  gap: 0.5rem;
   color: var(--color-hub-teal);
 }
 
@@ -3565,53 +3563,42 @@ select {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
   gap: 1rem;
-  background: color-mix(in srgb, var(--color-hub-surface) 70%, white);
-  padding: 1.25rem;
+  background: white;
+  padding: 1rem;
 }
 
 .dashboard-course-card {
-  --course-accent: var(--color-hub-teal);
   position: relative;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--course-accent) 16%, var(--color-hub-border));
-  border-radius: 0.875rem;
-  background: linear-gradient(145deg,
-      color-mix(in srgb, var(--course-accent) 6%, white),
-      white 55%);
+  border: 1px solid var(--color-hub-border);
+  border-radius: var(--radius-hub-card);
+  background: white;
   color: var(--color-hub-navy);
   text-align: left;
-  box-shadow: 0 2px 8px rgba(16, 36, 58, 0.04);
   transition:
     border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
+    background-color 180ms ease;
 }
 
 .dashboard-course-card::before {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0.25rem;
-  background: var(--course-accent);
+  background: transparent;
   content: '';
-}
-
-.dashboard-course-card[data-accent='2'] {
-  --course-accent: #3976a8;
-}
-
-.dashboard-course-card[data-accent='3'] {
-  --course-accent: var(--color-hub-navy);
-}
-
-.dashboard-course-card[data-accent='4'] {
-  --course-accent: var(--color-hub-success);
+  transition: background-color 180ms ease;
 }
 
 .dashboard-course-card:hover {
-  border-color: color-mix(in srgb, var(--course-accent) 34%, transparent);
-  box-shadow: 0 12px 26px rgba(16, 36, 58, 0.1);
-  transform: translateY(-0.125rem);
+  border-color: color-mix(in srgb,
+      var(--color-hub-teal) 28%,
+      var(--color-hub-border));
+  background: var(--color-hub-surface);
+}
+
+.dashboard-course-card:hover::before {
+  background: var(--color-hub-teal);
 }
 
 .dashboard-course-card--student {
@@ -3622,7 +3609,7 @@ select {
 }
 
 .dashboard-course-code {
-  color: color-mix(in srgb, var(--course-accent) 86%, var(--color-hub-navy));
+  color: var(--color-hub-teal-dark);
   font-size: 0.6875rem;
   font-weight: 820;
   letter-spacing: 0.07em;
@@ -3653,15 +3640,14 @@ select {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   margin-top: 1.1rem;
+  border-top: 1px solid var(--color-hub-border);
+  padding-top: 0.875rem;
 }
 
 .dashboard-course-signals>span {
   display: grid;
   gap: 0.125rem;
-  border-radius: 0.625rem;
-  background: color-mix(in srgb, var(--course-accent) 6%, white);
   color: var(--color-hub-muted);
-  padding: 0.55rem 0.625rem;
   font-size: 0.6875rem;
   line-height: 1.3;
 }
@@ -3677,7 +3663,7 @@ select {
   gap: 0.375rem;
   margin-top: auto;
   padding-top: 1rem;
-  color: var(--course-accent);
+  color: var(--color-hub-teal-dark);
   font-size: 0.75rem;
   font-weight: 760;
 }
@@ -3692,7 +3678,7 @@ select {
 .dashboard-professor-course-list {
   display: grid;
   gap: 0.75rem;
-  background: color-mix(in srgb, var(--color-hub-surface) 70%, white);
+  background: white;
   padding: 1rem;
 }
 
@@ -3747,14 +3733,13 @@ select {
   --attention-color: var(--color-hub-teal);
   min-width: 0;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--attention-color) 22%, var(--color-hub-border));
-  border-radius: 1rem;
+  border: 1px solid var(--color-hub-border);
+  border-radius: var(--radius-hub-card);
   background: white;
-  box-shadow: 0 10px 26px rgba(16, 36, 58, 0.055);
 }
 
 .dashboard-attention-panel--professor {
-  --attention-color: #a66a16;
+  --attention-color: var(--color-hub-warning);
 }
 
 .dashboard-attention-heading {
@@ -3762,8 +3747,8 @@ select {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--attention-color) 12%, var(--color-hub-border));
-  background: color-mix(in srgb, var(--attention-color) 7%, white);
+  border-bottom: 1px solid var(--color-hub-border);
+  background: var(--color-hub-surface);
   padding: 1rem 1.125rem;
 }
 
@@ -3773,8 +3758,8 @@ select {
   height: 2.25rem;
   place-items: center;
   border-radius: 0.675rem;
-  background: color-mix(in srgb, var(--attention-color) 13%, white);
-  color: color-mix(in srgb, var(--attention-color) 86%, var(--color-hub-navy));
+  background: white;
+  color: var(--attention-color);
 }
 
 .dashboard-attention-heading>div {
@@ -3784,7 +3769,7 @@ select {
 }
 
 .dashboard-attention-heading>div>span {
-  color: color-mix(in srgb, var(--attention-color) 80%, var(--color-hub-navy));
+  color: var(--color-hub-muted);
   font-size: 0.625rem;
   font-weight: 800;
   letter-spacing: 0.065em;
@@ -3804,10 +3789,9 @@ select {
   height: 2rem;
   place-items: center;
   border-radius: 999px;
-  background: white;
+  background: var(--color-hub-progress);
   color: var(--attention-color);
   font-size: 0.8125rem;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--attention-color) 14%, transparent);
 }
 
 .dashboard-attention-list {
@@ -3826,11 +3810,15 @@ select {
   padding: 0.875rem 1.125rem;
   color: var(--color-hub-navy);
   text-align: left;
-  transition: background-color 160ms ease;
+  box-shadow: inset 0.1875rem 0 transparent;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .dashboard-attention-item:hover {
-  background: color-mix(in srgb, var(--attention-color) 5%, white);
+  background: var(--color-hub-surface);
+  box-shadow: inset 0.1875rem 0 var(--color-hub-teal);
 }
 
 .dashboard-attention-item>span {
@@ -3870,7 +3858,7 @@ select {
 .dashboard-attention-link {
   justify-content: flex-end;
   padding: 0.875rem 1.125rem;
-  color: color-mix(in srgb, var(--attention-color) 86%, var(--color-hub-navy));
+  color: var(--color-hub-teal-dark);
 }
 
 .dashboard-student-priority-grid {
@@ -3918,14 +3906,13 @@ select {
   min-width: 0;
   overflow: hidden;
   align-content: start;
-  border: 1px solid color-mix(in srgb, var(--dashboard-tone) 16%, var(--color-hub-border));
-  border-radius: 1rem;
+  border: 1px solid var(--color-hub-border);
+  border-radius: var(--radius-hub-card);
   background: white;
-  box-shadow: 0 3px 12px rgba(16, 36, 58, 0.035);
 }
 
 .dashboard-widget--blue {
-  --dashboard-tone: #3976a8;
+  --dashboard-tone: var(--color-hub-teal);
 }
 
 .dashboard-widget--amber {
@@ -3946,11 +3933,11 @@ select {
 
 .dashboard-widget-heading {
   display: flex;
-  min-height: 4.25rem;
+  min-height: 3.75rem;
   align-items: center;
   justify-content: space-between;
   gap: var(--hub-space-3);
-  border-bottom: 1px solid color-mix(in srgb, var(--dashboard-tone) 10%, var(--color-hub-border));
+  border-bottom: 1px solid var(--color-hub-border);
   background: white;
   padding: 0.875rem 1.125rem;
 }
@@ -3977,9 +3964,8 @@ select {
   height: 2.125rem;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--dashboard-tone) 16%, transparent);
   border-radius: 0.625rem;
-  background: color-mix(in srgb, var(--dashboard-tone) 10%, white);
+  background: var(--color-hub-surface);
   color: var(--dashboard-tone);
 }
 
@@ -3991,8 +3977,8 @@ select {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--dashboard-tone) 9%, white);
-  color: color-mix(in srgb, var(--dashboard-tone) 80%, var(--color-hub-navy));
+  background: var(--color-hub-progress);
+  color: var(--color-hub-muted);
   padding: 0 0.4375rem;
   font-size: 0.6875rem;
   font-weight: 800;
@@ -4003,25 +3989,16 @@ select {
   flex: 0 0 auto;
   align-items: center;
   gap: 0.3125rem;
-  border: 1px solid color-mix(in srgb, var(--dashboard-tone) 16%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--dashboard-tone) 7%, white);
-  color: color-mix(in srgb, var(--dashboard-tone) 88%, var(--color-hub-navy));
-  padding: 0.4375rem 0.6875rem;
+  color: var(--color-hub-teal-dark);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    color 160ms ease;
+  transition: color 160ms ease;
 }
 
 .dashboard-widget-viewall:hover {
-  border-color: color-mix(in srgb, var(--dashboard-tone) 30%, transparent);
-  background: color-mix(in srgb, var(--dashboard-tone) 13%, white);
-  color: var(--dashboard-tone);
+  color: var(--color-hub-teal);
 }
 
 .dashboard-widget-content {
@@ -4051,7 +4028,7 @@ select {
   padding: 0.9375rem 1.125rem;
   text-align: left;
   cursor: pointer;
-  box-shadow: inset 3px 0 0 transparent;
+  box-shadow: inset 0.1875rem 0 transparent;
   transition:
     background-color 160ms ease,
     box-shadow 160ms ease;
@@ -4062,8 +4039,8 @@ select {
 }
 
 .dashboard-list-item:hover {
-  background: var(--dashboard-tone-soft);
-  box-shadow: inset 3px 0 0 var(--dashboard-tone);
+  background: var(--color-hub-surface);
+  box-shadow: inset 0.1875rem 0 var(--color-hub-teal);
 }
 
 .dashboard-list-item>svg {

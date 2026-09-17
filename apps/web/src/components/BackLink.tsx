@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router';
 
 export function BackLink({
@@ -9,7 +10,8 @@ export function BackLink({
 }): React.JSX.Element {
   return (
     <Link className="back-link" to={to}>
-      ← {children}
+      <ArrowLeft aria-hidden="true" size={16} strokeWidth={2} />
+      {children}
     </Link>
   );
 }

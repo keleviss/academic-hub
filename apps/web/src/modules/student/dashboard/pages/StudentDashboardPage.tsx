@@ -82,7 +82,7 @@ export function StudentDashboardPage(): React.JSX.Element {
                   </p>
                 ) : (
                   <div className="dashboard-student-course-grid">
-                    {data.courses.map((course, index) => {
+                    {data.courses.map((course) => {
                       const openQuestionCount =
                         openQuestionsByCourse.get(course.id) ?? 0;
                       const recentNoteCount =
@@ -91,7 +91,6 @@ export function StudentDashboardPage(): React.JSX.Element {
                       return (
                         <button
                           className="dashboard-course-card dashboard-course-card--student"
-                          data-accent={String((index % 4) + 1)}
                           key={course.id}
                           type="button"
                           onClick={() => navigate(`/app/courses/${course.id}`)}

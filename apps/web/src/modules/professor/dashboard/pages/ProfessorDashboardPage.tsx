@@ -75,13 +75,12 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                     </p>
                   ) : (
                     <div className="dashboard-professor-course-list">
-                      {data.courses.map((course, index) => {
+                      {data.courses.map((course) => {
                         const counters = countersByCourse.get(course.id);
 
                         return (
                           <button
                             className="dashboard-course-card dashboard-course-card--professor"
-                            data-accent={String((index % 4) + 1)}
                             key={course.id}
                             type="button"
                             onClick={() =>
@@ -109,7 +108,7 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                               </span>
                             </span>
                             <span className="dashboard-course-action">
-                              Προβολή μαθήματος
+                              Προβολή
                               <ArrowRight aria-hidden="true" size={16} />
                             </span>
                           </button>
