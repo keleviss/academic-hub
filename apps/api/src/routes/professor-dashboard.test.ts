@@ -83,6 +83,29 @@ const threads: ThreadFixture[] = [
   },
 ];
 
+const enrollments: { courseId: string; status: 'active' | 'inactive' }[] = [
+  { courseId: courseAId, status: 'active' },
+  { courseId: courseAId, status: 'active' },
+  { courseId: courseAId, status: 'active' },
+  { courseId: courseBId, status: 'active' },
+  { courseId: courseBId, status: 'active' },
+];
+
+const roadmapNodesFixture: {
+  courseId: string;
+  progress: { status: string }[];
+}[] = [
+  {
+    courseId: courseAId,
+    progress: [
+      { status: 'completed' },
+      { status: 'completed' },
+      { status: 'not_started' },
+    ],
+  },
+  { courseId: courseBId, progress: [{ status: 'completed' }] },
+];
+
 function threadRecord(thread: ThreadFixture) {
   const course = thread.courseId === courseAId ? courseA : courseB;
   return {
@@ -239,15 +262,18 @@ function createTestApp(annotationFixtures: AnnotationFixture[] = []) {
         by: string[];
         where: {
           courseId: { in: string[] };
-          status?: string;
+          status?: string | { not: string };
           updatedAt?: { gte: Date };
         };
       }) => {
         const filtered = threads
           .filter((thread) => where.courseId.in.includes(thread.courseId))
-          .filter(
-            (thread) => where.status === undefined || thread.status === where.status,
-          )
+          .filter((thread) => {
+            if (where.status === undefined) return true;
+            if (typeof where.status === 'string')
+              return thread.status === where.status;
+            return thread.status !== where.status.not;
+          })
           .filter(
             (thread) =>
               where.updatedAt === undefined ||
@@ -275,6 +301,36 @@ function createTestApp(annotationFixtures: AnnotationFixture[] = []) {
           _count: { _all: count },
         }));
       },
+    ),
+  };
+
+  const enrollment = {
+    groupBy: vi.fn(
+      async ({
+        where,
+      }: {
+        where: { courseId: { in: string[] }; status: string };
+      }) => {
+        const groups = new Map<string, number>();
+        for (const item of enrollments) {
+          if (!where.courseId.in.includes(item.courseId)) continue;
+          if (item.status !== where.status) continue;
+          groups.set(item.courseId, (groups.get(item.courseId) ?? 0) + 1);
+        }
+        return [...groups.entries()].map(([groupCourseId, count]) => ({
+          courseId: groupCourseId,
+          _count: { _all: count },
+        }));
+      },
+    ),
+  };
+
+  const roadmapNode = {
+    findMany: vi.fn(
+      async ({ where }: { where: { courseId: { in: string[] } } }) =>
+        roadmapNodesFixture.filter((node) =>
+          where.courseId.in.includes(node.courseId),
+        ),
     ),
   };
 
@@ -306,10 +362,18 @@ function createTestApp(annotationFixtures: AnnotationFixture[] = []) {
       course,
       courseInstructor,
       document,
+      enrollment,
       forumThread,
+      roadmapNode,
     } as unknown as Pick<
       PrismaClient,
-      'annotation' | 'course' | 'courseInstructor' | 'document' | 'forumThread'
+      | 'annotation'
+      | 'course'
+      | 'courseInstructor'
+      | 'document'
+      | 'enrollment'
+      | 'forumThread'
+      | 'roadmapNode'
     >,
   });
 
@@ -568,6 +632,41 @@ describe('professor dashboard route', () => {
         highVolumeDocumentId,
         lowVolumeDocumentId,
       ]);
+    });
+  });
+
+  describe('course analytics widget', () => {
+    it('aggregates question/answer counts and average roadmap progress per course', async () => {
+      const { app } = createTestApp();
+
+      const response = await request(app)
+        .get('/api/professor/dashboard')
+        .set('Cookie', authCookie())
+        .expect(200);
+
+      const body = ProfessorDashboardResponseSchema.parse(response.body);
+
+      // Course A: 3 active students, 1 roadmap node with 2/3 completions,
+      // and 2 non-archived threads (1 open, 1 instructor_answered).
+      expect(
+        body.data.courseAnalytics.find((row) => row.courseId === courseAId),
+      ).toMatchObject({
+        questionCount: 2,
+        answeredCount: 1,
+        studentCount: 3,
+        averageProgressPercentage: 67,
+      });
+
+      // Course B: 2 active students, 1 roadmap node with 1/2 completions,
+      // and 2 non-archived (verified) threads.
+      expect(
+        body.data.courseAnalytics.find((row) => row.courseId === courseBId),
+      ).toMatchObject({
+        questionCount: 2,
+        answeredCount: 2,
+        studentCount: 2,
+        averageProgressPercentage: 50,
+      });
     });
   });
 });

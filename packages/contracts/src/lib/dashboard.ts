@@ -75,12 +75,23 @@ export const ProfessorDashboardConfusionPointSchema = z.object({
   lastSignalAt: z.iso.datetime(),
 });
 
+export const ProfessorCourseAnalyticsSchema = z.object({
+  courseId: z.uuid(),
+  courseCode: CourseCodeSchema,
+  courseTitle: z.string().min(1),
+  questionCount: z.number().int().nonnegative(),
+  answeredCount: z.number().int().nonnegative(),
+  studentCount: z.number().int().nonnegative(),
+  averageProgressPercentage: z.number().min(0).max(100),
+});
+
 export const ProfessorDashboardSchema = z.object({
   courses: z.array(ProfessorCourseListItemSchema),
   unansweredThreads: z.array(DashboardForumThreadItemSchema),
   openThreads: z.array(DashboardForumThreadItemSchema),
   confusionPoints: z.array(ProfessorDashboardConfusionPointSchema),
   perCourseCounters: z.array(ProfessorDashboardCourseCountersSchema),
+  courseAnalytics: z.array(ProfessorCourseAnalyticsSchema),
 });
 
 export const ProfessorDashboardResponseSchema = z.object({
@@ -111,6 +122,9 @@ export type ProfessorDashboardCourseCounters = z.infer<
 >;
 export type ProfessorDashboardConfusionPoint = z.infer<
   typeof ProfessorDashboardConfusionPointSchema
+>;
+export type ProfessorCourseAnalytics = z.infer<
+  typeof ProfessorCourseAnalyticsSchema
 >;
 export type ProfessorDashboard = z.infer<typeof ProfessorDashboardSchema>;
 export type ProfessorDashboardResponse = z.infer<

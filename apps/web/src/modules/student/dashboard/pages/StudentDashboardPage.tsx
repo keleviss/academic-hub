@@ -99,12 +99,6 @@ export function StudentDashboardPage(): React.JSX.Element {
                             {course.code}
                           </span>
                           <strong>{course.title}</strong>
-                          <span className="dashboard-course-meta">
-                            {course.semester} · {course.counts.documentCount}{' '}
-                            {course.counts.documentCount === 1
-                              ? 'έγγραφο'
-                              : 'έγγραφα'}
-                          </span>
                           <div className="dashboard-course-roadmap-progress">
                             {course.roadmap.totalNodeCount === 0 ? (
                               <span className="dashboard-course-roadmap-empty">
@@ -113,7 +107,7 @@ export function StudentDashboardPage(): React.JSX.Element {
                             ) : (
                               <>
                                 <div className="dashboard-course-roadmap-heading">
-                                  <span>Πρόοδος χάρτη</span>
+                                  <span>Πρόοδος ύλης</span>
                                   <b>
                                     {course.roadmap.completedNodeCount} /{' '}
                                     {course.roadmap.totalNodeCount}
@@ -155,10 +149,10 @@ export function StudentDashboardPage(): React.JSX.Element {
                               <b>{recentNoteCount}</b> πρόσφατες σημειώσεις
                             </span>
                           </span>
-                          <span className="dashboard-course-action">
+                          {/* <span className="dashboard-course-action">
                             Άνοιγμα μαθήματος
                             <ArrowRight aria-hidden="true" size={16} />
-                          </span>
+                          </span> */}
                         </button>
                       );
                     })}

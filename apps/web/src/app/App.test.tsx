@@ -48,6 +48,7 @@ const emptyProfessorDashboard = {
     openThreads: [],
     confusionPoints: [],
     perCourseCounters: [],
+    courseAnalytics: [],
   },
 };
 
