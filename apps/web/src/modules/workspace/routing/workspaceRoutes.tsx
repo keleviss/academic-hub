@@ -4,9 +4,14 @@ import { roleLabels } from '../../../auth/session';
 import { ProfessorAnalyticsPage } from '../../professor/analytics/pages/ProfessorAnalyticsPage';
 import { ProfessorCoursesPage } from '../../professor/courses/pages/ProfessorCoursesPage';
 import { ProfessorDashboardPage } from '../../professor/dashboard/pages/ProfessorDashboardPage';
+import { StudentActivityPage } from '../../student/activity/pages/StudentActivityPage';
 import { StudentCoursesPage } from '../../student/courses/pages/StudentCoursesPage';
 import { StudentDashboardPage } from '../../student/dashboard/pages/StudentDashboardPage';
 import { AdminCoursesPage } from '../../admin/courses/pages/AdminCoursesPage';
+import { AccountProfilePage } from '../account/pages/AccountProfilePage';
+import { AccountSettingsPage } from '../account/pages/AccountSettingsPage';
+import { CalendarPage } from '../calendar/pages/CalendarPage';
+import { NotesPage } from '../notes/pages/NotesPage';
 
 export type WorkspaceNavIcon =
   | 'activity'
@@ -76,25 +81,6 @@ function AdminWorkspaceHome(): React.JSX.Element {
   );
 }
 
-function AccountPanel({
-  title,
-  body,
-  items,
-}: {
-  title: string;
-  body: string;
-  items: string[];
-}): React.JSX.Element {
-  return (
-    <WorkspacePanel
-      eyebrow="Λογαριασμός"
-      title={title}
-      body={body}
-      items={items}
-    />
-  );
-}
-
 const studentRoutes: WorkspaceRoute[] = [
   {
     path: '',
@@ -118,18 +104,7 @@ const studentRoutes: WorkspaceRoute[] = [
     label: 'Δραστηριότητα',
     icon: 'activity',
     keywords: ['study', 'notes', 'questions', 'highlights'],
-    element: (
-      <WorkspacePanel
-        eyebrow="Φοιτητής"
-        title="Πρόσφατη μελέτη"
-        body="Συγκεντρώνει highlights, notes, unresolved questions και πρόσφατες verified απαντήσεις."
-        items={[
-          'Προσωπικές σημειώσεις',
-          'Ανοιχτές απορίες',
-          'Έννοιες που χρειάζονται επανάληψη',
-        ]}
-      />
-    ),
+    element: <StudentActivityPage />,
     nav: true,
   },
 ];
@@ -220,18 +195,7 @@ const commonToolRoutes: WorkspaceRoute[] = [
     label: 'Ημερολόγιο',
     icon: 'calendar',
     keywords: ['calendar', 'deadlines', 'events'],
-    element: (
-      <WorkspacePanel
-        eyebrow="Workspace"
-        title="Ημερολόγιο"
-        body="Προσωρινή protected σελίδα για προθεσμίες, συναντήσεις και μελλοντικό study planning."
-        items={[
-          'Ακαδημαϊκές προθεσμίες',
-          'Προγραμματισμένες παρεμβάσεις',
-          'Μελλοντική σύνδεση με study plan',
-        ]}
-      />
-    ),
+    element: <CalendarPage />,
     nav: true,
   },
   {
@@ -239,18 +203,7 @@ const commonToolRoutes: WorkspaceRoute[] = [
     label: 'Σημειώσεις',
     icon: 'notes',
     keywords: ['notes', 'annotations', 'highlights'],
-    element: (
-      <WorkspacePanel
-        eyebrow="Workspace"
-        title="Σημειώσεις"
-        body="Προσωρινή protected σελίδα για προσωπικά notes, highlights και anchored annotations."
-        items={[
-          'Προσωπικές σημειώσεις',
-          'Highlights πάνω στο υλικό',
-          'Σύνδεση με έννοιες και απορίες',
-        ]}
-      />
-    ),
+    element: <NotesPage />,
     nav: true,
   },
 ];
@@ -261,17 +214,7 @@ const commonAccountRoutes: WorkspaceRoute[] = [
     label: 'Προφίλ',
     icon: 'users',
     keywords: ['account', 'profile', 'λογαριασμός'],
-    element: (
-      <AccountPanel
-        title="Προφίλ χρήστη"
-        body="Προσωρινή protected σελίδα για τα βασικά στοιχεία του συνδεδεμένου χρήστη."
-        items={[
-          'Ονοματεπώνυμο και ακαδημαϊκό email',
-          'Ρόλος πρόσβασης στο workspace',
-          'Μελλοντικές προσωπικές προτιμήσεις',
-        ]}
-      />
-    ),
+    element: <AccountProfilePage />,
     nav: false,
   },
   {
@@ -279,17 +222,7 @@ const commonAccountRoutes: WorkspaceRoute[] = [
     label: 'Ρυθμίσεις',
     icon: 'settings',
     keywords: ['settings', 'preferences', 'ρυθμίσεις'],
-    element: (
-      <AccountPanel
-        title="Ρυθμίσεις λογαριασμού"
-        body="Προσωρινή protected σελίδα για μελλοντικές ρυθμίσεις ειδοποιήσεων, γλώσσας και προσβασιμότητας."
-        items={[
-          'Προτιμήσεις ειδοποιήσεων',
-          'Γλώσσα και εμφάνιση',
-          'Ρυθμίσεις ιδιωτικότητας μαθησιακών δεδομένων',
-        ]}
-      />
-    ),
+    element: <AccountSettingsPage />,
     nav: false,
   },
 ];

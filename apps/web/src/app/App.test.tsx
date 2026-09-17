@@ -412,14 +412,16 @@ describe('session, routing and role workspaces', () => {
   });
 
   it.each([
-    ['/app/profile', 'Προφίλ χρήστη'],
-    ['/app/settings', 'Ρυθμίσεις λογαριασμού'],
+    ['/app/profile', 'Προφίλ'],
+    ['/app/settings', 'Ρυθμίσεις'],
   ])('renders common account route %s', async (path, heading) => {
     vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('admin'));
 
     renderApp(path);
 
-    expect(await screen.findByText(heading)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: heading }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent(path);
   });
 

@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { ArrowUpRight, ChevronRight } from 'lucide-react';
 import type {
+  DashboardAnnotationItem,
   DashboardForumThreadItem,
   ProfessorDashboardConfusionPoint,
 } from '@web-app/contracts';
@@ -75,6 +76,26 @@ export function DashboardThreadButton({
         <span>
           {thread.courseCode} · {forumThreadStatusLabels[thread.status]} ·{' '}
           {formatRelativeDateTime(thread.updatedAt)}
+        </span>
+      </span>
+      <ChevronRight aria-hidden="true" size={17} />
+    </button>
+  );
+}
+
+export function DashboardNoteButton({
+  note,
+  onOpen,
+}: {
+  note: DashboardAnnotationItem;
+  onOpen: () => void;
+}): React.JSX.Element {
+  return (
+    <button className="dashboard-list-item" type="button" onClick={onOpen}>
+      <span className="dashboard-list-item-copy">
+        <strong>{note.body ?? 'Χωρίς κείμενο'}</strong>
+        <span>
+          {note.courseCode} · Σελίδα {note.target.pageNumber}
         </span>
       </span>
       <ChevronRight aria-hidden="true" size={17} />

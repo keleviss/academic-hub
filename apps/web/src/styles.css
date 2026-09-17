@@ -5146,3 +5146,57 @@ select {
     justify-content: flex-start;
   }
 }
+
+.profile-summary {
+  max-width: 32rem;
+}
+
+.profile-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.profile-header-row strong {
+  display: block;
+  color: var(--color-hub-navy);
+  font-size: 0.9375rem;
+}
+
+.profile-header-row span {
+  color: var(--color-hub-muted);
+  font-size: 0.8125rem;
+}
+
+.profile-settings-note {
+  margin: 0;
+  color: var(--color-hub-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.calendar-timeline {
+  display: grid;
+  gap: var(--hub-space-4);
+}
+
+.calendar-timeline-group {
+  display: grid;
+  gap: var(--hub-space-2);
+}
+
+.calendar-timeline-group h3 {
+  margin: 0;
+  color: var(--color-hub-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.calendar-timeline-items {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-hub-border);
+  border-radius: var(--radius-hub-card);
+}

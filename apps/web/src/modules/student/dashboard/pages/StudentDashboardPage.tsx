@@ -16,6 +16,7 @@ import {
   studentDashboardQueryKey,
 } from '../../../../api/client';
 import {
+  DashboardNoteButton,
   DashboardThreadButton,
   DashboardWidget,
 } from '../../../../components/DashboardWidget';
@@ -207,7 +208,7 @@ export function StudentDashboardPage(): React.JSX.Element {
                     </div>
                   )}
 
-                  <Link className="dashboard-attention-link" to="/app/courses">
+                  <Link className="dashboard-attention-link" to="/app/activity">
                     Όλες οι απορίες
                     <ArrowRight aria-hidden="true" size={15} />
                   </Link>
@@ -215,7 +216,7 @@ export function StudentDashboardPage(): React.JSX.Element {
 
                 <DashboardWidget
                   title="Πρόσφατες σημειώσεις"
-                  viewAllHref="/app/courses"
+                  viewAllHref="/app/notes"
                   icon={<StickyNote size={18} />}
                   count={data.recentNotes.length}
                   tone="blue"
@@ -223,24 +224,15 @@ export function StudentDashboardPage(): React.JSX.Element {
                   emptyMessage="Δεν υπάρχουν πρόσφατες σημειώσεις."
                 >
                   {data.recentNotes.slice(0, 3).map((note) => (
-                    <button
-                      className="dashboard-list-item"
+                    <DashboardNoteButton
                       key={note.id}
-                      type="button"
-                      onClick={() =>
+                      note={note}
+                      onOpen={() =>
                         navigate(
                           `/app/courses/${note.courseId}/documents/${note.documentId}`,
                         )
                       }
-                    >
-                      <span className="dashboard-list-item-copy">
-                        <strong>{note.body ?? 'Χωρίς κείμενο'}</strong>
-                        <span>
-                          {note.courseCode} · Σελίδα {note.target.pageNumber}
-                        </span>
-                      </span>
-                      <ChevronRight aria-hidden="true" size={17} />
-                    </button>
+                    />
                   ))}
                 </DashboardWidget>
               </div>
@@ -248,7 +240,7 @@ export function StudentDashboardPage(): React.JSX.Element {
               {data.verifiedAnswers.length === 0 ? null : (
                 <DashboardWidget
                   title="Πρόσφατες επίσημες απαντήσεις"
-                  viewAllHref="/app/courses"
+                  viewAllHref="/app/activity"
                   icon={<BadgeCheck size={18} />}
                   count={data.verifiedAnswers.length}
                   tone="green"
@@ -268,7 +260,7 @@ export function StudentDashboardPage(): React.JSX.Element {
 
               <DashboardWidget
                 title="Συζητήσεις με νέα δραστηριότητα"
-                viewAllHref="/app/courses"
+                viewAllHref="/app/activity"
                 icon={<MessagesSquare size={18} />}
                 count={data.activeDiscussions.length}
                 tone="blue"
