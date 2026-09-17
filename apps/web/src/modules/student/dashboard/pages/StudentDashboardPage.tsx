@@ -186,6 +186,10 @@ export function StudentDashboardPage(): React.JSX.Element {
                       <h2>Ανοιχτές απορίες</h2>
                     </div>
                     <strong>{data.openQuestions.length}</strong>
+                    <Link className="dashboard-widget-viewall" to="/app/activity">
+                      Όλες οι απορίες
+                      <ArrowRight aria-hidden="true" size={15} />
+                    </Link>
                   </div>
 
                   {data.openQuestions.length === 0 ? (
@@ -214,11 +218,6 @@ export function StudentDashboardPage(): React.JSX.Element {
                       ))}
                     </div>
                   )}
-
-                  <Link className="dashboard-attention-link" to="/app/activity">
-                    Όλες οι απορίες
-                    <ArrowRight aria-hidden="true" size={15} />
-                  </Link>
                 </section>
 
                 <DashboardWidget

@@ -132,11 +132,14 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                     >
                       <MessageCircleWarning size={19} />
                     </span>
-                    <div>
-                      <span>Προτεραιότητα</span>
-                      <h2>Χρειάζονται απάντηση</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className='whitespace-nowrap'>Χρειάζονται απάντηση</h2>
+                      <strong className="count">{data.unansweredThreads.length}</strong>
                     </div>
-                    <strong>{data.unansweredThreads.length}</strong>
+                    <Link className="dashboard-widget-viewall" to="/app/courses">
+                      Προβολή όλων
+                      <ArrowRight aria-hidden="true" size={15} />
+                    </Link>
                   </div>
 
                   {data.unansweredThreads.length === 0 ? (
@@ -164,11 +167,6 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                       ))}
                     </div>
                   )}
-
-                  <Link className="dashboard-attention-link" to="/app/courses">
-                    Προβολή όλων
-                    <ArrowRight aria-hidden="true" size={15} />
-                  </Link>
                 </section>
               </div>
 
