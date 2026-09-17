@@ -4,7 +4,6 @@ import {
   ArrowRight,
   BadgeCheck,
   BookOpen,
-  CheckCircle2,
   ChevronRight,
   CircleHelp,
   MessagesSquare,
@@ -24,6 +23,7 @@ import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
 import { formatRelativeDateTime } from '../../../../lib/format-relative-time';
 import { forumThreadStatusLabels } from '../../../../lib/forum-thread-status';
+import { StudentRoadmapContinueCard } from '../components/StudentRoadmapContinueCard';
 
 function countItemsByCourse(
   items: ReadonlyArray<{ courseId: string }>,
@@ -105,6 +105,48 @@ export function StudentDashboardPage(): React.JSX.Element {
                               ? 'έγγραφο'
                               : 'έγγραφα'}
                           </span>
+                          <div className="dashboard-course-roadmap-progress">
+                            {course.roadmap.totalNodeCount === 0 ? (
+                              <span className="dashboard-course-roadmap-empty">
+                                Δεν έχει δημοσιευτεί χάρτης ύλης
+                              </span>
+                            ) : (
+                              <>
+                                <div className="dashboard-course-roadmap-heading">
+                                  <span>Πρόοδος χάρτη</span>
+                                  <b>
+                                    {course.roadmap.completedNodeCount} /{' '}
+                                    {course.roadmap.totalNodeCount}
+                                  </b>
+                                </div>
+                                <div
+                                  aria-label={`Πρόοδος χάρτη ${course.roadmap.completionPercentage}%`}
+                                  aria-valuemax={100}
+                                  aria-valuemin={0}
+                                  aria-valuenow={
+                                    course.roadmap.completionPercentage
+                                  }
+                                  className="dashboard-course-roadmap-track"
+                                  role="progressbar"
+                                >
+                                  <span
+                                    style={{
+                                      width: `${course.roadmap.completionPercentage}%`,
+                                    }}
+                                  />
+                                </div>
+                                {course.roadmap.needsReviewCount > 0 && (
+                                  <small>
+                                    {course.roadmap.needsReviewCount}{' '}
+                                    {course.roadmap.needsReviewCount === 1
+                                      ? 'ενότητα χρειάζεται'
+                                      : 'ενότητες χρειάζονται'}{' '}
+                                    επανάληψη
+                                  </small>
+                                )}
+                              </>
+                            )}
+                          </div>
                           <span className="dashboard-course-signals">
                             <span>
                               <b>{openQuestionCount}</b> ανοιχτές απορίες
@@ -123,6 +165,10 @@ export function StudentDashboardPage(): React.JSX.Element {
                   </div>
                 )}
               </section>
+
+              {data.continueLearning && (
+                <StudentRoadmapContinueCard node={data.continueLearning} />
+              )}
 
               <div className="dashboard-student-priority-grid">
                 <section className="dashboard-attention-panel">
@@ -205,12 +251,7 @@ export function StudentDashboardPage(): React.JSX.Element {
                 </DashboardWidget>
               </div>
 
-              {data.verifiedAnswers.length === 0 ? (
-                <div className="dashboard-info-strip">
-                  <CheckCircle2 aria-hidden="true" size={19} />
-                  <span>Δεν έχεις νέες επίσημες απαντήσεις.</span>
-                </div>
-              ) : (
+              {data.verifiedAnswers.length === 0 ? null : (
                 <DashboardWidget
                   title="Πρόσφατες επίσημες απαντήσεις"
                   viewAllHref="/app/courses"

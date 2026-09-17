@@ -9,6 +9,7 @@ import {
   deleteRoadmapNode,
   fetchCourseRoadmap,
   roadmapQueryKey,
+  studentDashboardQueryKey,
   updateRoadmapNode,
   updateRoadmapProgress,
 } from '../../../../api/client';
@@ -55,7 +56,7 @@ export function useCourseRoadmap(courseId: string) {
       nodeId: string;
       input: UpdateRoadmapProgressRequest;
     }) => updateRoadmapProgress(courseId, nodeId, input),
-    invalidateKeys: [queryKey],
+    invalidateKeys: [queryKey, studentDashboardQueryKey()],
     successMessage: (_data, variables) =>
       variables.input.status === 'completed'
         ? 'Η ενότητα ολοκληρώθηκε.'
