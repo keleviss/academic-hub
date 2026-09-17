@@ -2001,22 +2001,41 @@ select {
 }
 
 .course-card {
+  position: relative;
   display: grid;
+  overflow: hidden;
   gap: 0.5rem;
   background: white;
   border: 1px solid var(--color-hub-border);
   border-radius: var(--radius-hub-card);
-  padding: var(--hub-space-4);
+  padding: var(--hub-space-4) var(--hub-space-4) var(--hub-space-4) 1.75rem;
   color: inherit;
   text-decoration: none;
   transition:
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.course-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0.25rem;
+  background: transparent;
+  content: '';
+  transition: background-color 180ms ease;
 }
 
 .course-card:hover {
-  border-color: var(--color-hub-teal);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-color: color-mix(
+    in srgb,
+    var(--color-hub-teal) 28%,
+    var(--color-hub-border)
+  );
+  background: var(--color-hub-surface);
+}
+
+.course-card:hover::before {
+  background: var(--color-hub-teal);
 }
 
 .course-card-top {
@@ -2064,20 +2083,53 @@ select {
 
 .course-list-rows {
   display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-hub-border);
+  border-radius: var(--radius-hub-card);
+  background: white;
 }
 
 .course-list-row {
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
-  gap: 1rem;
-  border-top: 1px solid var(--color-hub-border);
-  padding: var(--hub-space-3) 0;
+  gap: 1.25rem;
+  padding: var(--hub-space-3) var(--hub-space-4) var(--hub-space-3) 1.5rem;
   color: inherit;
   text-decoration: none;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.course-list-row:not(:first-child) {
+  border-top: 1px solid var(--color-hub-border);
+}
+
+.course-list-row:hover {
+  background: var(--color-hub-surface);
+  box-shadow: inset 0.1875rem 0 var(--color-hub-teal);
+}
+
+.course-list-row > .status-badge,
+.course-list-row > .course-card-counts {
+  justify-self: end;
+}
+
+.course-list-row > svg {
+  color: var(--color-hub-muted);
+  transition:
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.course-list-row:hover > svg {
+  color: var(--color-hub-teal);
+  transform: translateX(0.125rem);
 }
 
 .course-list-row strong {
-  flex: 1;
   min-width: 0;
   color: var(--color-hub-navy);
   font-size: 0.9375rem;
@@ -3682,7 +3734,28 @@ select {
   }
 
   .course-list-row {
-    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'title chevron'
+      'badge counts';
+    row-gap: 0.5rem;
+  }
+
+  .course-list-row > :first-child {
+    grid-area: title;
+  }
+
+  .course-list-row > .status-badge {
+    grid-area: badge;
+    justify-self: start;
+  }
+
+  .course-list-row > .course-card-counts {
+    grid-area: counts;
+  }
+
+  .course-list-row > svg {
+    grid-area: chevron;
   }
 
   .course-results .course-filter-row,
@@ -3693,10 +3766,6 @@ select {
 
   .annotation-form-grid {
     grid-template-columns: 1fr;
-  }
-
-  .course-list-row strong {
-    flex-basis: 100%;
   }
 }
 
@@ -4163,9 +4232,16 @@ select {
 
 .dashboard-course-card--student {
   display: flex;
-  min-height: 16.25rem;
+  min-height: 14rem;
   flex-direction: column;
   padding: 1.125rem 1.125rem 1rem 1.375rem;
+}
+
+.dashboard-course-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .dashboard-course-code {
@@ -4174,6 +4250,22 @@ select {
   font-weight: 820;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.dashboard-course-new-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-hub-warning) 14%, white);
+  color: var(--color-hub-warning);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .dashboard-course-card > strong,
@@ -4245,9 +4337,9 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
-  margin-top: 1.1rem;
-  border-top: 1px solid var(--color-hub-border);
+  margin-top: auto;
   padding-top: 0.875rem;
+  border-top: 1px solid var(--color-hub-border);
 }
 
 .dashboard-course-signals > span {
@@ -4486,11 +4578,14 @@ select {
 
 .dashboard-attention-list {
   display: grid;
+  min-height: 16.5rem;
+  align-content: start;
 }
 
 .dashboard-attention-item {
   display: grid;
   width: 100%;
+  min-height: 5.5rem;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
@@ -4693,7 +4788,10 @@ select {
 }
 
 .dashboard-widget-content {
+  display: grid;
   min-width: 0;
+  min-height: 16.5rem;
+  align-content: start;
   overflow-x: auto;
 }
 
@@ -4709,6 +4807,7 @@ select {
   display: grid;
   width: 100%;
   min-width: 0;
+  min-height: 5.5rem;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--hub-space-3);

@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CircleHelp,
   MessagesSquare,
+  Sparkles,
   StickyNote,
 } from 'lucide-react';
 import type { DashboardForumThreadItem } from '@web-app/contracts';
@@ -96,9 +97,20 @@ export function StudentDashboardPage(): React.JSX.Element {
                           type="button"
                           onClick={() => navigate(`/app/courses/${course.id}`)}
                         >
-                          <span className="dashboard-course-code">
-                            {course.code}
-                          </span>
+                          <div className="dashboard-course-card-top">
+                            <span className="dashboard-course-code">
+                              {course.code}
+                            </span>
+                            {course.hasRecentMaterial && (
+                              <span
+                                className="dashboard-course-new-badge"
+                                title="Νέο υλικό τις τελευταίες ημέρες"
+                              >
+                                <Sparkles aria-hidden="true" size={11} />
+                                Νέο υλικό
+                              </span>
+                            )}
+                          </div>
                           <strong>{course.title}</strong>
                           <div className="dashboard-course-roadmap-progress">
                             {course.roadmap.totalNodeCount === 0 ? (
@@ -150,10 +162,6 @@ export function StudentDashboardPage(): React.JSX.Element {
                               <b>{recentNoteCount}</b> πρόσφατες σημειώσεις
                             </span>
                           </span>
-                          {/* <span className="dashboard-course-action">
-                            Άνοιγμα μαθήματος
-                            <ArrowRight aria-hidden="true" size={16} />
-                          </span> */}
                         </button>
                       );
                     })}
@@ -175,7 +183,6 @@ export function StudentDashboardPage(): React.JSX.Element {
                       <CircleHelp size={19} />
                     </span>
                     <div>
-                      <span>Χρειάζονται την προσοχή σου</span>
                       <h2>Ανοιχτές απορίες</h2>
                     </div>
                     <strong>{data.openQuestions.length}</strong>
@@ -187,7 +194,7 @@ export function StudentDashboardPage(): React.JSX.Element {
                     </p>
                   ) : (
                     <div className="dashboard-attention-list">
-                      {data.openQuestions.slice(0, 4).map((thread) => (
+                      {data.openQuestions.slice(0, 3).map((thread) => (
                         <button
                           className="dashboard-attention-item"
                           key={thread.id}

@@ -29,6 +29,7 @@ export const StudentDashboardRoadmapSummarySchema = z.object({
 
 export const StudentDashboardCourseSchema = StudentCourseListItemSchema.extend({
   roadmap: StudentDashboardRoadmapSummarySchema,
+  hasRecentMaterial: z.boolean(),
 });
 
 export const StudentDashboardContinueNodeSchema = z.object({

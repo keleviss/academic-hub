@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { ChevronRight } from 'lucide-react';
 import type { StudentCourseListItem } from '@web-app/contracts';
 
 import { fetchStudentCourses } from '../../../../api/client';
 import { CourseResultsPanel } from '../../../../components/CourseResultsPanel';
 import { EmptyState } from '../../../../components/EmptyState';
 import { QueryState } from '../../../../components/QueryState';
+import { StatusBadge } from '../../../../components/StatusBadge';
 import { useUrlFilters } from '../../../../hooks/useUrlFilters';
 import { getAcademicYearLabel } from '../../../../lib/academic-year';
 import { normalizeSearch } from '../../../../lib/normalize-search';
@@ -26,6 +28,18 @@ function PrimaryInstructor({
   );
 }
 
+function CourseCounts({
+  course,
+}: {
+  course: StudentCourseListItem;
+}): React.JSX.Element {
+  return (
+    <span className="course-card-counts">
+      <span>{course.counts.documentCount} έγγραφα</span>
+    </span>
+  );
+}
+
 function CourseCard({
   course,
 }: {
@@ -33,13 +47,22 @@ function CourseCard({
 }): React.JSX.Element {
   return (
     <Link className="course-card" to={`/app/courses/${course.id}`}>
-      <h2>{course.title}</h2>
-      <PrimaryInstructor course={course} />
       <div className="course-card-top">
         <span className="course-card-code">
           {course.code} · {course.semester}ο εξάμηνο
         </span>
+        <StatusBadge
+          active={course.isActive}
+          activeLabel="Ενεργό"
+          inactiveLabel="Ανενεργό"
+        />
       </div>
+      <h2>{course.title}</h2>
+      <PrimaryInstructor course={course} />
+      {course.description && (
+        <p className="course-card-description">{course.description}</p>
+      )}
+      <CourseCounts course={course} />
     </Link>
   );
 }
@@ -50,19 +73,24 @@ function CourseListRow({
   course: StudentCourseListItem;
 }): React.JSX.Element {
   return (
-    <div className="course-list-row justify-between">
+    <Link className="course-list-row" to={`/app/courses/${course.id}`}>
       <div className="flex flex-col gap-1">
         <div className="flex items-baseline gap-1">
-          <Link to={`/app/courses/${course.id}`} className="hover:underline">
-            <strong>{course.title}</strong>
-          </Link>
+          <strong>{course.title}</strong>
           <span className="course-card-code">
             · {course.code} · {course.semester}ο εξάμηνο
           </span>
         </div>
         <PrimaryInstructor course={course} />
       </div>
-    </div>
+      <StatusBadge
+        active={course.isActive}
+        activeLabel="Ενεργό"
+        inactiveLabel="Ανενεργό"
+      />
+      <CourseCounts course={course} />
+      <ChevronRight aria-hidden="true" size={17} />
+    </Link>
   );
 }
 

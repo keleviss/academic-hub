@@ -145,7 +145,7 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                     </p>
                   ) : (
                     <div className="dashboard-attention-list">
-                      {data.unansweredThreads.slice(0, 4).map((thread) => (
+                      {data.unansweredThreads.slice(0, 3).map((thread) => (
                         <button
                           className="dashboard-attention-item"
                           key={thread.id}
@@ -200,7 +200,7 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                   isEmpty={data.confusionPoints.length === 0}
                   emptyMessage="Δεν εντοπίστηκαν σημεία σύγχυσης τις τελευταίες 14 ημέρες."
                 >
-                  {data.confusionPoints.slice(0, 2).map((point) => (
+                  {data.confusionPoints.slice(0, 3).map((point) => (
                     <DashboardConfusionPointButton
                       key={point.documentId}
                       point={point}

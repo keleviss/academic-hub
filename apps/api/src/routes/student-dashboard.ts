@@ -47,6 +47,7 @@ export interface StudentDashboardRouteOptions {
 }
 
 const DASHBOARD_ITEM_LIMIT = 5;
+const RECENT_MATERIAL_WINDOW_DAYS = 3;
 
 interface CourseRecord {
   code: string;
@@ -153,15 +154,20 @@ export function createStudentDashboardRouter(
       ] = await Promise.all([
         Promise.all(
           enrollments.slice(0, DASHBOARD_ITEM_LIMIT).map(async (enrollment) => {
-            const [documentCount, primaryInstructorName] = await Promise.all([
-              visibleDocumentCountFor(prisma, enrollment.courseId),
-              primaryInstructorNameFor(prisma, enrollment.courseId),
-            ]);
-            return toStudentCourseListItem(
-              enrollment.course as CourseRecord,
-              documentCount,
-              primaryInstructorName,
-            );
+            const [documentCount, primaryInstructorName, hasRecentMaterial] =
+              await Promise.all([
+                visibleDocumentCountFor(prisma, enrollment.courseId),
+                primaryInstructorNameFor(prisma, enrollment.courseId),
+                hasRecentMaterialFor(prisma, enrollment.courseId),
+              ]);
+            return {
+              ...toStudentCourseListItem(
+                enrollment.course as CourseRecord,
+                documentCount,
+                primaryInstructorName,
+              ),
+              hasRecentMaterial,
+            };
           }),
         ),
         prisma.roadmapNode.findMany({
@@ -346,6 +352,24 @@ async function visibleDocumentCountFor(
   return prisma.document.count({
     where: { courseId, status: 'active', visibility: 'visible_to_students' },
   });
+}
+
+async function hasRecentMaterialFor(
+  prisma: StudentDashboardPrismaClient,
+  courseId: string,
+): Promise<boolean> {
+  const since = new Date(
+    Date.now() - RECENT_MATERIAL_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const recentCount = await prisma.document.count({
+    where: {
+      courseId,
+      status: 'active',
+      visibility: 'visible_to_students',
+      createdAt: { gte: since },
+    },
+  });
+  return recentCount > 0;
 }
 
 async function primaryInstructorNameFor(

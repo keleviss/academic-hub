@@ -41,6 +41,16 @@ const enrollments = [
   { courseId: courseBId, studentId, status: 'active', course: courseB },
 ];
 
+interface DocumentFixture {
+  courseId: string;
+  status: 'active' | 'archived';
+  visibility: 'visible_to_students' | 'hidden_from_students';
+  createdAt: Date;
+}
+
+const RECENT_DOCUMENT_AT = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+const OLD_DOCUMENT_AT = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+
 const annotations = [
   {
     id: 'a1111111-1111-4111-8111-111111111111',
@@ -182,7 +192,10 @@ function threadRecord(thread: ThreadFixture) {
   };
 }
 
-function createTestApp(nodes: RoadmapNodeFixture[] = roadmapFixtures) {
+function createTestApp(
+  nodes: RoadmapNodeFixture[] = roadmapFixtures,
+  documents: DocumentFixture[] = [],
+) {
   const auditLogger: AuditLogger = {
     logAuditEvent: vi.fn().mockResolvedValue(undefined),
   };
@@ -194,7 +207,26 @@ function createTestApp(nodes: RoadmapNodeFixture[] = roadmapFixtures) {
   };
 
   const document = {
-    count: vi.fn(async () => 0),
+    count: vi.fn(
+      async ({
+        where,
+      }: {
+        where: {
+          courseId: string;
+          status: string;
+          visibility: string;
+          createdAt?: { gte: Date };
+        };
+      }) =>
+        documents.filter(
+          (doc) =>
+            doc.courseId === where.courseId &&
+            doc.status === where.status &&
+            doc.visibility === where.visibility &&
+            (where.createdAt === undefined ||
+              doc.createdAt.getTime() >= where.createdAt.gte.getTime()),
+        ).length,
+    ),
   };
 
   const courseInstructor = {
@@ -397,5 +429,37 @@ describe('student dashboard route', () => {
     expect(
       body.data.courses.find((course) => course.id === courseAId)?.roadmap,
     ).toMatchObject({ needsReviewCount: 1 });
+  });
+
+  it('flags courses with visible material added in the last few days', async () => {
+    const { app } = createTestApp(roadmapFixtures, [
+      {
+        courseId: courseAId,
+        status: 'active',
+        visibility: 'visible_to_students',
+        createdAt: RECENT_DOCUMENT_AT,
+      },
+      {
+        courseId: courseBId,
+        status: 'active',
+        visibility: 'visible_to_students',
+        createdAt: OLD_DOCUMENT_AT,
+      },
+    ]);
+
+    const response = await request(app)
+      .get('/api/student/dashboard')
+      .set('Cookie', authCookie())
+      .expect(200);
+    const body = StudentDashboardResponseSchema.parse(response.body);
+
+    expect(
+      body.data.courses.find((course) => course.id === courseAId)
+        ?.hasRecentMaterial,
+    ).toBe(true);
+    expect(
+      body.data.courses.find((course) => course.id === courseBId)
+        ?.hasRecentMaterial,
+    ).toBe(false);
   });
 });
