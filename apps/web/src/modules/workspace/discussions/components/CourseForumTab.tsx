@@ -202,7 +202,8 @@ function CreateThreadDialog({
   return (
     <Dialog title="Νέα συζήτηση" onClose={onClose}>
       <form
-        className="annotation-form"
+        className="course-form"
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           if (!title.trim() || !body.trim()) {
@@ -262,7 +263,15 @@ function CreateThreadDialog({
               })}
           </ErrorNotice>
         )}
-        <div className="annotation-form-actions">
+        <footer className="course-dialog-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={createMutation.isPending}
+            onClick={onClose}
+          >
+            Ακύρωση
+          </button>
           <button
             className="primary-button"
             type="submit"
@@ -270,15 +279,7 @@ function CreateThreadDialog({
           >
             {createMutation.isPending ? 'Δημιουργία…' : 'Δημιουργία'}
           </button>
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={createMutation.isPending}
-            onClick={onClose}
-          >
-            Άκυρο
-          </button>
-        </div>
+        </footer>
       </form>
     </Dialog>
   );
