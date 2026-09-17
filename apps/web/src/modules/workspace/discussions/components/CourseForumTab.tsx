@@ -25,7 +25,6 @@ import { Dialog } from '../../../../components/Dialog';
 import { EmptyState } from '../../../../components/EmptyState';
 import { ErrorNotice } from '../../../../components/feedback';
 import { QueryState } from '../../../../components/QueryState';
-import { Tabs } from '../../../../components/Tabs';
 import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
 import { getErrorMessage } from '../../../../lib/api-error';
 import { formatRelativeDateTime } from '../../../../lib/format-relative-time';
@@ -44,6 +43,34 @@ const visibilityOptions: { value: ForumThreadVisibility; label: string }[] = [
   { value: 'public', label: 'Δημόσιο' },
   { value: 'instructor_only', label: 'Μόνο διδάσκοντες' },
 ];
+
+function ForumFilterCards({
+  value,
+  onChange,
+}: {
+  value: ForumThreadFilter;
+  onChange: (value: ForumThreadFilter) => void;
+}): React.JSX.Element {
+  return (
+    <div
+      className="forum-filter-cards"
+      role="group"
+      aria-label="Φίλτρα συζητήσεων"
+    >
+      {filterItems.map((item) => (
+        <button
+          key={item.value}
+          className="forum-filter-card"
+          type="button"
+          aria-pressed={value === item.value}
+          onClick={() => onChange(item.value)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function CourseForumTab({
   courseId,
@@ -64,12 +91,7 @@ export function CourseForumTab({
   return (
     <div className="course-members">
       <div className="course-forum-toolbar">
-        <Tabs
-          ariaLabel="Φίλτρα συζητήσεων"
-          value={filter}
-          onChange={setFilter}
-          items={filterItems}
-        />
+        <ForumFilterCards value={filter} onChange={setFilter} />
         <button
           className="primary-button"
           type="button"
