@@ -53,7 +53,7 @@ import { forumThreadStatusLabels } from '../../../../lib/forum-thread-status';
 const annotationTypeOptions = [
   { value: 'highlight', label: 'Επισήμανση' },
   { value: 'note', label: 'Σημείωση' },
-  { value: 'question', label: 'Ερώτηση' },
+  { value: 'question', label: 'Απορία' },
   { value: 'important', label: 'Σημαντικό' },
   { value: 'confusing', label: 'Δυσνόητο' },
 ] satisfies Array<{ value: AnnotationType; label: string }>;
@@ -419,7 +419,7 @@ export function DocumentAnnotationsPanel({
                 Απορίες
               </button>
             </div>
-            <p>Σημειώσεις και απορίες για το έγγραφο</p>
+            {/* <p>Σημειώσεις και απορίες για το έγγραφο</p> */}
           </div>
           <div className="annotation-panel-actions">
             <button

@@ -2220,6 +2220,8 @@ select {
   font-size: 14px;
   font-weight: 700;
   text-align: left;
+  white-space: nowrap;
+  width: min-content;
 }
 
 .document-row-title:hover {
