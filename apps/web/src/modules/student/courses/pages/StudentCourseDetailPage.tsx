@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useMemo, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Eye } from 'lucide-react';
 import type { StudentDocumentActivitySummary as StudentDocumentActivitySummaryData } from '@web-app/contracts';
@@ -18,12 +18,13 @@ import { QueryState } from '../../../../components/QueryState';
 import { Tabs } from '../../../../components/Tabs';
 import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
 import { CourseForumTab } from '../../../workspace/discussions/components/CourseForumTab';
+import { CourseRoadmapTab } from '../../../workspace/roadmap/components/CourseRoadmapTab';
 import { downloadBlob } from '../../../../lib/download-file';
 import { normalizeSearch } from '../../../../lib/normalize-search';
 import { PageLayout } from '../../../../components/PageLayout';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 
-type Tab = 'documents' | 'discussions' | 'details';
+type Tab = 'documents' | 'roadmap' | 'discussions' | 'details';
 
 const instructorRoleLabels = {
   owner: 'Υπεύθυνος μαθήματος',
@@ -45,15 +46,35 @@ function studentDocumentActivityKey(courseId: string) {
 export function StudentCourseDetailPage(): React.JSX.Element {
   const { courseId = '' } = useParams();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('documents');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const tab: Tab =
+    requestedTab === 'roadmap' ||
+    requestedTab === 'discussions' ||
+    requestedTab === 'details'
+      ? requestedTab
+      : 'documents';
+  const selectedRoadmapNodeId = searchParams.get('node');
   const [docSearch, setDocSearch] = useState('');
 
-  useEffect(() => {
-    return () => {
-      setDocSearch('');
-      setTab('documents');
-    };
-  }, []);
+  const setTab = (nextTab: Tab) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('tab', nextTab);
+      if (nextTab !== 'roadmap') next.delete('node');
+      return next;
+    });
+  };
+
+  const setSelectedRoadmapNode = (nodeId: string | null) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('tab', 'roadmap');
+      if (nodeId) next.set('node', nodeId);
+      else next.delete('node');
+      return next;
+    });
+  };
 
   const courseQuery = useQuery({
     queryKey: studentCourseKey(courseId),
@@ -126,9 +147,12 @@ export function StudentCourseDetailPage(): React.JSX.Element {
           <PageLayout
             title={detail.title}
             subtitle={`Υλικό και στοιχεία για το μάθημα ${detail.title}`}
-            backlink={{ href: '/app/courses', text: 'Τα μαθήματά μου' }}
           >
-            <div className="course-detail-layout">
+            <div
+              className={`course-detail-layout${
+                tab === 'roadmap' ? ' is-roadmap' : ''
+              }`}
+            >
               <div className="course-list-card">
                 <Tabs
                   value={tab}
@@ -138,12 +162,21 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                       value: 'documents',
                       label: `Έγγραφα`,
                     },
+                    { value: 'roadmap', label: 'Χάρτης ύλης' },
                     { value: 'discussions', label: 'Συζητήσεις' },
                     { value: 'details', label: 'Στοιχεία μαθήματος' },
                   ]}
                 />
                 {tab === 'discussions' && (
                   <CourseForumTab courseId={courseId} />
+                )}
+                {tab === 'roadmap' && (
+                  <CourseRoadmapTab
+                    courseId={courseId}
+                    documents={documents}
+                    selectedNodeId={selectedRoadmapNodeId}
+                    onSelectedNodeChange={setSelectedRoadmapNode}
+                  />
                 )}
                 {tab === 'documents' && (
                   <div className="course-members">
@@ -229,57 +262,62 @@ export function StudentCourseDetailPage(): React.JSX.Element {
                   </div>
                 )}
               </div>
-              <div className="course-detail-sidebar">
-                <aside className="course-summary" aria-label="Σύνοψη μαθήματος">
-                  <h2>Σύνοψη</h2>
-                  <dl>
-                    <div>
-                      <dt>Εξάμηνο</dt>
-                      <dd>{detail.semester}ο εξάμηνο</dd>
-                    </div>
-                    <div>
-                      <dt>Διαθέσιμο υλικό</dt>
-                      <dd>{detail.counts.documentCount}</dd>
-                    </div>
-                  </dl>
-                </aside>
-                <div className="course-list-card">
-                  <div className="course-members">
-                    <h2>Διδάσκοντες</h2>
-                    {detail.instructors.map((instructor) => (
-                      <div
-                        className="member-row instructor-row"
-                        key={instructor.id}
-                      >
-                        <Avatar name={instructor.fullName} fallback="?" />
-                        <div>
-                          <strong>{instructor.fullName}</strong>
-                          <span>{instructorRoleLabels[instructor.role]}</span>
-                        </div>
+              {tab !== 'roadmap' && (
+                <div className="course-detail-sidebar">
+                  <aside
+                    className="course-summary"
+                    aria-label="Σύνοψη μαθήματος"
+                  >
+                    <h2>Σύνοψη</h2>
+                    <dl>
+                      <div>
+                        <dt>Εξάμηνο</dt>
+                        <dd>{detail.semester}ο εξάμηνο</dd>
                       </div>
-                    ))}
+                      <div>
+                        <dt>Διαθέσιμο υλικό</dt>
+                        <dd>{detail.counts.documentCount}</dd>
+                      </div>
+                    </dl>
+                  </aside>
+                  <div className="course-list-card">
+                    <div className="course-members">
+                      <h2>Διδάσκοντες</h2>
+                      {detail.instructors.map((instructor) => (
+                        <div
+                          className="member-row instructor-row"
+                          key={instructor.id}
+                        >
+                          <Avatar name={instructor.fullName} fallback="?" />
+                          <div>
+                            <strong>{instructor.fullName}</strong>
+                            <span>{instructorRoleLabels[instructor.role]}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="visibility-explainer">
+                    <h2>Οι σημειώσεις και απορίες μου</h2>
+                    <QueryState
+                      query={activityQuery}
+                      loadingLabel="Φόρτωση δραστηριότητας…"
+                      onRetry={() => void activityQuery.refetch()}
+                    >
+                      {(activity) => (
+                        <StudentDocumentActivitySummary
+                          data={activity.data}
+                          onOpenDocument={(documentId) =>
+                            navigate(
+                              `/app/courses/${courseId}/documents/${documentId}`,
+                            )
+                          }
+                        />
+                      )}
+                    </QueryState>
                   </div>
                 </div>
-                <div className="visibility-explainer">
-                  <h2>Οι σημειώσεις και απορίες μου</h2>
-                  <QueryState
-                    query={activityQuery}
-                    loadingLabel="Φόρτωση δραστηριότητας…"
-                    onRetry={() => void activityQuery.refetch()}
-                  >
-                    {(activity) => (
-                      <StudentDocumentActivitySummary
-                        data={activity.data}
-                        onOpenDocument={(documentId) =>
-                          navigate(
-                            `/app/courses/${courseId}/documents/${documentId}`,
-                          )
-                        }
-                      />
-                    )}
-                  </QueryState>
-                </div>
-              </div>
+              )}
             </div>
           </PageLayout>
         );

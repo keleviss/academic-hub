@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { ChevronRight } from 'lucide-react';
 import type { ProfessorCourseListItem } from '@web-app/contracts';
 
 import { fetchProfessorCourses } from '../../../../api/client';
@@ -66,12 +67,10 @@ function CourseListRow({
   course: ProfessorCourseListItem;
 }): React.JSX.Element {
   return (
-    <div className="course-list-row justify-between">
+    <Link className="course-list-row" to={`/app/courses/${course.id}`}>
       <div className="flex flex-col gap-1">
         <div className="flex items-baseline gap-1">
-          <Link to={`/app/courses/${course.id}`} className="hover:underline">
-            <strong>{course.title}</strong>
-          </Link>
+          <strong>{course.title}</strong>
           <span className="course-card-code">
             · {course.code} · {course.semester}ο εξάμηνο
           </span>
@@ -80,15 +79,14 @@ function CourseListRow({
           {instructorRoleLabels[course.instructorRole]}
         </span>
       </div>
-      <div className="flex flex-col items-end gap-1">
-        <StatusBadge
-          active={course.isActive}
-          activeLabel="Ενεργό"
-          inactiveLabel="Ανενεργό"
-        />
-        <CourseCounts course={course} />
-      </div>
-    </div>
+      <StatusBadge
+        active={course.isActive}
+        activeLabel="Ενεργό"
+        inactiveLabel="Ανενεργό"
+      />
+      <CourseCounts course={course} />
+      <ChevronRight aria-hidden="true" size={17} />
+    </Link>
   );
 }
 

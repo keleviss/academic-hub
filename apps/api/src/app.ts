@@ -8,6 +8,7 @@ import type { AdminCoursesRouteOptions } from './routes/admin-courses.js';
 import type { AuthRouteOptions } from './routes/auth.js';
 import type { CourseDocumentsRouteOptions } from './routes/course-documents.js';
 import type { CourseForumRouteOptions } from './routes/course-forum.js';
+import type { CourseRoadmapRouteOptions } from './routes/course-roadmap.js';
 import type { ProfessorCoursesRouteOptions } from './routes/professor-courses.js';
 import type { ProfessorDashboardRouteOptions } from './routes/professor-dashboard.js';
 import type { ReadinessRouteOptions } from './routes/readiness.js';
@@ -21,6 +22,7 @@ export interface CreateAppOptions {
   courseDocumentsPrisma?: CourseDocumentsRouteOptions['prisma'];
   courseDocumentsStorage?: CourseDocumentsRouteOptions['storageService'];
   courseForumPrisma?: CourseForumRouteOptions['prisma'];
+  courseRoadmapPrisma?: CourseRoadmapRouteOptions['prisma'];
   corsOrigin?: boolean | string | string[];
   coursesPrisma?: AdminCoursesRouteOptions['prisma'];
   databaseCheck?: ReadinessRouteOptions['databaseCheck'];
@@ -55,6 +57,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
       courseDocumentsPrisma: options.courseDocumentsPrisma,
       courseDocumentsStorage: options.courseDocumentsStorage,
       courseForumPrisma: options.courseForumPrisma,
+      courseRoadmapPrisma: options.courseRoadmapPrisma,
       coursesPrisma: options.coursesPrisma,
       databaseCheck: options.databaseCheck,
       prisma: options.authPrisma,

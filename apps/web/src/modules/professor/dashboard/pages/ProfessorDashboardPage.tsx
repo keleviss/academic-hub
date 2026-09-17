@@ -1,20 +1,24 @@
 import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
+  AlertTriangle,
   ArrowRight,
   BookOpen,
   ChevronRight,
   CircleHelp,
   MessageCircleWarning,
-  MessagesSquare,
 } from 'lucide-react';
-import type { DashboardForumThreadItem } from '@web-app/contracts';
+import type {
+  DashboardForumThreadItem,
+  ProfessorDashboardConfusionPoint,
+} from '@web-app/contracts';
 
 import {
   fetchProfessorDashboard,
   professorDashboardQueryKey,
 } from '../../../../api/client';
 import {
+  DashboardConfusionPointButton,
   DashboardThreadButton,
   DashboardWidget,
 } from '../../../../components/DashboardWidget';
@@ -31,6 +35,8 @@ export function ProfessorDashboardPage(): React.JSX.Element {
 
   const openThread = (thread: DashboardForumThreadItem) =>
     navigate(`/app/courses/${thread.courseId}/discussions/${thread.id}`);
+  const openConfusionPoint = (point: ProfessorDashboardConfusionPoint) =>
+    navigate(`/app/courses/${point.courseId}/documents/${point.documentId}`);
 
   return (
     <PageLayout
@@ -126,11 +132,14 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                     >
                       <MessageCircleWarning size={19} />
                     </span>
-                    <div>
-                      <span>Προτεραιότητα</span>
-                      <h2>Χρειάζονται απάντηση</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className='whitespace-nowrap'>Χρειάζονται απάντηση</h2>
+                      <strong className="count">{data.unansweredThreads.length}</strong>
                     </div>
-                    <strong>{data.unansweredThreads.length}</strong>
+                    <Link className="dashboard-widget-viewall" to="/app/courses">
+                      Προβολή όλων
+                      <ArrowRight aria-hidden="true" size={15} />
+                    </Link>
                   </div>
 
                   {data.unansweredThreads.length === 0 ? (
@@ -139,7 +148,7 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                     </p>
                   ) : (
                     <div className="dashboard-attention-list">
-                      {data.unansweredThreads.slice(0, 4).map((thread) => (
+                      {data.unansweredThreads.slice(0, 3).map((thread) => (
                         <button
                           className="dashboard-attention-item"
                           key={thread.id}
@@ -158,11 +167,6 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                       ))}
                     </div>
                   )}
-
-                  <Link className="dashboard-attention-link" to="/app/courses">
-                    Προβολή όλων
-                    <ArrowRight aria-hidden="true" size={15} />
-                  </Link>
                 </section>
               </div>
 
@@ -185,19 +189,20 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                   ))}
                 </DashboardWidget>
                 <DashboardWidget
-                  title="Πρόσφατη δραστηριότητα"
-                  viewAllHref="/app/courses"
-                  icon={<MessagesSquare size={18} />}
-                  count={data.recentActivity.length}
-                  tone="blue"
-                  isEmpty={data.recentActivity.length === 0}
-                  emptyMessage="Δεν υπάρχει πρόσφατη δραστηριότητα."
+                  title="Σημεία σύγχυσης"
+                  viewAllHref="/app/analytics"
+                  viewAllLabel="Ανάλυση"
+                  icon={<AlertTriangle size={18} />}
+                  count={data.confusionPoints.length}
+                  tone="amber"
+                  isEmpty={data.confusionPoints.length === 0}
+                  emptyMessage="Δεν εντοπίστηκαν σημεία σύγχυσης τις τελευταίες 14 ημέρες."
                 >
-                  {data.recentActivity.slice(0, 3).map((thread) => (
-                    <DashboardThreadButton
-                      key={thread.id}
-                      thread={thread}
-                      onOpen={() => openThread(thread)}
+                  {data.confusionPoints.slice(0, 3).map((point) => (
+                    <DashboardConfusionPointButton
+                      key={point.documentId}
+                      point={point}
+                      onOpen={() => openConfusionPoint(point)}
                     />
                   ))}
                 </DashboardWidget>

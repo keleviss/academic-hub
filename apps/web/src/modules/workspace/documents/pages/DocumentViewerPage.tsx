@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 
@@ -36,11 +36,16 @@ const contentErrorOptions = {
 
 export function DocumentViewerPage(): React.JSX.Element {
   const { courseId = '', documentId = '' } = useParams();
-  const [visiblePage, setVisiblePage] = useState(1);
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const requestedPage = Number(searchParams.get('page'));
+  const initialPage =
+    Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const [visiblePage, setVisiblePage] = useState(initialPage);
   const [pageScrollTarget, setPageScrollTarget] = useState<{
     pageNumber: number;
     requestId: number;
-  } | null>(null);
+  } | null>(initialPage > 1 ? { pageNumber: initialPage, requestId: 1 } : null);
   const [annotationsPanelCollapsed, setAnnotationsPanelCollapsed] =
     useState(false);
   const [zoomMode, setZoomMode] = useState<PdfZoomMode>('automatic');
@@ -73,6 +78,11 @@ export function DocumentViewerPage(): React.JSX.Element {
     }));
   }, []);
 
+  const courseBackLink =
+    (location.state as { courseTab?: string } | null)?.courseTab === 'roadmap'
+      ? `/app/courses/${courseId}?tab=roadmap`
+      : `/app/courses/${courseId}`;
+
   return (
     <section className="document-viewer-page">
       <QueryState
@@ -88,7 +98,7 @@ export function DocumentViewerPage(): React.JSX.Element {
                 <Link
                   aria-label="Επιστροφή στο μάθημα"
                   className="document-viewer-back-link"
-                  to={`/app/courses/${courseId}`}
+                  to={courseBackLink}
                 >
                   <ArrowLeft aria-hidden="true" size={16} />
                 </Link>

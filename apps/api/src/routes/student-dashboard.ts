@@ -5,6 +5,7 @@ import type {
   ForumCategoryKind,
   ForumThreadStatus,
   PrismaClient,
+  RoadmapProgressStatus,
   UserRole,
 } from '@prisma/client';
 import {
@@ -13,6 +14,8 @@ import {
   type DashboardAnnotationItem,
   type DashboardForumThreadItem,
   type StudentCourseListItem,
+  type StudentDashboardContinueNode,
+  type StudentDashboardRoadmapSummary,
   type StudentDashboardResponse,
 } from '@web-app/contracts';
 
@@ -29,7 +32,12 @@ import { sendJson } from '../lib/send-json.js';
 
 type StudentDashboardPrismaClient = Pick<
   PrismaClient,
-  'annotation' | 'courseInstructor' | 'document' | 'enrollment' | 'forumThread'
+  | 'annotation'
+  | 'courseInstructor'
+  | 'document'
+  | 'enrollment'
+  | 'forumThread'
+  | 'roadmapNode'
 >;
 
 export interface StudentDashboardRouteOptions {
@@ -39,6 +47,7 @@ export interface StudentDashboardRouteOptions {
 }
 
 const DASHBOARD_ITEM_LIMIT = 5;
+const RECENT_MATERIAL_WINDOW_DAYS = 3;
 
 interface CourseRecord {
   code: string;
@@ -90,6 +99,21 @@ interface DashboardThreadRecord {
   _count: { posts: number };
 }
 
+interface DashboardRoadmapNodeRecord {
+  id: string;
+  courseId: string;
+  title: string;
+  estimatedMinutes: number | null;
+  orderIndex: number;
+  createdAt: Date;
+  course: DashboardCourseRef;
+  incomingEdges: { fromNodeId: string }[];
+  progress: {
+    status: RoadmapProgressStatus;
+    updatedAt: Date;
+  }[];
+}
+
 export function createStudentDashboardRouter(
   options: StudentDashboardRouteOptions = {},
 ): Router {
@@ -120,69 +144,106 @@ export function createStudentDashboardRouter(
         (enrollment) => enrollment.courseId,
       );
 
-      const [courses, recentNotes, openQuestions, verifiedAnswers, activeDiscussions] =
-        await Promise.all([
-          Promise.all(
-            enrollments.slice(0, DASHBOARD_ITEM_LIMIT).map(async (enrollment) => {
-              const [documentCount, primaryInstructorName] = await Promise.all([
+      const [
+        courseItems,
+        roadmapNodes,
+        recentNotes,
+        openQuestions,
+        verifiedAnswers,
+        activeDiscussions,
+      ] = await Promise.all([
+        Promise.all(
+          enrollments.slice(0, DASHBOARD_ITEM_LIMIT).map(async (enrollment) => {
+            const [documentCount, primaryInstructorName, hasRecentMaterial] =
+              await Promise.all([
                 visibleDocumentCountFor(prisma, enrollment.courseId),
                 primaryInstructorNameFor(prisma, enrollment.courseId),
+                hasRecentMaterialFor(prisma, enrollment.courseId),
               ]);
-              return toStudentCourseListItem(
+            return {
+              ...toStudentCourseListItem(
                 enrollment.course as CourseRecord,
                 documentCount,
                 primaryInstructorName,
-              );
-            }),
-          ),
-          prisma.annotation.findMany({
-            include: dashboardAnnotationInclude(),
-            orderBy: [{ createdAt: 'desc' }],
-            take: DASHBOARD_ITEM_LIMIT,
-            where: {
-              authorId: actorId,
-              courseId: { in: enrolledCourseIds },
-              isDeleted: false,
-              document: {
-                is: { status: 'active', visibility: 'visible_to_students' },
-              },
-            },
+              ),
+              hasRecentMaterial,
+            };
           }),
-          prisma.forumThread.findMany({
-            include: dashboardThreadInclude(),
-            orderBy: [{ updatedAt: 'desc' }],
-            take: DASHBOARD_ITEM_LIMIT,
-            where: {
-              authorId: actorId,
-              courseId: { in: enrolledCourseIds },
-              status: { in: ['open', 'instructor_answered'] },
+        ),
+        prisma.roadmapNode.findMany({
+          include: {
+            course: { select: { code: true, title: true } },
+            incomingEdges: { select: { fromNodeId: true } },
+            progress: {
+              select: { status: true, updatedAt: true },
+              where: { studentId: actorId },
             },
-          }),
-          prisma.forumThread.findMany({
-            include: dashboardThreadInclude(),
-            orderBy: [{ updatedAt: 'desc' }],
-            take: DASHBOARD_ITEM_LIMIT,
-            where: {
-              authorId: actorId,
-              courseId: { in: enrolledCourseIds },
-              status: 'verified',
+          },
+          orderBy: [
+            { course: { code: 'asc' } },
+            { orderIndex: 'asc' },
+            { createdAt: 'asc' },
+          ],
+          where: { courseId: { in: enrolledCourseIds } },
+        }),
+        prisma.annotation.findMany({
+          include: dashboardAnnotationInclude(),
+          orderBy: [{ createdAt: 'desc' }],
+          take: DASHBOARD_ITEM_LIMIT,
+          where: {
+            authorId: actorId,
+            courseId: { in: enrolledCourseIds },
+            isDeleted: false,
+            document: {
+              is: { status: 'active', visibility: 'visible_to_students' },
             },
-          }),
-          prisma.forumThread.findMany({
-            include: dashboardThreadInclude(),
-            orderBy: [{ updatedAt: 'desc' }],
-            take: DASHBOARD_ITEM_LIMIT,
-            where: {
-              courseId: { in: enrolledCourseIds },
-              status: { not: 'archived' },
-              OR: forumThreadVisibilityWhere(actorId, 'student'),
-            },
-          }),
-        ]);
+          },
+        }),
+        prisma.forumThread.findMany({
+          include: dashboardThreadInclude(),
+          orderBy: [{ updatedAt: 'desc' }],
+          take: DASHBOARD_ITEM_LIMIT,
+          where: {
+            authorId: actorId,
+            courseId: { in: enrolledCourseIds },
+            status: { in: ['open', 'instructor_answered'] },
+          },
+        }),
+        prisma.forumThread.findMany({
+          include: dashboardThreadInclude(),
+          orderBy: [{ updatedAt: 'desc' }],
+          take: DASHBOARD_ITEM_LIMIT,
+          where: {
+            authorId: actorId,
+            courseId: { in: enrolledCourseIds },
+            status: 'verified',
+          },
+        }),
+        prisma.forumThread.findMany({
+          include: dashboardThreadInclude(),
+          orderBy: [{ updatedAt: 'desc' }],
+          take: DASHBOARD_ITEM_LIMIT,
+          where: {
+            courseId: { in: enrolledCourseIds },
+            status: { not: 'archived' },
+            OR: forumThreadVisibilityWhere(actorId, 'student'),
+          },
+        }),
+      ]);
+
+      const roadmapDashboard = buildRoadmapDashboard(
+        roadmapNodes as DashboardRoadmapNodeRecord[],
+      );
+      const courses = courseItems.map((course) => ({
+        ...course,
+        roadmap:
+          roadmapDashboard.summaries.get(course.id) ?? emptyRoadmapSummary(),
+      }));
 
       const payload: StudentDashboardResponse = {
         data: {
           courses,
+          continueLearning: roadmapDashboard.continueLearning,
           recentNotes: (recentNotes as DashboardAnnotationRecord[]).map(
             toDashboardAnnotationItem,
           ),
@@ -205,6 +266,85 @@ export function createStudentDashboardRouter(
   return router;
 }
 
+function emptyRoadmapSummary(): StudentDashboardRoadmapSummary {
+  return {
+    totalNodeCount: 0,
+    completedNodeCount: 0,
+    completionPercentage: 0,
+    needsReviewCount: 0,
+  };
+}
+
+function buildRoadmapDashboard(nodes: DashboardRoadmapNodeRecord[]): {
+  summaries: Map<string, StudentDashboardRoadmapSummary>;
+  continueLearning: StudentDashboardContinueNode | null;
+} {
+  const completedNodeIds = new Set(
+    nodes
+      .filter((node) => node.progress[0]?.status === 'completed')
+      .map((node) => node.id),
+  );
+  const states = nodes.map((node) => {
+    const progress = node.progress[0] ?? null;
+    const status = progress?.status ?? 'not_started';
+    const isLocked =
+      status !== 'completed' &&
+      node.incomingEdges.some((edge) => !completedNodeIds.has(edge.fromNodeId));
+    return { node, status, isLocked, updatedAt: progress?.updatedAt ?? null };
+  });
+
+  const summaries = new Map<string, StudentDashboardRoadmapSummary>();
+  for (const { node, status } of states) {
+    const current = summaries.get(node.courseId) ?? emptyRoadmapSummary();
+    current.totalNodeCount += 1;
+    if (status === 'completed') current.completedNodeCount += 1;
+    if (status === 'needs_review') current.needsReviewCount += 1;
+    summaries.set(node.courseId, current);
+  }
+  for (const summary of summaries.values()) {
+    summary.completionPercentage =
+      summary.totalNodeCount === 0
+        ? 0
+        : Math.round(
+            (summary.completedNodeCount / summary.totalNodeCount) * 100,
+          );
+  }
+
+  const availableStates = states.filter(
+    (state) => state.status !== 'completed' && !state.isLocked,
+  );
+  const recentState = (status: 'in_progress' | 'needs_review') =>
+    availableStates
+      .filter((state) => state.status === status)
+      .sort(
+        (left, right) =>
+          (right.updatedAt?.getTime() ?? 0) - (left.updatedAt?.getTime() ?? 0),
+      )[0];
+  const nextState =
+    recentState('in_progress') ??
+    recentState('needs_review') ??
+    availableStates.find((state) => state.status === 'not_started') ??
+    null;
+
+  return {
+    summaries,
+    continueLearning: nextState
+      ? {
+          id: nextState.node.id,
+          courseId: nextState.node.courseId,
+          courseCode: nextState.node.course.code,
+          courseTitle: nextState.node.course.title,
+          title: nextState.node.title,
+          status: nextState.status as Exclude<
+            RoadmapProgressStatus,
+            'completed'
+          >,
+          estimatedMinutes: nextState.node.estimatedMinutes,
+        }
+      : null,
+  };
+}
+
 async function visibleDocumentCountFor(
   prisma: StudentDashboardPrismaClient,
   courseId: string,
@@ -212,6 +352,24 @@ async function visibleDocumentCountFor(
   return prisma.document.count({
     where: { courseId, status: 'active', visibility: 'visible_to_students' },
   });
+}
+
+async function hasRecentMaterialFor(
+  prisma: StudentDashboardPrismaClient,
+  courseId: string,
+): Promise<boolean> {
+  const since = new Date(
+    Date.now() - RECENT_MATERIAL_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const recentCount = await prisma.document.count({
+    where: {
+      courseId,
+      status: 'active',
+      visibility: 'visible_to_students',
+      createdAt: { gte: since },
+    },
+  });
+  return recentCount > 0;
 }
 
 async function primaryInstructorNameFor(

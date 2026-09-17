@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useMemo, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Eye, Pencil } from 'lucide-react';
 import type {
@@ -25,6 +25,7 @@ import { QueryState } from '../../../../components/QueryState';
 import { StatusBadge } from '../../../../components/StatusBadge';
 import { Tabs } from '../../../../components/Tabs';
 import { CourseForumTab } from '../../../workspace/discussions/components/CourseForumTab';
+import { CourseRoadmapTab } from '../../../workspace/roadmap/components/CourseRoadmapTab';
 import { useDialogState } from '../../../../hooks/useDialogState';
 import { useNotifyingMutation } from '../../../../hooks/useNotifyingMutation';
 import { downloadBlob } from '../../../../lib/download-file';
@@ -38,7 +39,7 @@ import { professorCoursesKey } from '../utils/ProfessorCourses.const';
 import { PageLayout } from '../../../../components/PageLayout';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
 
-type Tab = 'documents' | 'discussions' | 'details';
+type Tab = 'documents' | 'roadmap' | 'discussions' | 'details';
 type DocumentFilter = 'all' | 'visible' | 'hidden';
 type DialogState =
   | { type: 'create' }
@@ -71,18 +72,37 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
   const { courseId = '' } = useParams();
   const navigate = useNavigate();
   const user = useAuthenticatedUser();
-  const [tab, setTab] = useState<Tab>('documents');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const tab: Tab =
+    requestedTab === 'roadmap' ||
+    requestedTab === 'discussions' ||
+    requestedTab === 'details'
+      ? requestedTab
+      : 'documents';
+  const selectedRoadmapNodeId = searchParams.get('node');
   const { dialog, openDialog, closeDialog } = useDialogState<DialogState>();
   const [docSearch, setDocSearch] = useState('');
   const [docFilter, setDocFilter] = useState<DocumentFilter>('all');
 
-  useEffect(() => {
-    return () => {
-      setDocSearch('');
-      setDocFilter('all');
-      setTab('documents');
-    };
-  }, []);
+  const setTab = (nextTab: Tab) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('tab', nextTab);
+      if (nextTab !== 'roadmap') next.delete('node');
+      return next;
+    });
+  };
+
+  const setSelectedRoadmapNode = (nodeId: string | null) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('tab', 'roadmap');
+      if (nodeId) next.set('node', nodeId);
+      else next.delete('node');
+      return next;
+    });
+  };
 
   const courseQuery = useQuery({
     queryKey: professorCourseKey(courseId),
@@ -219,18 +239,23 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
           <PageLayout
             title={detail.title}
             subtitle={`Έγγραφα και στοιχεία για το μάθημα ${detail.title}`}
-            backlink={{ href: '/app/courses', text: 'Τα μαθήματά μου' }}
             actions={
-              <button
-                className="primary-button"
-                type="button"
-                onClick={() => openDialog({ type: 'create' })}
-              >
-                + Νέο έγγραφο
-              </button>
+              tab !== 'roadmap' ? (
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => openDialog({ type: 'create' })}
+                >
+                  + Νέο έγγραφο
+                </button>
+              ) : undefined
             }
           >
-            <div className="course-detail-layout">
+            <div
+              className={`course-detail-layout${
+                tab === 'roadmap' ? ' is-roadmap' : ''
+              }`}
+            >
               <div className="course-list-card">
                 <Tabs
                   value={tab}
@@ -240,11 +265,22 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                       value: 'documents',
                       label: `Έγγραφα`,
                     },
+                    { value: 'roadmap', label: 'Χάρτης ύλης' },
                     { value: 'discussions', label: 'Συζητήσεις' },
                     { value: 'details', label: 'Στοιχεία μαθήματος' },
                   ]}
                 />
-                {tab === 'discussions' && <CourseForumTab courseId={courseId} />}
+                {tab === 'discussions' && (
+                  <CourseForumTab courseId={courseId} />
+                )}
+                {tab === 'roadmap' && (
+                  <CourseRoadmapTab
+                    courseId={courseId}
+                    documents={documents}
+                    selectedNodeId={selectedRoadmapNodeId}
+                    onSelectedNodeChange={setSelectedRoadmapNode}
+                  />
+                )}
                 {tab === 'documents' && (
                   <div className="course-members">
                     <div className="course-filter-row text-sm">
@@ -364,58 +400,63 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
                   </div>
                 )}
               </div>
-              <div className="course-detail-sidebar">
-                <aside className="course-summary" aria-label="Σύνοψη μαθήματος">
-                  <h2>Σύνοψη</h2>
-                  <dl>
-                    <div>
-                      <dt>Κατάσταση</dt>
-                      <dd>
-                        <StatusBadge
-                          active={detail.isActive}
-                          activeLabel="Ενεργό"
-                          inactiveLabel="Ανενεργό"
-                        />
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Εξάμηνο</dt>
-                      <dd>{detail.semester}ο εξάμηνο</dd>
-                    </div>
-                    <div>
-                      <dt>Εγγεγραμμένοι φοιτητές</dt>
-                      <dd>{detail.studentCount}</dd>
-                    </div>
-                    <div>
-                      <dt>Ορατά / συνολικά έγγραφα</dt>
-                      <dd>
-                        {detail.counts.visibleDocumentCount} /{' '}
-                        {detail.counts.documentCount}
-                      </dd>
-                    </div>
-                  </dl>
-                </aside>
-                <div className="course-list-card">
-                  <div className="course-members">
-                    <h2>Διδάσκοντες</h2>
-                    {detail.instructors.map((instructor) => (
-                      <div
-                        className="member-row instructor-row"
-                        key={instructor.id}
-                      >
-                        <Avatar name={instructor.fullName} fallback="?" />
-                        <div>
-                          <strong>
-                            {instructor.fullName}
-                            {instructor.userId === user.id && ' · Εσείς'}
-                          </strong>
-                          <span>{instructorRoleLabels[instructor.role]}</span>
-                        </div>
+              {tab !== 'roadmap' && (
+                <div className="course-detail-sidebar">
+                  <aside
+                    className="course-summary"
+                    aria-label="Σύνοψη μαθήματος"
+                  >
+                    <h2>Σύνοψη</h2>
+                    <dl>
+                      <div>
+                        <dt>Κατάσταση</dt>
+                        <dd>
+                          <StatusBadge
+                            active={detail.isActive}
+                            activeLabel="Ενεργό"
+                            inactiveLabel="Ανενεργό"
+                          />
+                        </dd>
                       </div>
-                    ))}
+                      <div>
+                        <dt>Εξάμηνο</dt>
+                        <dd>{detail.semester}ο εξάμηνο</dd>
+                      </div>
+                      <div>
+                        <dt>Εγγεγραμμένοι φοιτητές</dt>
+                        <dd>{detail.studentCount}</dd>
+                      </div>
+                      <div>
+                        <dt>Ορατά / συνολικά έγγραφα</dt>
+                        <dd>
+                          {detail.counts.visibleDocumentCount} /{' '}
+                          {detail.counts.documentCount}
+                        </dd>
+                      </div>
+                    </dl>
+                  </aside>
+                  <div className="course-list-card">
+                    <div className="course-members">
+                      <h2>Διδάσκοντες</h2>
+                      {detail.instructors.map((instructor) => (
+                        <div
+                          className="member-row instructor-row"
+                          key={instructor.id}
+                        >
+                          <Avatar name={instructor.fullName} fallback="?" />
+                          <div>
+                            <strong>
+                              {instructor.fullName}
+                              {instructor.userId === user.id && ' · Εσείς'}
+                            </strong>
+                            <span>{instructorRoleLabels[instructor.role]}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
             {(dialog?.type === 'create' || dialog?.type === 'edit') && (
               <DocumentFormDialog
@@ -516,4 +557,3 @@ export function ProfessorCourseDetailPage(): React.JSX.Element {
     </QueryState>
   );
 }
-

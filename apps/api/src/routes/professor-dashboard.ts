@@ -9,7 +9,9 @@ import type {
 import {
   ProfessorDashboardResponseSchema,
   type DashboardForumThreadItem,
+  type ProfessorCourseAnalytics,
   type ProfessorCourseListItem,
+  type ProfessorDashboardConfusionPoint,
   type ProfessorDashboardCourseCounters,
   type ProfessorDashboardResponse,
 } from '@web-app/contracts';
@@ -26,7 +28,13 @@ import { sendJson } from '../lib/send-json.js';
 
 type ProfessorDashboardPrismaClient = Pick<
   PrismaClient,
-  'course' | 'courseInstructor' | 'document' | 'forumThread'
+  | 'annotation'
+  | 'course'
+  | 'courseInstructor'
+  | 'document'
+  | 'enrollment'
+  | 'forumThread'
+  | 'roadmapNode'
 >;
 
 export interface ProfessorDashboardRouteOptions {
@@ -37,6 +45,13 @@ export interface ProfessorDashboardRouteOptions {
 
 const DASHBOARD_ITEM_LIMIT = 5;
 const RECENTLY_VERIFIED_WINDOW_DAYS = 14;
+const CONFUSION_WINDOW_DAYS = 14;
+const CONFUSION_MIN_SIGNAL_COUNT = 2;
+const CONFUSION_MIN_STUDENT_COUNT = 2;
+// Higher than DASHBOARD_ITEM_LIMIT: this list backs both the compact
+// dashboard widget (which only renders the first couple of items) and the
+// full analytics page.
+const CONFUSION_POINT_LIMIT = 20;
 
 interface CourseRecord {
   code: string;
@@ -51,6 +66,14 @@ interface CourseRecord {
 interface DashboardCourseRef {
   code: string;
   title: string;
+}
+
+interface ConfusionAnnotationRecord {
+  documentId: string;
+  authorId: string;
+  type: 'question' | 'confusing';
+  createdAt: Date;
+  document: { title: string; courseId: string; course: DashboardCourseRef };
 }
 
 interface DashboardThreadRecord {
@@ -102,8 +125,9 @@ export function createProfessorDashboardRouter(
         courses,
         unansweredThreads,
         openThreads,
-        recentActivity,
+        confusionPoints,
         courseCounters,
+        courseAnalytics,
       ] = await Promise.all([
         Promise.all(
           assignments.slice(0, DASHBOARD_ITEM_LIMIT).map(async (assignment) => {
@@ -130,13 +154,9 @@ export function createProfessorDashboardRouter(
             status: { in: ['open', 'instructor_answered'] },
           },
         }),
-        prisma.forumThread.findMany({
-          include: dashboardThreadInclude(),
-          orderBy: [{ updatedAt: 'desc' }],
-          take: DASHBOARD_ITEM_LIMIT,
-          where: { courseId: { in: myCourseIds }, status: { not: 'archived' } },
-        }),
+        confusionPointsFor(prisma, myCourseIds),
         perCourseCountersFor(prisma, assignments),
+        courseAnalyticsFor(prisma, assignments),
       ]);
 
       const payload: ProfessorDashboardResponse = {
@@ -148,10 +168,9 @@ export function createProfessorDashboardRouter(
           openThreads: (openThreads as DashboardThreadRecord[]).map(
             toDashboardForumThreadItem,
           ),
-          recentActivity: (recentActivity as DashboardThreadRecord[]).map(
-            toDashboardForumThreadItem,
-          ),
+          confusionPoints,
           perCourseCounters: courseCounters,
+          courseAnalytics,
         },
       };
 
@@ -174,6 +193,103 @@ async function documentCountsFor(
   ]);
 
   return { documentCount, visibleDocumentCount };
+}
+
+async function confusionPointsFor(
+  prisma: ProfessorDashboardPrismaClient,
+  myCourseIds: string[],
+): Promise<ProfessorDashboardConfusionPoint[]> {
+  const since = new Date(
+    Date.now() - CONFUSION_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
+
+  const annotations = (await prisma.annotation.findMany({
+    select: {
+      documentId: true,
+      authorId: true,
+      type: true,
+      createdAt: true,
+      document: {
+        select: {
+          title: true,
+          courseId: true,
+          course: { select: { code: true, title: true } },
+        },
+      },
+    },
+    where: {
+      isDeleted: false,
+      visibility: { in: ['public', 'instructor_only'] },
+      type: { in: ['question', 'confusing'] },
+      createdAt: { gte: since },
+      author: { role: 'student' },
+      document: { status: 'active', courseId: { in: myCourseIds } },
+    },
+  })) as ConfusionAnnotationRecord[];
+
+  interface DocumentAggregate {
+    documentId: string;
+    courseId: string;
+    course: DashboardCourseRef;
+    documentTitle: string;
+    questionCount: number;
+    confusingCount: number;
+    studentIds: Set<string>;
+    lastSignalAt: Date;
+  }
+
+  const aggregatesByDocumentId = new Map<string, DocumentAggregate>();
+  for (const annotation of annotations) {
+    let aggregate = aggregatesByDocumentId.get(annotation.documentId);
+    if (!aggregate) {
+      aggregate = {
+        documentId: annotation.documentId,
+        courseId: annotation.document.courseId,
+        course: annotation.document.course,
+        documentTitle: annotation.document.title,
+        questionCount: 0,
+        confusingCount: 0,
+        studentIds: new Set(),
+        lastSignalAt: annotation.createdAt,
+      };
+      aggregatesByDocumentId.set(annotation.documentId, aggregate);
+    }
+
+    if (annotation.type === 'question') aggregate.questionCount += 1;
+    if (annotation.type === 'confusing') aggregate.confusingCount += 1;
+    aggregate.studentIds.add(annotation.authorId);
+    if (annotation.createdAt > aggregate.lastSignalAt) {
+      aggregate.lastSignalAt = annotation.createdAt;
+    }
+  }
+
+  return [...aggregatesByDocumentId.values()]
+    .filter(
+      (aggregate) =>
+        aggregate.questionCount + aggregate.confusingCount >=
+          CONFUSION_MIN_SIGNAL_COUNT &&
+        aggregate.studentIds.size >= CONFUSION_MIN_STUDENT_COUNT,
+    )
+    .sort((a, b) => {
+      const totalDiff =
+        b.questionCount +
+        b.confusingCount -
+        (a.questionCount + a.confusingCount);
+      if (totalDiff !== 0) return totalDiff;
+      return b.lastSignalAt.getTime() - a.lastSignalAt.getTime();
+    })
+    .slice(0, CONFUSION_POINT_LIMIT)
+    .map((aggregate) => ({
+      courseId: aggregate.courseId,
+      courseCode: aggregate.course.code,
+      courseTitle: aggregate.course.title,
+      documentId: aggregate.documentId,
+      documentTitle: aggregate.documentTitle,
+      questionCount: aggregate.questionCount,
+      confusingCount: aggregate.confusingCount,
+      studentCount: aggregate.studentIds.size,
+      lastSignalAt: aggregate.lastSignalAt.toISOString(),
+    }));
 }
 
 function toProfessorCourseListItem(
@@ -246,6 +362,90 @@ async function perCourseCountersFor(
     recentlyVerifiedCount:
       recentlyVerifiedByCourseId.get(assignment.courseId) ?? 0,
   }));
+}
+
+async function courseAnalyticsFor(
+  prisma: ProfessorDashboardPrismaClient,
+  assignments: { courseId: string; course: CourseRecord }[],
+): Promise<ProfessorCourseAnalytics[]> {
+  const myCourseIds = assignments.map((assignment) => assignment.courseId);
+
+  const [threadStatusCounts, enrollmentCounts, roadmapNodes] =
+    await Promise.all([
+      prisma.forumThread.groupBy({
+        _count: { _all: true },
+        by: ['courseId', 'status'],
+        where: { courseId: { in: myCourseIds }, status: { not: 'archived' } },
+      }),
+      prisma.enrollment.groupBy({
+        _count: { _all: true },
+        by: ['courseId'],
+        where: { courseId: { in: myCourseIds }, status: 'active' },
+      }),
+      prisma.roadmapNode.findMany({
+        select: {
+          courseId: true,
+          progress: { select: { status: true } },
+        },
+        where: { courseId: { in: myCourseIds } },
+      }),
+    ]);
+
+  const questionCountByCourseId = new Map<string, number>();
+  const answeredCountByCourseId = new Map<string, number>();
+  for (const row of threadStatusCounts) {
+    questionCountByCourseId.set(
+      row.courseId,
+      (questionCountByCourseId.get(row.courseId) ?? 0) + row._count._all,
+    );
+    if (row.status !== 'open') {
+      answeredCountByCourseId.set(
+        row.courseId,
+        (answeredCountByCourseId.get(row.courseId) ?? 0) + row._count._all,
+      );
+    }
+  }
+
+  const studentCountByCourseId = new Map(
+    enrollmentCounts.map((row) => [row.courseId, row._count._all]),
+  );
+
+  const nodeCountByCourseId = new Map<string, number>();
+  const completedProgressByCourseId = new Map<string, number>();
+  for (const node of roadmapNodes) {
+    nodeCountByCourseId.set(
+      node.courseId,
+      (nodeCountByCourseId.get(node.courseId) ?? 0) + 1,
+    );
+    const completedCount = node.progress.filter(
+      (entry) => entry.status === 'completed',
+    ).length;
+    completedProgressByCourseId.set(
+      node.courseId,
+      (completedProgressByCourseId.get(node.courseId) ?? 0) + completedCount,
+    );
+  }
+
+  return assignments.map((assignment) => {
+    const studentCount = studentCountByCourseId.get(assignment.courseId) ?? 0;
+    const nodeCount = nodeCountByCourseId.get(assignment.courseId) ?? 0;
+    const completedCount =
+      completedProgressByCourseId.get(assignment.courseId) ?? 0;
+    const possibleCount = studentCount * nodeCount;
+
+    return {
+      courseId: assignment.courseId,
+      courseCode: assignment.course.code,
+      courseTitle: assignment.course.title,
+      questionCount: questionCountByCourseId.get(assignment.courseId) ?? 0,
+      answeredCount: answeredCountByCourseId.get(assignment.courseId) ?? 0,
+      studentCount,
+      averageProgressPercentage:
+        possibleCount === 0
+          ? 0
+          : Math.round((completedCount / possibleCount) * 100),
+    };
+  });
 }
 
 function dashboardThreadInclude() {

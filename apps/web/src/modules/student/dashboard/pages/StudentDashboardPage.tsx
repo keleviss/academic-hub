@@ -4,10 +4,10 @@ import {
   ArrowRight,
   BadgeCheck,
   BookOpen,
-  CheckCircle2,
   ChevronRight,
   CircleHelp,
   MessagesSquare,
+  Sparkles,
   StickyNote,
 } from 'lucide-react';
 import type { DashboardForumThreadItem } from '@web-app/contracts';
@@ -17,6 +17,7 @@ import {
   studentDashboardQueryKey,
 } from '../../../../api/client';
 import {
+  DashboardNoteButton,
   DashboardThreadButton,
   DashboardWidget,
 } from '../../../../components/DashboardWidget';
@@ -24,6 +25,7 @@ import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
 import { formatRelativeDateTime } from '../../../../lib/format-relative-time';
 import { forumThreadStatusLabels } from '../../../../lib/forum-thread-status';
+import { StudentRoadmapContinueCard } from '../components/StudentRoadmapContinueCard';
 
 function countItemsByCourse(
   items: ReadonlyArray<{ courseId: string }>,
@@ -95,16 +97,63 @@ export function StudentDashboardPage(): React.JSX.Element {
                           type="button"
                           onClick={() => navigate(`/app/courses/${course.id}`)}
                         >
-                          <span className="dashboard-course-code">
-                            {course.code}
-                          </span>
+                          <div className="dashboard-course-card-top">
+                            <span className="dashboard-course-code">
+                              {course.code}
+                            </span>
+                            {course.hasRecentMaterial && (
+                              <span
+                                className="dashboard-course-new-badge"
+                                title="Νέο υλικό τις τελευταίες ημέρες"
+                              >
+                                <Sparkles aria-hidden="true" size={11} />
+                                Νέο υλικό
+                              </span>
+                            )}
+                          </div>
                           <strong>{course.title}</strong>
-                          <span className="dashboard-course-meta">
-                            {course.semester} · {course.counts.documentCount}{' '}
-                            {course.counts.documentCount === 1
-                              ? 'έγγραφο'
-                              : 'έγγραφα'}
-                          </span>
+                          <div className="dashboard-course-roadmap-progress">
+                            {course.roadmap.totalNodeCount === 0 ? (
+                              <span className="dashboard-course-roadmap-empty">
+                                Δεν έχει δημοσιευτεί χάρτης ύλης
+                              </span>
+                            ) : (
+                              <>
+                                <div className="dashboard-course-roadmap-heading">
+                                  <span>Πρόοδος ύλης</span>
+                                  <b>
+                                    {course.roadmap.completedNodeCount} /{' '}
+                                    {course.roadmap.totalNodeCount}
+                                  </b>
+                                </div>
+                                <div
+                                  aria-label={`Πρόοδος χάρτη ${course.roadmap.completionPercentage}%`}
+                                  aria-valuemax={100}
+                                  aria-valuemin={0}
+                                  aria-valuenow={
+                                    course.roadmap.completionPercentage
+                                  }
+                                  className="dashboard-course-roadmap-track"
+                                  role="progressbar"
+                                >
+                                  <span
+                                    style={{
+                                      width: `${course.roadmap.completionPercentage}%`,
+                                    }}
+                                  />
+                                </div>
+                                {course.roadmap.needsReviewCount > 0 && (
+                                  <small>
+                                    {course.roadmap.needsReviewCount}{' '}
+                                    {course.roadmap.needsReviewCount === 1
+                                      ? 'ενότητα χρειάζεται'
+                                      : 'ενότητες χρειάζονται'}{' '}
+                                    επανάληψη
+                                  </small>
+                                )}
+                              </>
+                            )}
+                          </div>
                           <span className="dashboard-course-signals">
                             <span>
                               <b>{openQuestionCount}</b> ανοιχτές απορίες
@@ -113,16 +162,16 @@ export function StudentDashboardPage(): React.JSX.Element {
                               <b>{recentNoteCount}</b> πρόσφατες σημειώσεις
                             </span>
                           </span>
-                          <span className="dashboard-course-action">
-                            Άνοιγμα μαθήματος
-                            <ArrowRight aria-hidden="true" size={16} />
-                          </span>
                         </button>
                       );
                     })}
                   </div>
                 )}
               </section>
+
+              {data.continueLearning && (
+                <StudentRoadmapContinueCard node={data.continueLearning} />
+              )}
 
               <div className="dashboard-student-priority-grid">
                 <section className="dashboard-attention-panel">
@@ -134,10 +183,13 @@ export function StudentDashboardPage(): React.JSX.Element {
                       <CircleHelp size={19} />
                     </span>
                     <div>
-                      <span>Χρειάζονται την προσοχή σου</span>
                       <h2>Ανοιχτές απορίες</h2>
                     </div>
                     <strong>{data.openQuestions.length}</strong>
+                    <Link className="dashboard-widget-viewall" to="/app/activity">
+                      Όλες οι απορίες
+                      <ArrowRight aria-hidden="true" size={15} />
+                    </Link>
                   </div>
 
                   {data.openQuestions.length === 0 ? (
@@ -146,7 +198,7 @@ export function StudentDashboardPage(): React.JSX.Element {
                     </p>
                   ) : (
                     <div className="dashboard-attention-list">
-                      {data.openQuestions.slice(0, 4).map((thread) => (
+                      {data.openQuestions.slice(0, 3).map((thread) => (
                         <button
                           className="dashboard-attention-item"
                           key={thread.id}
@@ -166,16 +218,11 @@ export function StudentDashboardPage(): React.JSX.Element {
                       ))}
                     </div>
                   )}
-
-                  <Link className="dashboard-attention-link" to="/app/courses">
-                    Όλες οι απορίες
-                    <ArrowRight aria-hidden="true" size={15} />
-                  </Link>
                 </section>
 
                 <DashboardWidget
                   title="Πρόσφατες σημειώσεις"
-                  viewAllHref="/app/courses"
+                  viewAllHref="/app/notes"
                   icon={<StickyNote size={18} />}
                   count={data.recentNotes.length}
                   tone="blue"
@@ -183,37 +230,23 @@ export function StudentDashboardPage(): React.JSX.Element {
                   emptyMessage="Δεν υπάρχουν πρόσφατες σημειώσεις."
                 >
                   {data.recentNotes.slice(0, 3).map((note) => (
-                    <button
-                      className="dashboard-list-item"
+                    <DashboardNoteButton
                       key={note.id}
-                      type="button"
-                      onClick={() =>
+                      note={note}
+                      onOpen={() =>
                         navigate(
                           `/app/courses/${note.courseId}/documents/${note.documentId}`,
                         )
                       }
-                    >
-                      <span className="dashboard-list-item-copy">
-                        <strong>{note.body ?? 'Χωρίς κείμενο'}</strong>
-                        <span>
-                          {note.courseCode} · Σελίδα {note.target.pageNumber}
-                        </span>
-                      </span>
-                      <ChevronRight aria-hidden="true" size={17} />
-                    </button>
+                    />
                   ))}
                 </DashboardWidget>
               </div>
 
-              {data.verifiedAnswers.length === 0 ? (
-                <div className="dashboard-info-strip">
-                  <CheckCircle2 aria-hidden="true" size={19} />
-                  <span>Δεν έχεις νέες επίσημες απαντήσεις.</span>
-                </div>
-              ) : (
+              {data.verifiedAnswers.length === 0 ? null : (
                 <DashboardWidget
                   title="Πρόσφατες επίσημες απαντήσεις"
-                  viewAllHref="/app/courses"
+                  viewAllHref="/app/activity"
                   icon={<BadgeCheck size={18} />}
                   count={data.verifiedAnswers.length}
                   tone="green"
@@ -233,7 +266,7 @@ export function StudentDashboardPage(): React.JSX.Element {
 
               <DashboardWidget
                 title="Συζητήσεις με νέα δραστηριότητα"
-                viewAllHref="/app/courses"
+                viewAllHref="/app/activity"
                 icon={<MessagesSquare size={18} />}
                 count={data.activeDiscussions.length}
                 tone="blue"

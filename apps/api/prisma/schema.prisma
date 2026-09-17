@@ -366,6 +366,7 @@ model RoadmapNodeResource {
   sectionLabel  String?             @map("section_label")
   externalUrl   String?             @map("external_url")
   title         String?
+  content       String?
   orderIndex    Int                 @default(0) @map("order_index")
   createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
 

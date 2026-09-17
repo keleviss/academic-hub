@@ -6,24 +6,45 @@ import {
   ProfessorCourseListItemSchema,
   StudentCourseListItemSchema,
 } from './course-management.js';
+import { RoadmapProgressStatusSchema } from './enums.js';
 import { ForumThreadListItemSchema } from './forum.js';
 
-export const DashboardForumThreadItemSchema = ForumThreadListItemSchema.extend(
-  {
-    courseCode: CourseCodeSchema,
-    courseTitle: z.string().min(1),
-  },
-);
+export const DashboardForumThreadItemSchema = ForumThreadListItemSchema.extend({
+  courseCode: CourseCodeSchema,
+  courseTitle: z.string().min(1),
+});
 
-export const DashboardAnnotationItemSchema = CourseDocumentAnnotationSchema.extend(
-  {
+export const DashboardAnnotationItemSchema =
+  CourseDocumentAnnotationSchema.extend({
     courseCode: CourseCodeSchema,
     courseTitle: z.string().min(1),
-  },
-);
+  });
+
+export const StudentDashboardRoadmapSummarySchema = z.object({
+  totalNodeCount: z.number().int().nonnegative(),
+  completedNodeCount: z.number().int().nonnegative(),
+  completionPercentage: z.number().min(0).max(100),
+  needsReviewCount: z.number().int().nonnegative(),
+});
+
+export const StudentDashboardCourseSchema = StudentCourseListItemSchema.extend({
+  roadmap: StudentDashboardRoadmapSummarySchema,
+  hasRecentMaterial: z.boolean(),
+});
+
+export const StudentDashboardContinueNodeSchema = z.object({
+  id: z.uuid(),
+  courseId: z.uuid(),
+  courseCode: CourseCodeSchema,
+  courseTitle: z.string().min(1),
+  title: z.string().min(1),
+  status: RoadmapProgressStatusSchema.exclude(['completed']),
+  estimatedMinutes: z.number().int().positive().nullable(),
+});
 
 export const StudentDashboardSchema = z.object({
-  courses: z.array(StudentCourseListItemSchema),
+  courses: z.array(StudentDashboardCourseSchema),
+  continueLearning: StudentDashboardContinueNodeSchema.nullable(),
   recentNotes: z.array(DashboardAnnotationItemSchema),
   openQuestions: z.array(DashboardForumThreadItemSchema),
   verifiedAnswers: z.array(DashboardForumThreadItemSchema),
@@ -43,12 +64,35 @@ export const ProfessorDashboardCourseCountersSchema = z.object({
   recentlyVerifiedCount: z.number().int().nonnegative(),
 });
 
+export const ProfessorDashboardConfusionPointSchema = z.object({
+  courseId: z.uuid(),
+  courseCode: CourseCodeSchema,
+  courseTitle: z.string().min(1),
+  documentId: z.uuid(),
+  documentTitle: z.string().min(1),
+  questionCount: z.number().int().nonnegative(),
+  confusingCount: z.number().int().nonnegative(),
+  studentCount: z.number().int().nonnegative(),
+  lastSignalAt: z.iso.datetime(),
+});
+
+export const ProfessorCourseAnalyticsSchema = z.object({
+  courseId: z.uuid(),
+  courseCode: CourseCodeSchema,
+  courseTitle: z.string().min(1),
+  questionCount: z.number().int().nonnegative(),
+  answeredCount: z.number().int().nonnegative(),
+  studentCount: z.number().int().nonnegative(),
+  averageProgressPercentage: z.number().min(0).max(100),
+});
+
 export const ProfessorDashboardSchema = z.object({
   courses: z.array(ProfessorCourseListItemSchema),
   unansweredThreads: z.array(DashboardForumThreadItemSchema),
   openThreads: z.array(DashboardForumThreadItemSchema),
-  recentActivity: z.array(DashboardForumThreadItemSchema),
+  confusionPoints: z.array(ProfessorDashboardConfusionPointSchema),
   perCourseCounters: z.array(ProfessorDashboardCourseCountersSchema),
+  courseAnalytics: z.array(ProfessorCourseAnalyticsSchema),
 });
 
 export const ProfessorDashboardResponseSchema = z.object({
@@ -61,12 +105,27 @@ export type DashboardForumThreadItem = z.infer<
 export type DashboardAnnotationItem = z.infer<
   typeof DashboardAnnotationItemSchema
 >;
+export type StudentDashboardRoadmapSummary = z.infer<
+  typeof StudentDashboardRoadmapSummarySchema
+>;
+export type StudentDashboardCourse = z.infer<
+  typeof StudentDashboardCourseSchema
+>;
+export type StudentDashboardContinueNode = z.infer<
+  typeof StudentDashboardContinueNodeSchema
+>;
 export type StudentDashboard = z.infer<typeof StudentDashboardSchema>;
 export type StudentDashboardResponse = z.infer<
   typeof StudentDashboardResponseSchema
 >;
 export type ProfessorDashboardCourseCounters = z.infer<
   typeof ProfessorDashboardCourseCountersSchema
+>;
+export type ProfessorDashboardConfusionPoint = z.infer<
+  typeof ProfessorDashboardConfusionPointSchema
+>;
+export type ProfessorCourseAnalytics = z.infer<
+  typeof ProfessorCourseAnalyticsSchema
 >;
 export type ProfessorDashboard = z.infer<typeof ProfessorDashboardSchema>;
 export type ProfessorDashboardResponse = z.infer<
