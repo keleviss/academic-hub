@@ -196,7 +196,7 @@ export function StudentProgressChart({
                 x={marginLeft - 12}
                 y={y + rowHeight / 2 + 4}
                 textAnchor="end"
-                fontSize={12}
+                fontSize={14}
                 fontWeight={700}
                 fill={TEXT_PRIMARY}
               >
@@ -223,7 +223,7 @@ export function StudentProgressChart({
               <text
                 x={marginLeft + plotWidth + 8}
                 y={y + rowHeight / 2 + 4}
-                fontSize={12}
+                fontSize={14}
                 fontWeight={700}
                 fill={TEXT_PRIMARY}
               >
