@@ -163,7 +163,11 @@ export function ThreadDetailPage(): React.JSX.Element {
         const isAuthor = thread.author.id === currentUser.id;
         const isStaff =
           currentUser.role === 'admin' || currentUser.role === 'professor';
-        const canManageThread = isAuthor || isStaff;
+        const canEditThread = isAuthor;
+        const canDeleteThread = isAuthor;
+        const canChangeThreadStatus = isAuthor || isStaff;
+        const hasThreadActions =
+          canEditThread || canDeleteThread || canChangeThreadStatus;
         const openingPost =
           thread.openingBody === null ? thread.posts[0] : null;
         const replyPosts = openingPost ? thread.posts.slice(1) : thread.posts;
@@ -223,7 +227,7 @@ export function ThreadDetailPage(): React.JSX.Element {
                   </blockquote>
                 )}
 
-                {editingThread ? (
+                {editingThread && canEditThread ? (
                   <form
                     className="annotation-edit-form thread-edit-form"
                     onSubmit={(event) => {
@@ -269,9 +273,9 @@ export function ThreadDetailPage(): React.JSX.Element {
                   </p>
                 )}
 
-                {canManageThread && (
+                {hasThreadActions && (
                   <div className="thread-action-bar">
-                    {!editingThread && (
+                    {canEditThread && !editingThread && (
                       <button
                         className="secondary-button"
                         type="button"
@@ -284,37 +288,42 @@ export function ThreadDetailPage(): React.JSX.Element {
                         Επεξεργασία τίτλου
                       </button>
                     )}
-                    {thread.status === 'resolved' ? (
+                    {canChangeThreadStatus &&
+                      (thread.status === 'resolved' ? (
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          disabled={reopenMutation.isPending}
+                          onClick={() => reopenMutation.mutate()}
+                        >
+                          <RotateCcw aria-hidden="true" size={15} />
+                          {reopenMutation.isPending
+                            ? 'Άνοιγμα…'
+                            : 'Άνοιγμα ξανά'}
+                        </button>
+                      ) : (
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          disabled={resolveMutation.isPending}
+                          onClick={() => resolveMutation.mutate()}
+                        >
+                          <CheckCircle2 aria-hidden="true" size={15} />
+                          {resolveMutation.isPending
+                            ? 'Ενημέρωση…'
+                            : 'Σήμανση ως επιλυμένη'}
+                        </button>
+                      ))}
+                    {canDeleteThread && (
                       <button
-                        className="secondary-button"
+                        className="danger-button thread-delete-button"
                         type="button"
-                        disabled={reopenMutation.isPending}
-                        onClick={() => reopenMutation.mutate()}
+                        onClick={() => setDeleteConfirmOpen(true)}
                       >
-                        <RotateCcw aria-hidden="true" size={15} />
-                        {reopenMutation.isPending ? 'Άνοιγμα…' : 'Άνοιγμα ξανά'}
-                      </button>
-                    ) : (
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        disabled={resolveMutation.isPending}
-                        onClick={() => resolveMutation.mutate()}
-                      >
-                        <CheckCircle2 aria-hidden="true" size={15} />
-                        {resolveMutation.isPending
-                          ? 'Ενημέρωση…'
-                          : 'Σήμανση ως επιλυμένη'}
+                        <Trash2 aria-hidden="true" size={15} />
+                        Διαγραφή συζήτησης
                       </button>
                     )}
-                    <button
-                      className="danger-button thread-delete-button"
-                      type="button"
-                      onClick={() => setDeleteConfirmOpen(true)}
-                    >
-                      <Trash2 aria-hidden="true" size={15} />
-                      Διαγραφή συζήτησης
-                    </button>
                   </div>
                 )}
               </article>
@@ -412,7 +421,7 @@ export function ThreadDetailPage(): React.JSX.Element {
               </section>
             </div>
 
-            {deleteConfirmOpen && (
+            {deleteConfirmOpen && canDeleteThread && (
               <Dialog
                 title="Διαγραφή συζήτησης"
                 onClose={() => setDeleteConfirmOpen(false)}
