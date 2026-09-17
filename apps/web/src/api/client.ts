@@ -18,6 +18,9 @@ import {
   ProfessorCourseDetailResponseSchema,
   ProfessorCourseListResponseSchema,
   ProfessorDashboardResponseSchema,
+  RoadmapNodeDeleteResponseSchema,
+  RoadmapNodeMutationResponseSchema,
+  RoadmapResponseSchema,
   StudentDocumentActivitySummaryResponseSchema,
   StudentCourseDetailResponseSchema,
   StudentCourseListResponseSchema,
@@ -50,6 +53,9 @@ import {
   type ProfessorCourseDetailResponse,
   type ProfessorCourseListResponse,
   type ProfessorDashboardResponse,
+  type RoadmapNodeDeleteResponse,
+  type RoadmapNodeMutationResponse,
+  type RoadmapResponse,
   type StudentDocumentActivitySummaryResponse,
   type StudentCourseDetailResponse,
   type StudentCourseListResponse,
@@ -59,6 +65,8 @@ import {
   type UpdateEnrollmentStatusRequest,
   type UpdateForumPostRequest,
   type UpdateForumThreadRequest,
+  type UpdateRoadmapProgressRequest,
+  type UpsertRoadmapNodeRequest,
 } from '@web-app/contracts';
 import { z } from 'zod';
 
@@ -528,6 +536,67 @@ export function fetchStudentDocumentActivity(
   );
 }
 
+export function roadmapQueryKey(courseId: string) {
+  return ['courses', courseId, 'roadmap'] as const;
+}
+
+export function fetchCourseRoadmap(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<RoadmapResponse> {
+  return requestJson(
+    `/api/courses/${courseId}/roadmap`,
+    RoadmapResponseSchema,
+    { signal },
+  );
+}
+
+export function createRoadmapNode(
+  courseId: string,
+  input: UpsertRoadmapNodeRequest,
+): Promise<RoadmapNodeMutationResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/roadmap/nodes`,
+    RoadmapNodeMutationResponseSchema,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function updateRoadmapNode(
+  courseId: string,
+  nodeId: string,
+  input: UpsertRoadmapNodeRequest,
+): Promise<RoadmapNodeMutationResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/roadmap/nodes/${nodeId}`,
+    RoadmapNodeMutationResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function deleteRoadmapNode(
+  courseId: string,
+  nodeId: string,
+): Promise<RoadmapNodeDeleteResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/roadmap/nodes/${nodeId}`,
+    RoadmapNodeDeleteResponseSchema,
+    { method: 'DELETE' },
+  );
+}
+
+export function updateRoadmapProgress(
+  courseId: string,
+  nodeId: string,
+  input: UpdateRoadmapProgressRequest,
+): Promise<RoadmapNodeMutationResponse> {
+  return requestMutation(
+    `/api/courses/${courseId}/roadmap/nodes/${nodeId}/progress`,
+    RoadmapNodeMutationResponseSchema,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
 // A prefix of every forumThreadsQueryKey(courseId, ...) variant, for
 // invalidating all cached filters/documentIds of a course's thread list at once.
 export function forumThreadsBaseKey(courseId: string) {
@@ -539,7 +608,11 @@ export function forumThreadsQueryKey(
   filter: ForumThreadFilter,
   documentId?: string,
 ) {
-  return [...forumThreadsBaseKey(courseId), filter, documentId ?? null] as const;
+  return [
+    ...forumThreadsBaseKey(courseId),
+    filter,
+    documentId ?? null,
+  ] as const;
 }
 
 export function forumThreadQueryKey(courseId: string, threadId: string) {

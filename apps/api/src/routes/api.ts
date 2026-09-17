@@ -10,6 +10,10 @@ import {
   type CourseDocumentsRouteOptions,
 } from './course-documents.js';
 import {
+  createCourseRoadmapRouter,
+  type CourseRoadmapRouteOptions,
+} from './course-roadmap.js';
+import {
   createCourseForumRouter,
   type CourseForumRouteOptions,
 } from './course-forum.js';
@@ -42,6 +46,7 @@ export type ApiRouterOptions = AuthRouteOptions &
     courseDocumentsMaxUploadBytes?: CourseDocumentsRouteOptions['maxUploadBytes'];
     courseDocumentsStorage?: CourseDocumentsRouteOptions['storageService'];
     courseForumPrisma?: CourseForumRouteOptions['prisma'];
+    courseRoadmapPrisma?: CourseRoadmapRouteOptions['prisma'];
     coursesPrisma?: AdminCoursesRouteOptions['prisma'];
     professorCoursesPrisma?: ProfessorCoursesRouteOptions['prisma'];
     professorDashboardPrisma?: ProfessorDashboardRouteOptions['prisma'];
@@ -70,6 +75,14 @@ export function createApiRouter(options: ApiRouterOptions = {}): Router {
     createCourseForumRouter({
       auditLogger: options.auditLogger,
       prisma: options.courseForumPrisma,
+      sessionService: options.sessionService,
+    }),
+  );
+  router.use(
+    '/courses/:courseId/roadmap',
+    createCourseRoadmapRouter({
+      auditLogger: options.auditLogger,
+      prisma: options.courseRoadmapPrisma,
       sessionService: options.sessionService,
     }),
   );

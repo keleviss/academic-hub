@@ -796,7 +796,7 @@ async function seedDocumentsAndRoadmap(): Promise<void> {
         'Ανάγνωση μιας εξάρτησης χάρτη και επιλογή του επόμενου κόμβου.',
       estimatedMinutes: 35,
       difficulty: 'medium' as const,
-      completionRule: 'self_check' as const,
+      completionRule: 'manual' as const,
       orderIndex: 2,
     },
     {
