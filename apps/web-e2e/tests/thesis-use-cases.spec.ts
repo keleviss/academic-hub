@@ -80,7 +80,7 @@ test.describe('thesis demo use cases', () => {
     await login(page, studentEmail);
     await expect(page.getByText('Πρόοδος ύλης').first()).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Πρόσφατες επίσημες απαντήσεις' }),
+      page.getByRole('heading', { name: 'Ανοιχτές απορίες' }),
     ).toBeVisible();
     await expect(
       page.getByRole('heading', { name: continueNodeTitle }),
@@ -113,7 +113,12 @@ test.describe('thesis demo use cases', () => {
     await expect(selectedNodeCard).toBeVisible();
     await capture(page, 'uc01-04-course-roadmap.png');
 
-    await page.goto('/app');
+    // The verified answers are collected on the activity page, not on the
+    // dashboard, so that is where the student picks the thread back up.
+    await page.goto('/app/activity');
+    await expect(
+      page.getByRole('heading', { name: 'Πρόσφατες επίσημες απαντήσεις' }),
+    ).toBeVisible();
     await page
       .getByRole('button', { name: new RegExp(verifiedQuestionTitle) })
       .first()
