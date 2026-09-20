@@ -1,4 +1,8 @@
-import type { CourseInstructorRole, PrismaClient, UserRole } from '@prisma/client';
+import type {
+  CourseInstructorRole,
+  PrismaClient,
+  UserRole,
+} from '@prisma/client';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { ProfessorDashboardResponseSchema } from '@web-app/contracts';
@@ -62,7 +66,12 @@ interface ThreadFixture {
 }
 
 const threads: ThreadFixture[] = [
-  { id: '51111111-1111-4111-8111-111111111111', courseId: courseAId, status: 'open', updatedAt: now },
+  {
+    id: '51111111-1111-4111-8111-111111111111',
+    courseId: courseAId,
+    status: 'open',
+    updatedAt: now,
+  },
   {
     id: '62222222-2222-4222-8222-222222222222',
     courseId: courseAId,
@@ -179,7 +188,8 @@ function createAnnotationFindMany(fixtures: AnnotationFixture[]) {
   return vi.fn(async ({ where }: { where: WhereClause }) =>
     fixtures
       .filter(
-        (item) => where.isDeleted === undefined || item.isDeleted === where.isDeleted,
+        (item) =>
+          where.isDeleted === undefined || item.isDeleted === where.isDeleted,
       )
       .filter(
         (item) =>
@@ -195,7 +205,8 @@ function createAnnotationFindMany(fixtures: AnnotationFixture[]) {
           item.createdAt.getTime() >= where.createdAt.gte.getTime(),
       )
       .filter(
-        (item) => where.author === undefined || item.authorRole === where.author.role,
+        (item) =>
+          where.author === undefined || item.authorRole === where.author.role,
       )
       .filter(
         (item) =>
@@ -230,7 +241,9 @@ function createTestApp(annotationFixtures: AnnotationFixture[] = []) {
 
   const document = { count: vi.fn(async () => 0) };
   const course = { findUnique: vi.fn(async () => null) };
-  const annotationClient = { findMany: createAnnotationFindMany(annotationFixtures) };
+  const annotationClient = {
+    findMany: createAnnotationFindMany(annotationFixtures),
+  };
 
   const forumThread = {
     findMany: vi.fn(
@@ -248,7 +261,8 @@ function createTestApp(annotationFixtures: AnnotationFixture[] = []) {
             if (where.status === undefined) return true;
             if (typeof where.status === 'string')
               return thread.status === where.status;
-            if ('in' in where.status) return where.status.in.includes(thread.status);
+            if ('in' in where.status)
+              return where.status.in.includes(thread.status);
             return thread.status !== where.status.not;
           })
           .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
@@ -400,12 +414,11 @@ describe('professor dashboard route', () => {
     expect(body.data.unansweredThreads.map((thread) => thread.id)).toEqual([
       '51111111-1111-4111-8111-111111111111',
     ]);
-    expect(body.data.openThreads.map((thread) => thread.id).sort()).toEqual(
-      [
-        '51111111-1111-4111-8111-111111111111',
-        '62222222-2222-4222-8222-222222222222',
-      ].sort(),
-    );
+    // The answered widget is the complement of the unanswered one: it carries
+    // only the instructor-answered thread, never the open one above.
+    expect(body.data.answeredThreads.map((thread) => thread.id)).toEqual([
+      '62222222-2222-4222-8222-222222222222',
+    ]);
     expect(body.data.confusionPoints).toEqual([]);
 
     const counterA = body.data.perCourseCounters.find(
@@ -433,7 +446,12 @@ describe('professor dashboard route', () => {
     it('counts only non-deleted, public/instructor_only, student-authored question and confusing signals', async () => {
       const documentId = 'a1111111-1111-4111-8111-111111111111';
       const fixtures: AnnotationFixture[] = [
-        annotation({ documentId, authorId: studentId, type: 'question', visibility: 'public' }),
+        annotation({
+          documentId,
+          authorId: studentId,
+          type: 'question',
+          visibility: 'public',
+        }),
         annotation({
           documentId,
           authorId: studentId2,
@@ -496,8 +514,16 @@ describe('professor dashboard route', () => {
       const archivedDocumentId = 'a4444444-4444-4444-8444-444444444444';
 
       const fixtures: AnnotationFixture[] = [
-        annotation({ documentId: ownDocumentId, authorId: studentId, type: 'question' }),
-        annotation({ documentId: ownDocumentId, authorId: studentId2, type: 'confusing' }),
+        annotation({
+          documentId: ownDocumentId,
+          authorId: studentId,
+          type: 'question',
+        }),
+        annotation({
+          documentId: ownDocumentId,
+          authorId: studentId2,
+          type: 'confusing',
+        }),
         // Excluded: belongs to a course the professor does not teach.
         annotation({
           documentId: otherCourseDocumentId,

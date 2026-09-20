@@ -124,7 +124,7 @@ export function createProfessorDashboardRouter(
       const [
         courses,
         unansweredThreads,
-        openThreads,
+        answeredThreads,
         confusionPoints,
         courseCounters,
         courseAnalytics,
@@ -145,13 +145,16 @@ export function createProfessorDashboardRouter(
           take: DASHBOARD_ITEM_LIMIT,
           where: { courseId: { in: myCourseIds }, status: 'open' },
         }),
+        // Deliberately excludes 'open': this widget is the complement of the
+        // unanswered queue, not a superset of it, so the two lists never show
+        // the same thread and each one maps to a different teaching action.
         prisma.forumThread.findMany({
           include: dashboardThreadInclude(),
           orderBy: [{ updatedAt: 'desc' }],
           take: DASHBOARD_ITEM_LIMIT,
           where: {
             courseId: { in: myCourseIds },
-            status: { in: ['open', 'instructor_answered'] },
+            status: 'instructor_answered',
           },
         }),
         confusionPointsFor(prisma, myCourseIds),
@@ -165,7 +168,7 @@ export function createProfessorDashboardRouter(
           unansweredThreads: (unansweredThreads as DashboardThreadRecord[]).map(
             toDashboardForumThreadItem,
           ),
-          openThreads: (openThreads as DashboardThreadRecord[]).map(
+          answeredThreads: (answeredThreads as DashboardThreadRecord[]).map(
             toDashboardForumThreadItem,
           ),
           confusionPoints,

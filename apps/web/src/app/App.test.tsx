@@ -45,7 +45,7 @@ const emptyProfessorDashboard = {
   data: {
     courses: [],
     unansweredThreads: [],
-    openThreads: [],
+    answeredThreads: [],
     confusionPoints: [],
     perCourseCounters: [],
     courseAnalytics: [],
@@ -207,7 +207,11 @@ describe('public login route', () => {
 
     await act(async () => request.resolve(signedIn()));
 
-    expect(await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app');
   });
 
@@ -242,7 +246,11 @@ describe('public login route', () => {
       screen.getByRole('button', { name: 'Σύνδεση στο Academic Hub' }),
     );
 
-    expect(await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('shows a generic login network error', async () => {
@@ -287,10 +295,7 @@ describe('session, routing and role workspaces', () => {
 
   it.each([
     ['admin', 'Διαχειριστικό workspace'],
-    [
-      'professor',
-      'Τα μαθήματά σου και η κατάσταση των συζητήσεών τους.',
-    ],
+    ['professor', 'Τα μαθήματά σου και η κατάσταση των συζητήσεών τους.'],
     [
       'student',
       'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
@@ -309,7 +314,11 @@ describe('session, routing and role workspaces', () => {
 
     renderApp('/app');
 
-    expect(await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('navigation', { name: 'Πλοήγηση workspace' }),
     ).toBeInTheDocument();
@@ -337,7 +346,9 @@ describe('session, routing and role workspaces', () => {
 
     renderApp('/app');
 
-    await screen.findByText('Τα μαθήματά σου και η κατάσταση των συζητήσεών τους.');
+    await screen.findByText(
+      'Τα μαθήματά σου και η κατάσταση των συζητήσεών τους.',
+    );
     await userEvent.type(
       screen.getByLabelText('Αναζήτηση διαθέσιμων σελίδων'),
       'analytics',
@@ -433,7 +444,9 @@ describe('session, routing and role workspaces', () => {
       renderApp(path);
 
       expect(
-        await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.'),
+        await screen.findByText(
+          'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+        ),
       ).toBeInTheDocument();
       expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app');
     },
@@ -444,7 +457,11 @@ describe('session, routing and role workspaces', () => {
 
     renderApp('/app/users');
 
-    expect(await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app');
     expect(screen.queryByText('Χρήστες και ρόλοι')).not.toBeInTheDocument();
   });
@@ -465,7 +482,11 @@ describe('session, routing and role workspaces', () => {
 
     renderApp('/app');
 
-    expect(await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      ),
+    ).toBeInTheDocument();
     const workspaceContent = document.getElementById('main-content');
     expect(workspaceContent).not.toBeNull();
     workspaceContent!.scrollTop = 480;
@@ -473,18 +494,26 @@ describe('session, routing and role workspaces', () => {
     await userEvent.click(screen.getByRole('link', { name: /Μαθήματα/ }));
 
     expect(await screen.findByText('Τα μαθήματά μου')).toBeInTheDocument();
-    await waitFor(() => expect(workspaceContent).toHaveProperty('scrollTop', 0));
+    await waitFor(() =>
+      expect(workspaceContent).toHaveProperty('scrollTop', 0),
+    );
   });
 
   it('fetches the existing server session after a fresh mount', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn());
     const first = renderApp('/app');
 
-    await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.');
+    await screen.findByText(
+      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+    );
     first.unmount();
     renderApp('/app');
 
-    expect(await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      ),
+    ).toBeInTheDocument();
     expect(fetchCurrentSession).toHaveBeenCalledTimes(2);
     expect(login).not.toHaveBeenCalled();
   });
@@ -504,14 +533,20 @@ describe('session, routing and role workspaces', () => {
       screen.getByRole('button', { name: 'Επανάληψη ελέγχου' }),
     );
 
-    expect(await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('clears previous-user queries and cached mutations on logout', async () => {
     vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn());
     const { client } = renderApp('/app');
 
-    await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.');
+    await screen.findByText(
+      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+    );
     client.setQueryData(['private-notes'], ['private data']);
     await client
       .getMutationCache()
@@ -543,7 +578,11 @@ describe('session, routing and role workspaces', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Η αποσύνδεση δεν ολοκληρώθηκε.',
     );
-    expect(screen.getByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      ),
+    ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('menuitem', { name: 'Αποσύνδεση' }));
 
@@ -557,7 +596,9 @@ describe('session, routing and role workspaces', () => {
       .mockReturnValueOnce(stale.promise);
     const { client } = renderApp('/app');
 
-    await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.');
+    await screen.findByText(
+      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+    );
     let oldRequest!: Promise<void>;
     act(() => {
       oldRequest = client.refetchQueries({ queryKey: sessionKey });
@@ -593,7 +634,9 @@ describe('session, routing and role workspaces', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Σύνδεση στο Academic Hub' }),
     );
-    await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.');
+    await screen.findByText(
+      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+    );
 
     await act(async () => stale.resolve(guest));
 
@@ -606,7 +649,9 @@ describe('session, routing and role workspaces', () => {
       .mockResolvedValue(guest);
     const { client } = renderApp('/app');
 
-    await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.');
+    await screen.findByText(
+      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+    );
     client.setQueryData(['private-notes'], ['private']);
     act(() => {
       focusManager.setFocused(false);
@@ -625,7 +670,9 @@ describe('session, routing and role workspaces', () => {
       .mockRejectedValueOnce(new Error('offline'));
     const { client } = renderApp('/app');
 
-    await screen.findByText('Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.');
+    await screen.findByText(
+      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+    );
     act(() => {
       onlineManager.setOnline(false);
       onlineManager.setOnline(true);

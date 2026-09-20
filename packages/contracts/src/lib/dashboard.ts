@@ -88,8 +88,11 @@ export const ProfessorCourseAnalyticsSchema = z.object({
 
 export const ProfessorDashboardSchema = z.object({
   courses: z.array(ProfessorCourseListItemSchema),
+  // The two thread widgets are disjoint halves of the pending work: threads
+  // nobody from the teaching staff has replied to yet, and threads that got a
+  // reply but still wait for one of them to be marked as the official answer.
   unansweredThreads: z.array(DashboardForumThreadItemSchema),
-  openThreads: z.array(DashboardForumThreadItemSchema),
+  answeredThreads: z.array(DashboardForumThreadItemSchema),
   confusionPoints: z.array(ProfessorDashboardConfusionPointSchema),
   perCourseCounters: z.array(ProfessorDashboardCourseCountersSchema),
   courseAnalytics: z.array(ProfessorCourseAnalyticsSchema),

@@ -66,7 +66,7 @@ function buildProfessorTimeline(
 ): TimelineEntry[] {
   return [
     ...data.unansweredThreads.map((thread) => threadEntry(thread, openThread)),
-    ...data.openThreads.map((thread) => threadEntry(thread, openThread)),
+    ...data.answeredThreads.map((thread) => threadEntry(thread, openThread)),
     ...data.confusionPoints.map((point: ProfessorDashboardConfusionPoint) => ({
       id: point.documentId,
       at: point.lastSignalAt,
@@ -104,12 +104,18 @@ function groupByDay(entries: TimelineEntry[]): [string, TimelineEntry[]][] {
   return [...groups.entries()];
 }
 
-function Timeline({ entries }: { entries: TimelineEntry[] }): React.JSX.Element {
+function Timeline({
+  entries,
+}: {
+  entries: TimelineEntry[];
+}): React.JSX.Element {
   const groups = groupByDay(entries);
 
   if (groups.length === 0) {
     return (
-      <p className="dashboard-anchor-empty">Δεν υπάρχει πρόσφατη δραστηριότητα.</p>
+      <p className="dashboard-anchor-empty">
+        Δεν υπάρχει πρόσφατη δραστηριότητα.
+      </p>
     );
   }
 

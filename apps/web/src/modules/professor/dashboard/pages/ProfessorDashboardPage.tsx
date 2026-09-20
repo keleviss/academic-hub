@@ -56,6 +56,18 @@ export function ProfessorDashboardPage(): React.JSX.Element {
               counters,
             ]),
           );
+          // The thread lists are capped for display, so their length is not the
+          // real backlog. `openCount` covers open plus instructor-answered
+          // threads, which makes the difference the answered-but-unverified ones.
+          const pendingTotals = data.perCourseCounters.reduce(
+            (totals, counters) => ({
+              unanswered: totals.unanswered + counters.unansweredCount,
+              answered:
+                totals.answered +
+                (counters.openCount - counters.unansweredCount),
+            }),
+            { unanswered: 0, answered: 0 },
+          );
 
           return (
             <div className="dashboard-layout dashboard-layout--professor">
@@ -133,10 +145,17 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                       <MessageCircleWarning size={19} />
                     </span>
                     <div className="flex items-center gap-2">
-                      <h2 className='whitespace-nowrap'>Χρειάζονται απάντηση</h2>
-                      <strong className="count">{data.unansweredThreads.length}</strong>
+                      <h2 className="whitespace-nowrap">
+                        Χρειάζονται απάντηση
+                      </h2>
+                      <strong className="count">
+                        {pendingTotals.unanswered}
+                      </strong>
                     </div>
-                    <Link className="dashboard-widget-viewall" to="/app/courses">
+                    <Link
+                      className="dashboard-widget-viewall"
+                      to="/app/courses"
+                    >
                       Προβολή όλων
                       <ArrowRight aria-hidden="true" size={15} />
                     </Link>
@@ -172,15 +191,15 @@ export function ProfessorDashboardPage(): React.JSX.Element {
 
               <div className="dashboard-support-grid">
                 <DashboardWidget
-                  title="Ανοιχτές απορίες"
+                  title="Εκκρεμεί επαλήθευση"
                   viewAllHref="/app/courses"
                   icon={<CircleHelp size={18} />}
-                  count={data.openThreads.length}
+                  count={pendingTotals.answered}
                   tone="teal"
-                  isEmpty={data.openThreads.length === 0}
-                  emptyMessage="Δεν υπάρχουν ανοιχτές συζητήσεις."
+                  isEmpty={data.answeredThreads.length === 0}
+                  emptyMessage="Δεν υπάρχουν απαντήσεις που περιμένουν επαλήθευση."
                 >
-                  {data.openThreads.slice(0, 3).map((thread) => (
+                  {data.answeredThreads.slice(0, 3).map((thread) => (
                     <DashboardThreadButton
                       key={thread.id}
                       thread={thread}
