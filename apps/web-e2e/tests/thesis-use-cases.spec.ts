@@ -53,6 +53,10 @@ async function capture(page: Page, filename: string) {
   });
 }
 
+function breadcrumbs(page: Page): Locator {
+  return page.getByRole('navigation', { name: 'Διαδρομή σελίδας' });
+}
+
 function replyPost(page: Page, body: string): Locator {
   return page.locator('article.thread-post').filter({ hasText: body });
 }
@@ -118,9 +122,13 @@ test.describe('thesis demo use cases', () => {
       page.getByRole('heading', { name: verifiedQuestionTitle }),
     ).toBeVisible();
     await expect(page.getByText('Επίσημη απάντηση')).toBeVisible();
+    await expect(breadcrumbs(page)).toContainText(demoCourseCode);
     await capture(page, 'uc01-02-verified-contextual-answer.png');
 
     await page.getByRole('button', { name: 'Άνοιγμα εγγράφου' }).click();
+    // The button navigates client-side, so wait for the document route before
+    // reading the URL back; otherwise the thread URL can still be current.
+    await expect(page).toHaveURL(/\/documents\/[^/?]+$/);
     const documentUrl = new URL(page.url());
     documentUrl.searchParams.set('page', String(verifiedQuestionPage));
     await page.goto(documentUrl.toString());
@@ -139,6 +147,7 @@ test.describe('thesis demo use cases', () => {
     await expect(
       page.getByText(`Σελίδα ${verifiedQuestionPage}`),
     ).toBeVisible();
+    await expect(breadcrumbs(page)).toContainText(demoCourseCode);
     await capture(page, 'uc01-03-pdf-contextual-question.png');
   });
 
@@ -183,6 +192,7 @@ test.describe('thesis demo use cases', () => {
     await removeDemoReplyIfPresent(page);
     await expect(page.getByText('χαλάρωση ακμής').first()).toBeVisible();
     await expect(page.getByLabel('Νέα απάντηση')).toBeVisible();
+    await expect(breadcrumbs(page)).toContainText(demoCourseCode);
     await capture(page, 'uc02-02-unanswered-contextual-thread.png');
 
     try {

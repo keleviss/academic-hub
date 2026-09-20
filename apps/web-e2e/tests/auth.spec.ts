@@ -11,12 +11,12 @@ const accounts = [
   {
     role: 'professor',
     email: 'professor@academic-hub.local',
-    heading: 'Teaching Intelligence workspace',
+    heading: 'Επισκόπηση',
   },
   {
     role: 'student',
     email: 'maria.student@academic-hub.local',
-    heading: 'Φοιτητικό workspace',
+    heading: 'Επισκόπηση',
   },
 ] as const;
 

@@ -82,12 +82,13 @@ test('opens the logged sidebar drawer on mobile', async ({ page }) => {
 
   await page.goto('/app');
 
-  await expect(page.getByText('Φοιτητικό workspace')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Επισκόπηση' })).toBeVisible();
   await page.getByRole('button', { name: 'Άνοιγμα sidebar' }).click();
+  const drawerNavigation = page.getByRole('navigation', {
+    name: 'Πλοήγηση workspace',
+  });
+  await expect(drawerNavigation).toBeVisible();
   await expect(
-    page.getByRole('navigation', { name: 'Πλοήγηση workspace' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: /Αλγόριθμοι και Πολυπλοκότητα/ }),
+    drawerNavigation.getByRole('link', { name: 'Μαθήματα' }),
   ).toBeVisible();
 });

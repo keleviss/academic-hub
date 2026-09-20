@@ -38,6 +38,7 @@ import { getErrorMessage } from '../../../../lib/api-error';
 import { formatRelativeDateTime } from '../../../../lib/format-relative-time';
 import { forumThreadStatusLabels } from '../../../../lib/forum-thread-status';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
+import { useCourseBreadcrumbTrail } from '../../../../hooks/useCourseBreadcrumbTrail';
 
 const visibilityLabels = {
   public: 'Δημόσιο',
@@ -71,13 +72,7 @@ export function ThreadDetailPage(): React.JSX.Element {
     enabled: !!courseId && !!threadId,
   });
   useSetWorkspaceBreadcrumb(
-    threadQuery.data
-      ? [
-          { label: 'Μαθήματα', to: '/app/courses' },
-          { label: 'Μάθημα', to: `/app/courses/${courseId}` },
-          { label: threadQuery.data.data.title },
-        ]
-      : null,
+    useCourseBreadcrumbTrail(courseId, threadQuery.data?.data.title),
   );
 
   const invalidateKeys = [

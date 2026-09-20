@@ -9,6 +9,7 @@ import {
 } from '../../../../api/client';
 import { QueryState } from '../../../../components/QueryState';
 import { useSetWorkspaceBreadcrumb } from '../../../../components/workspaceBreadcrumb';
+import { useCourseBreadcrumbTrail } from '../../../../hooks/useCourseBreadcrumbTrail';
 import { DocumentAnnotationsPanel } from '../components/DocumentAnnotationsPanel';
 import { PdfCanvasViewer } from '../components/PdfCanvasViewer';
 import { PdfZoomControls } from '../components/PdfZoomControls';
@@ -56,13 +57,7 @@ export function DocumentViewerPage(): React.JSX.Element {
     enabled: !!courseId && !!documentId,
   });
   useSetWorkspaceBreadcrumb(
-    documentQuery.data
-      ? [
-          { label: 'Μαθήματα', to: '/app/courses' },
-          { label: 'Μάθημα', to: `/app/courses/${courseId}` },
-          { label: documentQuery.data.data.title },
-        ]
-      : null,
+    useCourseBreadcrumbTrail(courseId, documentQuery.data?.data.title),
   );
   const contentQuery = useQuery({
     queryKey: [...documentQueryKey(courseId, documentId), 'content'],
