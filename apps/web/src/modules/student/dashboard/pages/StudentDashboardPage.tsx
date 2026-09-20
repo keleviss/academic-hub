@@ -21,8 +21,10 @@ import {
   DashboardThreadButton,
   DashboardWidget,
 } from '../../../../components/DashboardWidget';
+import { DashboardCoursePagination } from '../../../../components/DashboardCoursePagination';
 import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
+import { useDashboardCoursePagination } from '../../../../hooks/useDashboardCoursePagination';
 import { formatRelativeDateTime } from '../../../../lib/format-relative-time';
 import { forumThreadStatusLabels } from '../../../../lib/forum-thread-status';
 import { StudentRoadmapContinueCard } from '../components/StudentRoadmapContinueCard';
@@ -42,6 +44,9 @@ export function StudentDashboardPage(): React.JSX.Element {
     queryKey: studentDashboardQueryKey(),
     queryFn: ({ signal }) => fetchStudentDashboard(signal),
   });
+  const coursePagination = useDashboardCoursePagination(
+    dashboardQuery.data?.data.courses ?? [],
+  );
 
   const openThread = (thread: DashboardForumThreadItem) =>
     navigate(`/app/courses/${thread.courseId}/discussions/${thread.id}`);
@@ -84,7 +89,7 @@ export function StudentDashboardPage(): React.JSX.Element {
                   </p>
                 ) : (
                   <div className="dashboard-student-course-grid">
-                    {data.courses.map((course) => {
+                    {coursePagination.visibleItems.map((course) => {
                       const openQuestionCount =
                         openQuestionsByCourse.get(course.id) ?? 0;
                       const recentNoteCount =
@@ -165,6 +170,12 @@ export function StudentDashboardPage(): React.JSX.Element {
                         </button>
                       );
                     })}
+                    <DashboardCoursePagination
+                      currentPage={coursePagination.currentPage}
+                      totalPages={coursePagination.totalPages}
+                      onNextPage={coursePagination.goToNextPage}
+                      onPreviousPage={coursePagination.goToPreviousPage}
+                    />
                   </div>
                 )}
               </section>
@@ -186,7 +197,10 @@ export function StudentDashboardPage(): React.JSX.Element {
                       <h2>Ανοιχτές απορίες</h2>
                     </div>
                     <strong>{data.openQuestions.length}</strong>
-                    <Link className="dashboard-widget-viewall" to="/app/activity">
+                    <Link
+                      className="dashboard-widget-viewall"
+                      to="/app/activity"
+                    >
                       Όλες οι απορίες
                       <ArrowRight aria-hidden="true" size={15} />
                     </Link>

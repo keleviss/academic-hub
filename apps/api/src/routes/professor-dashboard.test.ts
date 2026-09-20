@@ -228,14 +228,19 @@ function createAnnotationFindMany(fixtures: AnnotationFixture[]) {
   );
 }
 
-function createTestApp(annotationFixtures: AnnotationFixture[] = []) {
+function createTestApp(
+  annotationFixtures: AnnotationFixture[] = [],
+  assignmentFixtures = assignments,
+) {
   const auditLogger: AuditLogger = {
     logAuditEvent: vi.fn().mockResolvedValue(undefined),
   };
 
   const courseInstructor = {
     findMany: vi.fn(async ({ where }: { where: { instructorId: string } }) =>
-      assignments.filter((item) => item.instructorId === where.instructorId),
+      assignmentFixtures.filter(
+        (item) => item.instructorId === where.instructorId,
+      ),
     ),
   };
 
@@ -440,6 +445,34 @@ describe('professor dashboard route', () => {
       // recently-verified window; the other is far in the past.
       recentlyVerifiedCount: 1,
     });
+  });
+
+  it('returns every assigned course so the dashboard can paginate them', async () => {
+    const manyAssignments = Array.from({ length: 6 }, (_, index) => {
+      const sequence = String(index + 1).padStart(12, '0');
+      const course = {
+        ...courseA,
+        id: `80000000-0000-4000-8000-${sequence}`,
+        code: `CS20${index + 1}`,
+        title: `Course ${index + 1}`,
+      };
+
+      return {
+        courseId: course.id,
+        instructorId: professorId,
+        instructorRole: 'owner' as CourseInstructorRole,
+        course,
+      };
+    });
+    const { app } = createTestApp([], manyAssignments);
+
+    const response = await request(app)
+      .get('/api/professor/dashboard')
+      .set('Cookie', authCookie())
+      .expect(200);
+    const body = ProfessorDashboardResponseSchema.parse(response.body);
+
+    expect(body.data.courses).toHaveLength(6);
   });
 
   describe('confusion points widget', () => {

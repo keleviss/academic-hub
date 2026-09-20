@@ -22,8 +22,10 @@ import {
   DashboardThreadButton,
   DashboardWidget,
 } from '../../../../components/DashboardWidget';
+import { DashboardCoursePagination } from '../../../../components/DashboardCoursePagination';
 import { PageLayout } from '../../../../components/PageLayout';
 import { QueryState } from '../../../../components/QueryState';
+import { useDashboardCoursePagination } from '../../../../hooks/useDashboardCoursePagination';
 import { formatRelativeDateTime } from '../../../../lib/format-relative-time';
 
 export function ProfessorDashboardPage(): React.JSX.Element {
@@ -32,6 +34,9 @@ export function ProfessorDashboardPage(): React.JSX.Element {
     queryKey: professorDashboardQueryKey(),
     queryFn: ({ signal }) => fetchProfessorDashboard(signal),
   });
+  const coursePagination = useDashboardCoursePagination(
+    dashboardQuery.data?.data.courses ?? [],
+  );
 
   const openThread = (thread: DashboardForumThreadItem) =>
     navigate(`/app/courses/${thread.courseId}/discussions/${thread.id}`);
@@ -93,7 +98,7 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                     </p>
                   ) : (
                     <div className="dashboard-professor-course-list">
-                      {data.courses.map((course) => {
+                      {coursePagination.visibleItems.map((course) => {
                         const counters = countersByCourse.get(course.id);
 
                         return (
@@ -132,6 +137,12 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                           </button>
                         );
                       })}
+                      <DashboardCoursePagination
+                        currentPage={coursePagination.currentPage}
+                        totalPages={coursePagination.totalPages}
+                        onNextPage={coursePagination.goToNextPage}
+                        onPreviousPage={coursePagination.goToPreviousPage}
+                      />
                     </div>
                   )}
                 </section>

@@ -4192,6 +4192,58 @@ select {
   padding: 1rem;
 }
 
+.dashboard-course-pagination {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  margin: 0 -1rem -1rem;
+  border-top: 1px solid var(--color-hub-border);
+  background: white;
+  padding: 0.75rem 1rem;
+}
+
+.dashboard-course-pagination button,
+.dashboard-course-pagination span {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: var(--radius-hub-control);
+}
+
+.dashboard-course-pagination button {
+  border: 1px solid var(--color-hub-border);
+  background: white;
+  color: var(--color-hub-navy);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.dashboard-course-pagination button:not(:disabled):hover {
+  border-color: color-mix(
+    in srgb,
+    var(--color-hub-teal) 35%,
+    var(--color-hub-border)
+  );
+  background: var(--color-hub-surface);
+  color: var(--color-hub-teal-dark);
+}
+
+.dashboard-course-pagination button:disabled {
+  cursor: not-allowed;
+  color: var(--color-hub-subtle);
+}
+
+.dashboard-course-pagination span {
+  color: var(--color-hub-navy);
+  font-size: 0.75rem;
+  font-weight: 760;
+}
+
 .dashboard-course-card {
   position: relative;
   min-width: 0;

@@ -153,7 +153,7 @@ export function createStudentDashboardRouter(
         activeDiscussions,
       ] = await Promise.all([
         Promise.all(
-          enrollments.slice(0, DASHBOARD_ITEM_LIMIT).map(async (enrollment) => {
+          enrollments.map(async (enrollment) => {
             const [documentCount, primaryInstructorName, hasRecentMaterial] =
               await Promise.all([
                 visibleDocumentCountFor(prisma, enrollment.courseId),

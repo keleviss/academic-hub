@@ -195,6 +195,7 @@ function threadRecord(thread: ThreadFixture) {
 function createTestApp(
   nodes: RoadmapNodeFixture[] = roadmapFixtures,
   documents: DocumentFixture[] = [],
+  enrollmentFixtures = enrollments,
 ) {
   const auditLogger: AuditLogger = {
     logAuditEvent: vi.fn().mockResolvedValue(undefined),
@@ -202,7 +203,7 @@ function createTestApp(
 
   const enrollment = {
     findMany: vi.fn(async ({ where }: { where: { studentId: string } }) =>
-      enrollments.filter((item) => item.studentId === where.studentId),
+      enrollmentFixtures.filter((item) => item.studentId === where.studentId),
     ),
   };
 
@@ -461,5 +462,33 @@ describe('student dashboard route', () => {
       body.data.courses.find((course) => course.id === courseBId)
         ?.hasRecentMaterial,
     ).toBe(false);
+  });
+
+  it('returns every enrolled course so the dashboard can paginate them', async () => {
+    const manyEnrollments = Array.from({ length: 6 }, (_, index) => {
+      const sequence = String(index + 1).padStart(12, '0');
+      const course = {
+        ...courseA,
+        id: `70000000-0000-4000-8000-${sequence}`,
+        code: `CS10${index + 1}`,
+        title: `Course ${index + 1}`,
+      };
+
+      return {
+        courseId: course.id,
+        studentId,
+        status: 'active',
+        course,
+      };
+    });
+    const { app } = createTestApp([], [], manyEnrollments);
+
+    const response = await request(app)
+      .get('/api/student/dashboard')
+      .set('Cookie', authCookie())
+      .expect(200);
+    const body = StudentDashboardResponseSchema.parse(response.body);
+
+    expect(body.data.courses).toHaveLength(6);
   });
 });

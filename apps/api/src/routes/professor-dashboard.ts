@@ -130,7 +130,7 @@ export function createProfessorDashboardRouter(
         courseAnalytics,
       ] = await Promise.all([
         Promise.all(
-          assignments.slice(0, DASHBOARD_ITEM_LIMIT).map(async (assignment) => {
+          assignments.map(async (assignment) => {
             const counts = await documentCountsFor(prisma, assignment.courseId);
             return toProfessorCourseListItem(
               assignment.course as CourseRecord,
