@@ -5,13 +5,19 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 
 const demoPassword = 'AcademicHubDemo2026!';
 const studentEmail = 'maria.student@academic-hub.local';
-const professorEmail = 'professor@academic-hub.local';
+const professorEmail = 'markos.professor@academic-hub.local';
 
+const demoCourseCode = 'CS-ALG-201';
+const continueNodeTitle = 'Ανάλυση αλγορίθμων διαίρει-και-βασίλευε';
 const verifiedQuestionTitle =
-  'Πότε μια επαναλαμβανόμενη ερώτηση γίνεται διδακτική ενέργεια;';
-const confusionQuestionTitle = 'Ερμηνεία θερμικού χάρτη σύγχυσης';
+  'Πότε δεν μπορεί να εφαρμοστεί το κύριο θεώρημα σε μια αναδρομική σχέση;';
+const verifiedQuestionPage = 7;
+const verifiedQuestionDocumentTitle =
+  'Εβδομάδα 5 - Διαίρει και Βασίλευε: Ταξινόμηση και Αναδρομή';
+const confusionQuestionTitle =
+  'Ασάφεια στη χαλάρωση ακμών και στα αρνητικά βάρη';
 const demoProfessorAnswer =
-  'Η ένταση του χρώματος συνδυάζει το πλήθος των φοιτητών με τη συχνότητα του ίδιου σήματος σύγχυσης. Ανοίγουμε το σχετικό απόσπασμα πριν αποφασίσουμε τη διδακτική παρέμβαση.';
+  'Η χαλάρωση ακμής είναι ασφαλής μόνο όσο καμία μελλοντική ακμή δεν μπορεί να μειώσει μια ήδη οριστικοποιημένη απόσταση. Με αρνητικά βάρη η υπόθεση αυτή καταρρέει, οπότε χρησιμοποιούμε Bellman-Ford. Θα προσθέσω αναλυτικό αντιπαράδειγμα στην επόμενη διάλεξη.';
 
 const repositoryRoot =
   basename(process.cwd()) === 'web-app'
@@ -72,8 +78,38 @@ test.describe('thesis demo use cases', () => {
     await expect(
       page.getByRole('heading', { name: 'Πρόσφατες επίσημες απαντήσεις' }),
     ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: continueNodeTitle }),
+    ).toBeVisible();
     await capture(page, 'uc01-01-student-dashboard.png');
 
+    await page.getByRole('link', { name: 'Συνέχεια στον χάρτη' }).click();
+    await expect(page).toHaveURL(/tab=roadmap&node=/);
+    const detailsPanel = page.getByLabel('Λεπτομέρειες κόμβου');
+    await expect(
+      detailsPanel.getByRole('heading', { name: continueNodeTitle }),
+    ).toBeVisible();
+    await expect(
+      detailsPanel.getByRole('heading', { name: 'Προαπαιτούμενα' }),
+    ).toBeVisible();
+    await expect(
+      detailsPanel.getByRole('heading', { name: 'Πόροι μελέτης' }),
+    ).toBeVisible();
+    // The map fits all six nodes by default, which shrinks the cards below a
+    // readable size for a printed figure. Zoom in on the selected node so the
+    // screenshot shows it together with its immediate neighbours.
+    const selectedNodeCard = page
+      .locator('.react-flow__node')
+      .filter({ hasText: continueNodeTitle });
+    await selectedNodeCard.hover();
+    for (let step = 0; step < 2; step += 1) {
+      await page.mouse.wheel(0, -240);
+      await page.waitForTimeout(150);
+    }
+    await expect(selectedNodeCard).toBeVisible();
+    await capture(page, 'uc01-04-course-roadmap.png');
+
+    await page.goto('/app');
     await page
       .getByRole('button', { name: new RegExp(verifiedQuestionTitle) })
       .first()
@@ -86,19 +122,23 @@ test.describe('thesis demo use cases', () => {
 
     await page.getByRole('button', { name: 'Άνοιγμα εγγράφου' }).click();
     const documentUrl = new URL(page.url());
-    documentUrl.searchParams.set('page', '4');
+    documentUrl.searchParams.set('page', String(verifiedQuestionPage));
     await page.goto(documentUrl.toString());
     await expect(
-      page.getByRole('heading', {
-        name: 'Εβδομάδα 3 - Σήματα Σύγχυσης και Διδακτική Ανατροφοδότηση',
-      }),
+      page.getByRole('heading', { name: verifiedQuestionDocumentTitle }),
     ).toBeVisible();
-    const fourthPage = page.locator('[data-page-number="4"]');
-    await fourthPage.scrollIntoViewIfNeeded();
-    await expect(page.getByLabel('Σελίδα 4', { exact: true })).toBeVisible();
+    const anchoredPage = page.locator(
+      `[data-page-number="${verifiedQuestionPage}"]`,
+    );
+    await anchoredPage.scrollIntoViewIfNeeded();
+    await expect(
+      page.getByLabel(`Σελίδα ${verifiedQuestionPage}`, { exact: true }),
+    ).toBeVisible();
     await page.getByRole('tab', { name: 'Απορίες' }).click();
     await expect(page.getByText(verifiedQuestionTitle)).toBeVisible();
-    await expect(page.getByText('Σελίδα 4')).toBeVisible();
+    await expect(
+      page.getByText(`Σελίδα ${verifiedQuestionPage}`),
+    ).toBeVisible();
     await capture(page, 'uc01-03-pdf-contextual-question.png');
   });
 
@@ -114,6 +154,25 @@ test.describe('thesis demo use cases', () => {
     ).toBeVisible();
     await capture(page, 'uc02-01-professor-dashboard.png');
 
+    await page.getByRole('link', { name: 'Analytics' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Analytics' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Απορίες ανά μάθημα' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Πρόοδος φοιτητών ανά μάθημα' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Σημεία σύγχυσης' }),
+    ).toBeVisible();
+    await expect(
+      page.locator('.analytics-confusion-item').first(),
+    ).toContainText(demoCourseCode);
+    await capture(page, 'uc02-04-professor-analytics.png');
+
+    await page.goto('/app');
     await page
       .getByRole('button', { name: new RegExp(confusionQuestionTitle) })
       .first()
@@ -122,7 +181,7 @@ test.describe('thesis demo use cases', () => {
       page.getByRole('heading', { name: confusionQuestionTitle }),
     ).toBeVisible();
     await removeDemoReplyIfPresent(page);
-    await expect(page.getByText('θερμικός χάρτης σύγχυσης')).toBeVisible();
+    await expect(page.getByText('χαλάρωση ακμής').first()).toBeVisible();
     await expect(page.getByLabel('Νέα απάντηση')).toBeVisible();
     await capture(page, 'uc02-02-unanswered-contextual-thread.png');
 

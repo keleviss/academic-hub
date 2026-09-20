@@ -42,7 +42,7 @@ const storageService = createStorageService();
 // Deterministic identifiers and dates
 //
 // Every seeded row gets a stable UUID derived from a human-readable key
-// (e.g. `document:lms101:week1`) instead of a hand-typed literal, so the
+// (e.g. `document:alg201:week1`) instead of a hand-typed literal, so the
 // dataset can grow without maintaining a giant id lookup table. Dates are
 // computed relative to "now" so recency-based UI (recent material badges,
 // the 14-day confusion/verification windows) always looks correct whenever
@@ -285,17 +285,6 @@ interface CourseSeed {
 
 const courses: CourseSeed[] = [
   {
-    key: 'lms101',
-    code: 'CS-LMS-101',
-    title: 'Διαδραστικό Ακαδημαϊκό Περιεχόμενο',
-    description:
-      'Μάθημα επίδειξης του προτύπου LMS με έμφαση στο διαδραστικό περιεχόμενο, τους χάρτες ύλης και την ανατροφοδότηση προς τους διδάσκοντες.',
-    semester: 1,
-    ectsCredits: 6,
-    ownerKey: 'eleni',
-    assistantKey: 'sofiaN',
-  },
-  {
     key: 'web305',
     code: 'CS-WEB-305',
     title: 'Ανάπτυξη Διαδικτυακών Εφαρμογών',
@@ -324,6 +313,7 @@ const courses: CourseSeed[] = [
     semester: 3,
     ectsCredits: 6,
     ownerKey: 'markos',
+    assistantKey: 'eleni',
   },
   {
     key: 'ds210',
@@ -400,15 +390,15 @@ const courses: CourseSeed[] = [
 ];
 
 const enrollmentPlan: Record<string, string[]> = {
-  maria: ['lms101', 'alg201', 'web305', 'db301', 'ml440', 'rm601'],
-  nikos: ['lms101', 'alg201', 'ds210', 'os320', 'net330'],
-  eleniP: ['lms101', 'web305', 'alg201', 'db301', 'dist501'],
-  petros: ['lms101', 'alg201', 'ds210', 'hci410', 'ml440'],
-  sofiaK: ['lms101', 'web305', 'os320', 'net330', 'rm601'],
-  giorgos: ['lms101', 'ds210', 'db301', 'dist501', 'ml440', 'hci410'],
-  christina: ['lms101', 'alg201', 'os320', 'net330', 'web305'],
-  dimitraA: ['lms101', 'hci410', 'ds210', 'db301', 'ml440'],
-  kostas: ['lms101', 'alg201', 'net330', 'dist501', 'rm601'],
+  maria: ['alg201', 'web305', 'db301', 'ml440', 'rm601'],
+  nikos: ['alg201', 'ds210', 'os320', 'net330', 'db301'],
+  eleniP: ['alg201', 'web305', 'db301', 'dist501', 'ds210'],
+  petros: ['alg201', 'ds210', 'hci410', 'ml440', 'web305'],
+  sofiaK: ['alg201', 'web305', 'os320', 'net330', 'rm601'],
+  giorgos: ['alg201', 'ds210', 'db301', 'dist501', 'ml440', 'hci410'],
+  christina: ['alg201', 'os320', 'net330', 'web305', 'ds210'],
+  dimitraA: ['alg201', 'hci410', 'ds210', 'db301', 'ml440'],
+  kostas: ['alg201', 'net330', 'dist501', 'rm601', 'db301'],
   anna: ['web305', 'alg201', 'ds210', 'os320', 'ml440'],
   thanasis: ['web305', 'db301', 'os320', 'dist501', 'rm601'],
   katerina: ['web305', 'alg201', 'db301', 'net330', 'hci410'],
@@ -1055,6 +1045,11 @@ interface ThreadInput {
   resolvedAt?: Date;
   archivedAt?: Date;
   createdAt: Date;
+  // Date of the last activity on the thread, usually the newest post. Without
+  // it Prisma's `@updatedAt` stamps every seeded thread with the moment the
+  // seed ran, so every dashboard list reads "μόλις τώρα" and the recency
+  // ordering collapses to the insertion order of this file.
+  lastActivityAt?: Date;
 }
 
 async function upsertThread(input: ThreadInput): Promise<void> {
@@ -1068,6 +1063,7 @@ async function upsertThread(input: ThreadInput): Promise<void> {
     visibility: input.visibility,
     resolvedAt: input.resolvedAt ?? null,
     archivedAt: input.archivedAt ?? null,
+    updatedAt: input.lastActivityAt ?? input.createdAt,
   };
 
   await prisma.forumThread.upsert({
@@ -1134,9 +1130,17 @@ async function setVerifiedPost(
   threadKey: string,
   postKey: string,
 ): Promise<void> {
+  const id = threadId(courseKey, threadKey);
+  // Write the stored activity date back, so marking the verified post does not
+  // overwrite it with the time the seed ran.
+  const { updatedAt } = await prisma.forumThread.findUniqueOrThrow({
+    select: { updatedAt: true },
+    where: { id },
+  });
+
   await prisma.forumThread.update({
-    where: { id: threadId(courseKey, threadKey) },
-    data: { verifiedPostId: postId(courseKey, threadKey, postKey) },
+    data: { updatedAt, verifiedPostId: postId(courseKey, threadKey, postKey) },
+    where: { id },
   });
 }
 
@@ -1397,748 +1401,11 @@ async function upsertAuditLog(input: AuditLogInput): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Flagship course 1: CS-LMS-101 — the richest narrative, exercising every
-// forum thread status, the document lifecycle (active/replaced/deleted),
-// a 3-node roadmap, a confusion-signal cluster and a teaching intervention.
-// ---------------------------------------------------------------------------
-
-async function seedLms101(): Promise<void> {
-  const c = 'lms101';
-
-  await upsertDocument({
-    courseKey: c,
-    docKey: 'week1',
-    title: 'Εβδομάδα 1 - Ενεργή Ανάγνωση και Βρόχοι Ανατροφοδότησης',
-    description:
-      'Εισαγωγικό υλικό για την ενεργή ανάγνωση και τη σύνδεση σχολίων με το περιεχόμενο.',
-    status: 'active',
-    visibility: 'visible_to_students',
-    filename: 'εβδομαδα-1-ενεργη-αναγνωση.pdf',
-    pageCount: 18,
-    createdByKey: 'eleni',
-    createdAt: daysAgo(40),
-  });
-  await upsertDocument({
-    courseKey: c,
-    docKey: 'week2',
-    title: 'Εβδομάδα 2 - Εννοιολογικοί Χάρτες και Διαδρομές Μελέτης',
-    description:
-      'Πώς οι έννοιες, τα προαπαιτούμενα και οι κόμβοι του χάρτη καθοδηγούν τη μελέτη.',
-    status: 'active',
-    visibility: 'visible_to_students',
-    filename: 'εβδομαδα-2-εννοιολογικοι-χαρτες.pdf',
-    pageCount: 22,
-    createdByKey: 'eleni',
-    createdAt: daysAgo(33),
-  });
-  await upsertDocument({
-    courseKey: c,
-    docKey: 'week3',
-    title: 'Εβδομάδα 3 - Σήματα Σύγχυσης και Διδακτική Ανατροφοδότηση',
-    description:
-      'Νέο υλικό: πώς τα σήματα σύγχυσης φοιτητών μετατρέπονται σε διδακτικές ενέργειες.',
-    status: 'active',
-    visibility: 'visible_to_students',
-    filename: 'εβδομαδα-3-σηματα-συγχυσης.pdf',
-    pageCount: 14,
-    createdByKey: 'eleni',
-    createdAt: daysAgo(1),
-  });
-  await upsertDocument({
-    courseKey: c,
-    docKey: 'professor-notes',
-    title: 'Σημειώσεις Διδάσκοντα - Ανασκόπηση Σημάτων Σύγχυσης',
-    description:
-      'Ιδιωτικές σημειώσεις προετοιμασίας παρεμβάσεων από σήματα φοιτητών.',
-    status: 'active',
-    visibility: 'hidden_from_students',
-    filename: 'σημειωσεις-διδασκοντα-σηματα-συγχυσης.pdf',
-    pageCount: 11,
-    createdByKey: 'eleni',
-    createdAt: daysAgo(20),
-  });
-  await upsertDocument({
-    courseKey: c,
-    docKey: 'week0-old',
-    title: 'Εβδομάδα 0 - Διαφάνειες Εισαγωγής (Παλαιά Έκδοση)',
-    description:
-      'Αντικατεστημένο εισαγωγικό υλικό, διατηρείται για ιστορικούς λόγους.',
-    status: 'replaced',
-    visibility: 'visible_to_students',
-    filename: 'εβδομαδα-0-εισαγωγη-v1.pdf',
-    pageCount: 9,
-    createdByKey: 'eleni',
-    updatedByKey: 'sofiaN',
-    createdAt: daysAgo(45),
-    replacedAt: daysAgo(35),
-  });
-  await upsertDocument({
-    courseKey: c,
-    docKey: 'old-forum-export',
-    title: 'Εξαγωγή Παλαιού Φόρουμ Μαθήματος',
-    description:
-      'Παλαιότερο υλικό αναφοράς από προηγούμενο εξάμηνο, αφαιρέθηκε ως ξεπερασμένο.',
-    status: 'deleted',
-    visibility: 'hidden_from_students',
-    filename: 'εξαγωγη-παλαιου-φορουμ.pdf',
-    pageCount: 5,
-    createdByKey: 'eleni',
-    createdAt: daysAgo(46),
-    deletedAt: daysAgo(38),
-  });
-
-  await upsertConcept({
-    courseKey: c,
-    key: 'active-reading',
-    slug: 'active-reading',
-    title: 'Ενεργή ανάγνωση',
-    description:
-      'Μελέτη απευθείας πάνω στο μαθησιακό υλικό με αγκυρωμένες σημειώσεις.',
-    learningObjective:
-      'Να εξηγείται πώς οι επισημάνσεις, οι σημειώσεις και οι ερωτήσεις παραμένουν συνδεδεμένες με το πλαίσιο του PDF.',
-    orderIndex: 1,
-    createdByKey: 'eleni',
-  });
-  await upsertConcept({
-    courseKey: c,
-    key: 'roadmaps',
-    slug: 'conceptual-roadmaps',
-    title: 'Εννοιολογικοί χάρτες',
-    description: 'Δομή μαθήματος βασισμένη σε έννοιες και προαπαιτούμενα.',
-    learningObjective:
-      'Να περιγράφεται πώς οι κόμβοι χάρτη συνδέουν έννοιες, πόρους και πρόοδο.',
-    orderIndex: 2,
-    createdByKey: 'eleni',
-  });
-  await upsertConcept({
-    courseKey: c,
-    key: 'teaching-intel',
-    slug: 'teaching-intelligence',
-    title: 'Διδακτική νοημοσύνη',
-    description:
-      'Αναλυτικά στοιχεία που παράγουν αξιοποιήσιμα διδακτικά σήματα.',
-    learningObjective:
-      'Να αναγνωρίζονται σήματα σύγχυσης και να μετατρέπονται σε διδακτικές παρεμβάσεις.',
-    orderIndex: 3,
-    createdByKey: 'eleni',
-  });
-
-  await upsertRoadmapNode({
-    courseKey: c,
-    key: 'active-reading',
-    conceptKey: 'active-reading',
-    title: 'Σχολιασμός μαθησιακού υλικού',
-    description:
-      'Πρακτική σε αγκυρωμένες επισημάνσεις, σημειώσεις και ερωτήσεις.',
-    learningObjective: 'Δημιουργία σχολίου που διατηρεί το πλαίσιο του υλικού.',
-    estimatedMinutes: 25,
-    difficulty: 'low',
-    completionRule: 'view_resource',
-    orderIndex: 1,
-    createdByKey: 'eleni',
-  });
-  await upsertRoadmapNode({
-    courseKey: c,
-    key: 'roadmaps',
-    conceptKey: 'roadmaps',
-    title: 'Μελέτη κόμβων με προαπαιτούμενα',
-    description:
-      'Κατανόηση του τρόπου με τον οποίο οι έννοιες καθοδηγούν τη σειρά μελέτης.',
-    learningObjective:
-      'Ανάγνωση μιας εξάρτησης χάρτη και επιλογή του επόμενου κόμβου.',
-    estimatedMinutes: 35,
-    difficulty: 'medium',
-    completionRule: 'manual',
-    orderIndex: 2,
-    createdByKey: 'eleni',
-  });
-  await upsertRoadmapNode({
-    courseKey: c,
-    key: 'teaching-intel',
-    conceptKey: 'teaching-intel',
-    title: 'Ερμηνεία σημάτων σύγχυσης',
-    description:
-      'Χρήση αλληλεπιδράσεων μαθητών για επιλογή διδακτικής ενέργειας.',
-    learningObjective:
-      'Να εξηγείται γιατί μια επαναλαμβανόμενη ερώτηση πρέπει να εμφανίζεται στη διδακτική ουρά.',
-    estimatedMinutes: 45,
-    difficulty: 'high',
-    completionRule: 'manual',
-    orderIndex: 3,
-    createdByKey: 'eleni',
-  });
-
-  await upsertRoadmapEdge(c, 'active-reading', 'roadmaps');
-  await upsertRoadmapEdge(c, 'roadmaps', 'teaching-intel');
-
-  await upsertRoadmapResource({
-    courseKey: c,
-    nodeKey: 'active-reading',
-    key: 'reading-overview',
-    resourceType: 'document_page',
-    docKey: 'week1',
-    pageStart: 2,
-    pageEnd: 5,
-    title: 'Επισκόπηση ενεργής ανάγνωσης',
-  });
-  await upsertRoadmapResource({
-    courseKey: c,
-    nodeKey: 'roadmaps',
-    key: 'roadmap-examples',
-    resourceType: 'document_section',
-    docKey: 'week2',
-    pageStart: 3,
-    pageEnd: 9,
-    sectionLabel: 'Παραδείγματα εννοιολογικών χαρτών',
-    title: 'Παραδείγματα χάρτη',
-  });
-  await upsertRoadmapResource({
-    courseKey: c,
-    nodeKey: 'teaching-intel',
-    key: 'signal-to-action',
-    resourceType: 'document_page',
-    docKey: 'week3',
-    pageStart: 2,
-    pageEnd: 6,
-    title: 'Από τα σήματα στη δράση',
-  });
-
-  await upsertForumCategories(c, [
-    'general',
-    'document_discussion',
-    'archived_document_discussion',
-  ]);
-
-  await upsertAnnotationWithTarget({
-    courseKey: c,
-    key: 'question-feedback',
-    docKey: 'week3',
-    page: 4,
-    quote: 'βρόχος ανατροφοδότησης',
-    prefix: 'Η πλατφόρμα κλείνει τον ',
-    suffix:
-      ' ανάμεσα στη δραστηριότητα των φοιτητών και την ενέργεια του διδάσκοντα.',
-    type: 'question',
-    visibility: 'public',
-    authorKey: 'maria',
-    conceptKey: 'active-reading',
-    nodeKey: 'active-reading',
-    body: 'Πώς αποφασίζει το σύστημα ότι μια επαναλαμβανόμενη ερώτηση χρειάζεται ενέργεια από τον διδάσκοντα;',
-    createdAt: daysAgo(9),
-  });
-  await upsertAnnotationWithTarget({
-    courseKey: c,
-    key: 'confusing-heatmap',
-    docKey: 'week3',
-    page: 8,
-    quote: 'θερμικός χάρτης σύγχυσης',
-    prefix: 'Τα επαναλαμβανόμενα σήματα συνοψίζονται ως ',
-    suffix: ' για τους διδάσκοντες.',
-    type: 'confusing',
-    visibility: 'instructor_only',
-    authorKey: 'nikos',
-    conceptKey: 'teaching-intel',
-    nodeKey: 'teaching-intel',
-    body: 'Η διαφορά ανάμεσα στην ακατέργαστη δραστηριότητα και σε ένα σήμα σύγχυσης δεν είναι ακόμη σαφής.',
-    createdAt: daysAgo(6),
-  });
-  await upsertAnnotationWithTarget({
-    courseKey: c,
-    key: 'confusing-bulk-petros',
-    docKey: 'week3',
-    page: 11,
-    quote: 'ουρά διδακτικών ενεργειών',
-    prefix: 'Οι επαληθευμένες απαντήσεις τροφοδοτούν την ',
-    suffix: ' με νέα προτεραιότητα.',
-    type: 'question',
-    visibility: 'public',
-    authorKey: 'petros',
-    body: 'Ποιος καθορίζει τη σειρά προτεραιότητας μέσα στην ουρά διδακτικών ενεργειών;',
-    createdAt: daysAgo(3),
-  });
-  await upsertAnnotationWithTarget({
-    courseKey: c,
-    key: 'highlight-eleniP',
-    docKey: 'week1',
-    page: 3,
-    quote: 'άγκυρα σχολιασμού',
-    type: 'highlight',
-    visibility: 'private',
-    authorKey: 'eleniP',
-    body: null,
-    createdAt: daysAgo(25),
-  });
-  await upsertAnnotationWithTarget({
-    courseKey: c,
-    key: 'note-sofiaK',
-    docKey: 'week2',
-    page: 6,
-    quote: 'προαπαιτούμενο',
-    type: 'note',
-    visibility: 'private',
-    authorKey: 'sofiaK',
-    body: 'Καλό σημείο εκκίνησης πριν τον χάρτη ύλης.',
-    createdAt: daysAgo(18),
-  });
-  await upsertAnnotationWithTarget({
-    courseKey: c,
-    key: 'note-giorgos',
-    docKey: 'week1',
-    page: 10,
-    quote: 'βρόχος ανατροφοδότησης εφαρμογής',
-    type: 'note',
-    visibility: 'public',
-    authorKey: 'giorgos',
-    body: 'Χρήσιμο παράδειγμα εφαρμογής σε πραγματικό μάθημα.',
-    createdAt: daysAgo(15),
-  });
-  await upsertAnnotationWithTarget({
-    courseKey: c,
-    key: 'highlight-christina',
-    docKey: 'week2',
-    page: 12,
-    quote: 'κόμβος χάρτη',
-    type: 'highlight',
-    visibility: 'private',
-    authorKey: 'christina',
-    body: null,
-    createdAt: daysAgo(11),
-  });
-
-  await upsertThread({
-    courseKey: c,
-    key: 'q-feedback-loop',
-    categoryKind: 'document_discussion',
-    title: 'Πότε μια επαναλαμβανόμενη ερώτηση γίνεται διδακτική ενέργεια;',
-    authorKey: 'maria',
-    status: 'verified',
-    visibility: 'public',
-    annotationKey: 'question-feedback',
-    docKey: 'week3',
-    conceptKey: 'active-reading',
-    nodeKey: 'active-reading',
-    pageNumberSnapshot: 4,
-    selectedTextSnapshot: 'βρόχος ανατροφοδότησης',
-    resolvedAt: daysAgo(8),
-    createdAt: daysAgo(9),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'q-feedback-loop',
-    key: 'p1',
-    authorKey: 'maria',
-    body: 'Καταλαβαίνω το σχόλιο, αλλά όχι το όριο για την κλιμάκωση.',
-    createdAt: daysAgo(9),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'q-feedback-loop',
-    key: 'p2',
-    authorKey: 'eleni',
-    body: 'Η ουρά χρησιμοποιεί διαφανείς κανόνες: επαναλαμβανόμενες άλυτες ερωτήσεις, πρόσφατη δραστηριότητα και σημασία της έννοιας.',
-    isVerified: true,
-    createdAt: daysAgo(8),
-  });
-  await setVerifiedPost(c, 'q-feedback-loop', 'p2');
-
-  await upsertThread({
-    courseKey: c,
-    key: 'confusing-heatmap',
-    categoryKind: 'document_discussion',
-    title: 'Ερμηνεία θερμικού χάρτη σύγχυσης',
-    authorKey: 'nikos',
-    status: 'open',
-    visibility: 'instructor_only',
-    annotationKey: 'confusing-heatmap',
-    docKey: 'week3',
-    conceptKey: 'teaching-intel',
-    nodeKey: 'teaching-intel',
-    pageNumberSnapshot: 8,
-    selectedTextSnapshot: 'θερμικός χάρτης σύγχυσης',
-    createdAt: daysAgo(6),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'confusing-heatmap',
-    key: 'p1',
-    authorKey: 'nikos',
-    body: 'Η κλίμακα χρωμάτων δείχνει ένταση σήματος ή αριθμό φοιτητών;',
-    createdAt: daysAgo(6),
-  });
-
-  await upsertThreadLink(
-    'lms101-confusion-related',
-    c,
-    'confusing-heatmap',
-    'q-feedback-loop',
-    'related',
-    'eleni',
-  );
-
-  await upsertThread({
-    courseKey: c,
-    key: 'study-group',
-    categoryKind: 'general',
-    title: 'Πώς οργανώνουμε ομαδική μελέτη για το τεστ της Εβδομάδας 2;',
-    authorKey: 'giorgos',
-    status: 'instructor_answered',
-    visibility: 'public',
-    createdAt: daysAgo(20),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'study-group',
-    key: 'p1',
-    authorKey: 'giorgos',
-    body: 'Θέλει κανείς άλλος να συναντηθούμε online πριν το τεστ της Εβδομάδας 2;',
-    createdAt: daysAgo(20),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'study-group',
-    key: 'p2',
-    authorKey: 'christina',
-    body: 'Ναι, μέσα είμαι. Προτείνω Τετάρτη απόγευμα.',
-    createdAt: daysAgo(19),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'study-group',
-    key: 'p3',
-    authorKey: 'eleni',
-    body: 'Καλή ιδέα. Θα ανεβάσω επιπλέον ασκήσεις επανάληψης μέχρι Τρίτη.',
-    createdAt: daysAgo(19),
-  });
-
-  await upsertThread({
-    courseKey: c,
-    key: 'deadline-clarification',
-    categoryKind: 'general',
-    title: 'Διευκρίνιση για την προθεσμία παράδοσης της εργασίας',
-    authorKey: 'dimitraA',
-    status: 'resolved',
-    visibility: 'public',
-    resolvedAt: daysAgo(14),
-    createdAt: daysAgo(15),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'deadline-clarification',
-    key: 'p1',
-    authorKey: 'dimitraA',
-    body: 'Η προθεσμία παράδοσης ισχύει και για όσους έχουν εργαστηριακή εξέταση;',
-    createdAt: daysAgo(15),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'deadline-clarification',
-    key: 'p2',
-    authorKey: 'eleni',
-    body: 'Ναι, ισχύει για όλους. Θα υπάρξει παράταση 2 ημερών μόνο για όσους έχουν επικαλυπτόμενες εξετάσεις.',
-    createdAt: daysAgo(14),
-  });
-
-  await upsertThread({
-    courseKey: c,
-    key: 'progress-metric',
-    categoryKind: 'general',
-    title: 'Ασάφεια στον ορισμό του δείκτη προόδου ανά ενότητα',
-    authorKey: 'kostas',
-    status: 'verified',
-    visibility: 'public',
-    createdAt: daysAgo(12),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'progress-metric',
-    key: 'p1',
-    authorKey: 'kostas',
-    body: 'Ο δείκτης προόδου μετράει σελίδες ή ολοκληρωμένες ενότητες;',
-    createdAt: daysAgo(12),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'progress-metric',
-    key: 'p2',
-    authorKey: 'eleni',
-    body: 'Μετράει ολοκληρωμένες ενότητες, όχι σελίδες.',
-    isVerified: true,
-    createdAt: daysAgo(11),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'progress-metric',
-    key: 'p3',
-    authorKey: 'kostas',
-    body: 'Ευχαριστώ! Και τι γίνεται αν μια ενότητα δεν έχει self-check; Μετράει ως ολοκληρωμένη με απλή προβολή;',
-    createdAt: daysAgo(2),
-  });
-  await setVerifiedPost(c, 'progress-metric', 'p2');
-
-  await upsertThread({
-    courseKey: c,
-    key: 'old-forum-archive',
-    categoryKind: 'archived_document_discussion',
-    title: 'Σχόλια στην παλιά εξαγωγή φόρουμ (αρχειοθετημένο)',
-    authorKey: 'sofiaK',
-    status: 'archived',
-    visibility: 'public',
-    docKey: 'old-forum-export',
-    archivedAt: daysAgo(37),
-    createdAt: daysAgo(44),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'old-forum-archive',
-    key: 'p1',
-    authorKey: 'sofiaK',
-    body: 'Το παλιό υλικό δεν αναφέρει τίποτα για τους χάρτες ύλης.',
-    createdAt: daysAgo(44),
-  });
-  await upsertPost({
-    courseKey: c,
-    threadKey: 'old-forum-archive',
-    key: 'p2',
-    authorKey: 'eleni',
-    body: 'Σωστά, αντικαταστάθηκε πλήρως από το νέο πρόγραμμα μαθήματος.',
-    createdAt: daysAgo(43),
-  });
-
-  await upsertSelfCheck({
-    courseKey: c,
-    key: 'signal-priority',
-    nodeKey: 'teaching-intel',
-    conceptKey: 'teaching-intel',
-    type: 'single_choice',
-    prompt:
-      'Ποιο σήμα αποτελεί την ισχυρότερη ένδειξη για διδακτική παρέμβαση;',
-    options: [
-      { id: 'a', label: 'Μία μεμονωμένη προβολή σελίδας' },
-      { id: 'b', label: 'Επαναλαμβανόμενες άλυτες ερωτήσεις με πλαίσιο' },
-      { id: 'c', label: 'Μία ιδιωτική σημείωση από έναν φοιτητή' },
-    ],
-    correctAnswer: { optionId: 'b' },
-    passingScore: 100,
-    createdByKey: 'eleni',
-  });
-  await upsertSelfCheckAttempt({
-    courseKey: c,
-    selfCheckKey: 'signal-priority',
-    key: 'maria',
-    studentKey: 'maria',
-    answer: { optionId: 'b' },
-    score: 100,
-    status: 'passed',
-    submittedAt: daysAgo(5),
-  });
-  await upsertSelfCheckAttempt({
-    courseKey: c,
-    selfCheckKey: 'signal-priority',
-    key: 'nikos',
-    studentKey: 'nikos',
-    answer: { optionId: 'a' },
-    score: 0,
-    status: 'failed',
-    submittedAt: daysAgo(4),
-  });
-
-  await upsertRoadmapProgress({
-    courseKey: c,
-    nodeKey: 'active-reading',
-    studentKey: 'maria',
-    status: 'completed',
-    startedAt: daysAgo(10),
-    completedAt: daysAgo(9),
-  });
-  await upsertRoadmapProgress({
-    courseKey: c,
-    nodeKey: 'roadmaps',
-    studentKey: 'maria',
-    status: 'in_progress',
-    startedAt: daysAgo(7),
-  });
-  await upsertRoadmapProgress({
-    courseKey: c,
-    nodeKey: 'teaching-intel',
-    studentKey: 'nikos',
-    status: 'needs_review',
-    startedAt: daysAgo(6),
-    needsReviewReason:
-      'Σημείωσε σύγχυση στην επεξήγηση των αναλυτικών στοιχείων.',
-  });
-  await upsertRoadmapProgress({
-    courseKey: c,
-    nodeKey: 'active-reading',
-    studentKey: 'eleniP',
-    status: 'completed',
-    startedAt: daysAgo(20),
-    completedAt: daysAgo(19),
-  });
-
-  await upsertIntervention({
-    courseKey: c,
-    key: 'clarify-escalation',
-    createdByKey: 'eleni',
-    type: 'answer_thread',
-    title:
-      'Αποσαφήνιση του τρόπου κατάταξης σημάτων σύγχυσης στη διδακτική ουρά',
-    description:
-      'Προστέθηκε επαληθευμένη απάντηση σε επαναλαμβανόμενη ερώτηση για τους κανόνες κλιμάκωσης.',
-    sourceAction: 'verified_answer',
-    sourceEntityType: 'forum_post',
-    sourceEntityId: postId(c, 'q-feedback-loop', 'p2'),
-    conceptKey: 'active-reading',
-    nodeKey: 'active-reading',
-    threadKey: 'q-feedback-loop',
-    targetKey: 'question-feedback',
-    createdAt: daysAgo(8),
-    followUpAt: daysFromNow(5),
-  });
-  await upsertIntervention({
-    courseKey: c,
-    key: 'new-example-set',
-    createdByKey: 'eleni',
-    type: 'additional_resource',
-    title: 'Προσθήκη νέου υλικού παραδειγμάτων για τον βρόχο ανατροφοδότησης',
-    description:
-      'Νέο τμήμα παραδειγμάτων στην Εβδομάδα 3, ως απάντηση στα σήματα σύγχυσης.',
-    sourceAction: 'confusion_signal',
-    sourceEntityType: 'document',
-    sourceEntityId: documentId(c, 'week3'),
-    conceptKey: 'teaching-intel',
-    nodeKey: 'teaching-intel',
-    threadKey: 'confusing-heatmap',
-    targetKey: 'confusing-heatmap',
-    createdAt: daysAgo(3),
-    followUpAt: daysFromNow(4),
-  });
-
-  await upsertAnalyticsEvent({
-    key: 'lms101-doc-opened-maria',
-    eventType: 'document_opened',
-    courseKey: c,
-    userKey: 'maria',
-    docKey: 'week3',
-    conceptKey: 'active-reading',
-    nodeKey: 'active-reading',
-    metadata: { source: 'viewer' },
-    createdAt: daysAgo(9),
-  });
-  await upsertAnalyticsEvent({
-    key: 'lms101-page-viewed-maria',
-    eventType: 'document_page_viewed',
-    courseKey: c,
-    userKey: 'maria',
-    docKey: 'week3',
-    conceptKey: 'active-reading',
-    nodeKey: 'active-reading',
-    targetKey: 'question-feedback',
-    metadata: { pageNumber: 4 },
-    createdAt: daysAgo(9),
-  });
-  await upsertAnalyticsEvent({
-    key: 'lms101-annotation-maria',
-    eventType: 'annotation_created',
-    courseKey: c,
-    userKey: 'maria',
-    docKey: 'week3',
-    conceptKey: 'active-reading',
-    nodeKey: 'active-reading',
-    targetKey: 'question-feedback',
-    annotationKey: 'question-feedback',
-    threadKey: 'q-feedback-loop',
-    metadata: { annotationType: 'question', visibility: 'public' },
-    createdAt: daysAgo(9),
-  });
-  await upsertAnalyticsEvent({
-    key: 'lms101-thread-created-maria',
-    eventType: 'forum_thread_created',
-    courseKey: c,
-    userKey: 'maria',
-    docKey: 'week3',
-    threadKey: 'q-feedback-loop',
-    metadata: { status: 'open' },
-    createdAt: daysAgo(9),
-  });
-  await upsertAnalyticsEvent({
-    key: 'lms101-thread-resolved-eleni',
-    eventType: 'forum_thread_resolved',
-    courseKey: c,
-    userKey: 'eleni',
-    docKey: 'week3',
-    threadKey: 'q-feedback-loop',
-    metadata: { status: 'verified' },
-    createdAt: daysAgo(8),
-  });
-  await upsertAnalyticsEvent({
-    key: 'lms101-annotation-nikos',
-    eventType: 'annotation_created',
-    courseKey: c,
-    userKey: 'nikos',
-    docKey: 'week3',
-    conceptKey: 'teaching-intel',
-    nodeKey: 'teaching-intel',
-    targetKey: 'confusing-heatmap',
-    annotationKey: 'confusing-heatmap',
-    threadKey: 'confusing-heatmap',
-    metadata: { annotationType: 'confusing', visibility: 'instructor_only' },
-    createdAt: daysAgo(6),
-  });
-  await upsertAnalyticsEvent({
-    key: 'lms101-node-completed-maria',
-    eventType: 'roadmap_node_completed',
-    courseKey: c,
-    userKey: 'maria',
-    conceptKey: 'active-reading',
-    nodeKey: 'active-reading',
-    metadata: { completionRule: 'view_resource' },
-    createdAt: daysAgo(9),
-  });
-  await upsertAnalyticsEvent({
-    key: 'lms101-self-check-maria',
-    eventType: 'self_check_completed',
-    courseKey: c,
-    userKey: 'maria',
-    conceptKey: 'roadmaps',
-    nodeKey: 'roadmaps',
-    selfCheckKey: 'signal-priority',
-    metadata: { score: 100, status: 'passed' },
-    createdAt: daysAgo(5),
-  });
-  await upsertAnalyticsEvent({
-    key: 'lms101-intervention-escalation',
-    eventType: 'intervention_created',
-    courseKey: c,
-    userKey: 'eleni',
-    docKey: 'week3',
-    conceptKey: 'active-reading',
-    nodeKey: 'active-reading',
-    targetKey: 'question-feedback',
-    annotationKey: 'question-feedback',
-    threadKey: 'q-feedback-loop',
-    interventionKey: 'clarify-escalation',
-    metadata: { sourceAction: 'verified_answer' },
-    createdAt: daysAgo(8),
-  });
-  await upsertAnalyticsEvent({
-    key: 'lms101-intervention-examples',
-    eventType: 'intervention_created',
-    courseKey: c,
-    userKey: 'eleni',
-    docKey: 'week3',
-    conceptKey: 'teaching-intel',
-    nodeKey: 'teaching-intel',
-    threadKey: 'confusing-heatmap',
-    interventionKey: 'new-example-set',
-    metadata: { sourceAction: 'confusion_signal' },
-    createdAt: daysAgo(3),
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Flagship course 2: CS-ALG-201 — a second, independent confusion-signal
-// cluster and teaching intervention, owned by a different professor, so the
-// "teaching intelligence" feature is shown working across the platform.
+// Flagship course: CS-ALG-201 — the richest narrative and the course the two
+// thesis demo walkthroughs are built on. It exercises every forum thread
+// status, the document lifecycle (active/replaced/deleted), a six-node
+// roadmap, three confusion-signal clusters and the teaching interventions
+// that answer them, with two instructors sharing the course.
 // ---------------------------------------------------------------------------
 
 async function seedAlg201(): Promise<void> {
@@ -2172,14 +1439,67 @@ async function seedAlg201(): Promise<void> {
   });
   await upsertDocument({
     courseKey: c,
+    docKey: 'week3',
+    title: 'Εβδομάδα 3 - Άπληστοι Αλγόριθμοι και Επιχειρήματα Ανταλλαγής',
+    description:
+      'Τοπικά βέλτιστες επιλογές, απόδειξη βελτιστότητας και τα όρια της άπληστης στρατηγικής.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    filename: 'εβδομαδα-3-απληστοι-αλγοριθμοι.pdf',
+    pageCount: 18,
+    createdByKey: 'markos',
+    createdAt: daysAgo(20),
+  });
+  await upsertDocument({
+    courseKey: c,
     docKey: 'week5',
     title: 'Εβδομάδα 5 - Διαίρει και Βασίλευε: Ταξινόμηση και Αναδρομή',
     description:
-      'Νέο υλικό: αλγόριθμοι διαίρει-και-βασίλευε και ανάλυση αναδρομικών σχέσεων.',
+      'Αλγόριθμοι διαίρει-και-βασίλευε, κύριο θεώρημα και ανάλυση αναδρομικών σχέσεων.',
     status: 'active',
     visibility: 'visible_to_students',
     filename: 'εβδομαδα-5-διαιρει-και-βασιλευε.pdf',
     pageCount: 20,
+    createdByKey: 'markos',
+    createdAt: daysAgo(14),
+  });
+  await upsertDocument({
+    courseKey: c,
+    docKey: 'week8',
+    title: 'Εβδομάδα 8 - Δυναμικός Προγραμματισμός και Απομνημόνευση',
+    description:
+      'Από την αναδρομή με επαναλήψεις στη συστηματική επαναχρησιμοποίηση λύσεων.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    filename: 'εβδομαδα-8-δυναμικος-προγραμματισμος.pdf',
+    pageCount: 22,
+    createdByKey: 'eleni',
+    createdAt: daysAgo(8),
+  });
+  await upsertDocument({
+    courseKey: c,
+    docKey: 'week10',
+    title:
+      'Εβδομάδα 10 - Αλγόριθμοι Γράφων: Διάσχιση και Συντομότερες Διαδρομές',
+    description:
+      'Αναπαράσταση γράφων, BFS/DFS, χαλάρωση ακμών και συντομότερες διαδρομές.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    filename: 'εβδομαδα-10-αλγοριθμοι-γραφων.pdf',
+    pageCount: 19,
+    createdByKey: 'markos',
+    createdAt: daysAgo(6),
+  });
+  await upsertDocument({
+    courseKey: c,
+    docKey: 'week12',
+    title: 'Εβδομάδα 12 - NP-Πληρότητα και Πολυωνυμικές Αναγωγές',
+    description:
+      'Νέο υλικό: κλάσεις πολυπλοκότητας, αναγωγές και αντιμετώπιση δύσκολων προβλημάτων.',
+    status: 'active',
+    visibility: 'visible_to_students',
+    filename: 'εβδομαδα-12-np-πληροτητα.pdf',
+    pageCount: 17,
     createdByKey: 'markos',
     createdAt: daysAgo(2),
   });
@@ -2193,8 +1513,37 @@ async function seedAlg201(): Promise<void> {
     visibility: 'hidden_from_students',
     filename: 'σημειωσεις-βοηθου-διδασκαλιας.pdf',
     pageCount: 9,
-    createdByKey: 'markos',
+    createdByKey: 'eleni',
     createdAt: daysAgo(15),
+  });
+  await upsertDocument({
+    courseKey: c,
+    docKey: 'syllabus-v1',
+    title: 'Περίγραμμα Μαθήματος (Παλαιά Έκδοση)',
+    description:
+      'Αντικατεστημένο περίγραμμα ύλης, διατηρείται για ιστορικούς λόγους.',
+    status: 'replaced',
+    visibility: 'visible_to_students',
+    filename: 'περιγραμμα-μαθηματος-v1.pdf',
+    pageCount: 8,
+    createdByKey: 'markos',
+    updatedByKey: 'eleni',
+    createdAt: daysAgo(45),
+    replacedAt: daysAgo(35),
+  });
+  await upsertDocument({
+    courseKey: c,
+    docKey: 'old-exercise-export',
+    title: 'Εξαγωγή Παλαιών Ασκήσεων Εξαμήνου',
+    description:
+      'Παλαιότερο υλικό αναφοράς από προηγούμενο εξάμηνο, αφαιρέθηκε ως ξεπερασμένο.',
+    status: 'deleted',
+    visibility: 'hidden_from_students',
+    filename: 'εξαγωγη-παλαιων-ασκησεων.pdf',
+    pageCount: 6,
+    createdByKey: 'markos',
+    createdAt: daysAgo(46),
+    deletedAt: daysAgo(38),
   });
 
   await upsertConcept({
@@ -2232,6 +1581,42 @@ async function seedAlg201(): Promise<void> {
       'Να αναλύεται η πολυπλοκότητα ενός αλγορίθμου διαίρει-και-βασίλευε.',
     orderIndex: 3,
     createdByKey: 'markos',
+  });
+  await upsertConcept({
+    courseKey: c,
+    key: 'greedy',
+    slug: 'greedy-algorithms',
+    title: 'Άπληστοι αλγόριθμοι',
+    description:
+      'Τοπικά βέλτιστες επιλογές και απόδειξη βελτιστότητας με επιχείρημα ανταλλαγής.',
+    learningObjective:
+      'Να διακρίνεται πότε μια άπληστη στρατηγική οδηγεί σε βέλτιστη λύση και πότε όχι.',
+    orderIndex: 4,
+    createdByKey: 'markos',
+  });
+  await upsertConcept({
+    courseKey: c,
+    key: 'dynamic-programming',
+    slug: 'dynamic-programming',
+    title: 'Δυναμικός προγραμματισμός',
+    description:
+      'Επαναχρησιμοποίηση λύσεων υποπροβλημάτων με απομνημόνευση ή πίνακα.',
+    learningObjective:
+      'Να αναγνωρίζονται βέλτιστη υποδομή και επικαλυπτόμενα υποπροβλήματα σε ένα πρόβλημα.',
+    orderIndex: 5,
+    createdByKey: 'eleni',
+  });
+  await upsertConcept({
+    courseKey: c,
+    key: 'graphs',
+    slug: 'graph-algorithms',
+    title: 'Αλγόριθμοι γράφων',
+    description:
+      'Διάσχιση γράφων και υπολογισμός συντομότερων διαδρομών με βάρη ακμών.',
+    learningObjective:
+      'Να επιλέγεται ο κατάλληλος αλγόριθμος συντομότερης διαδρομής ανάλογα με τα βάρη των ακμών.',
+    orderIndex: 6,
+    createdByKey: 'eleni',
   });
 
   await upsertRoadmapNode({
@@ -2276,9 +1661,56 @@ async function seedAlg201(): Promise<void> {
     orderIndex: 3,
     createdByKey: 'markos',
   });
+  await upsertRoadmapNode({
+    courseKey: c,
+    key: 'greedy',
+    conceptKey: 'greedy',
+    title: 'Σχεδίαση και απόδειξη άπληστων αλγορίθμων',
+    description: 'Κανόνας άπληστης επιλογής και επιχείρημα ανταλλαγής.',
+    learningObjective:
+      'Απόδειξη ή αντίκρουση της βελτιστότητας μιας άπληστης στρατηγικής.',
+    estimatedMinutes: 35,
+    difficulty: 'medium',
+    completionRule: 'manual',
+    orderIndex: 4,
+    createdByKey: 'markos',
+  });
+  await upsertRoadmapNode({
+    courseKey: c,
+    key: 'dynamic-programming',
+    conceptKey: 'dynamic-programming',
+    title: 'Από την αναδρομή στον δυναμικό προγραμματισμό',
+    description:
+      'Απομνημόνευση, πίνακες υποπροβλημάτων και ανακατασκευή λύσης.',
+    learningObjective:
+      'Μετατροπή μιας εκθετικής αναδρομής σε λύση δυναμικού προγραμματισμού.',
+    estimatedMinutes: 50,
+    difficulty: 'high',
+    completionRule: 'manual',
+    orderIndex: 5,
+    createdByKey: 'eleni',
+  });
+  await upsertRoadmapNode({
+    courseKey: c,
+    key: 'graphs',
+    conceptKey: 'graphs',
+    title: 'Συντομότερες διαδρομές σε γράφους με βάρη',
+    description: 'Dijkstra, Bellman-Ford και ο ρόλος της χαλάρωσης ακμών.',
+    learningObjective:
+      'Επιλογή αλγορίθμου συντομότερης διαδρομής με βάση τα βάρη των ακμών.',
+    estimatedMinutes: 45,
+    difficulty: 'medium',
+    completionRule: 'manual',
+    orderIndex: 6,
+    createdByKey: 'eleni',
+  });
 
   await upsertRoadmapEdge(c, 'asymptotic', 'induction');
+  await upsertRoadmapEdge(c, 'asymptotic', 'divide-conquer');
   await upsertRoadmapEdge(c, 'induction', 'divide-conquer');
+  await upsertRoadmapEdge(c, 'divide-conquer', 'greedy');
+  await upsertRoadmapEdge(c, 'divide-conquer', 'dynamic-programming');
+  await upsertRoadmapEdge(c, 'dynamic-programming', 'graphs');
 
   await upsertRoadmapResource({
     courseKey: c,
@@ -2310,9 +1742,84 @@ async function seedAlg201(): Promise<void> {
     pageEnd: 10,
     title: 'Παραδείγματα διαίρει-και-βασίλευε',
   });
+  await upsertRoadmapResource({
+    courseKey: c,
+    nodeKey: 'divide-conquer',
+    key: 'master-theorem-section',
+    resourceType: 'document_section',
+    docKey: 'week5',
+    pageStart: 11,
+    pageEnd: 16,
+    sectionLabel: 'Κύριο θεώρημα και δέντρα αναδρομής',
+    title: 'Κύριο θεώρημα στην πράξη',
+    orderIndex: 2,
+  });
+  await upsertRoadmapResource({
+    courseKey: c,
+    nodeKey: 'greedy',
+    key: 'greedy-exchange-argument',
+    resourceType: 'document_page',
+    docKey: 'week3',
+    pageStart: 3,
+    pageEnd: 11,
+    title: 'Άπληστη επιλογή και επιχείρημα ανταλλαγής',
+  });
+  await upsertRoadmapResource({
+    courseKey: c,
+    nodeKey: 'dynamic-programming',
+    key: 'dp-memoization',
+    resourceType: 'document_page',
+    docKey: 'week8',
+    pageStart: 4,
+    pageEnd: 15,
+    title: 'Απομνημόνευση και πίνακες υποπροβλημάτων',
+  });
+  await upsertRoadmapResource({
+    courseKey: c,
+    nodeKey: 'graphs',
+    key: 'shortest-paths',
+    resourceType: 'document_page',
+    docKey: 'week10',
+    pageStart: 5,
+    pageEnd: 14,
+    title: 'Dijkstra και Bellman-Ford',
+  });
 
-  await upsertForumCategories(c, ['general', 'document_discussion']);
+  await upsertForumCategories(c, [
+    'general',
+    'document_discussion',
+    'archived_document_discussion',
+  ]);
 
+  // ---- Annotations -------------------------------------------------------
+  // The three recent clusters (week5, week8, week10) are what the professor
+  // dashboard surfaces as confusion points; the older ones stay outside the
+  // 14-day window on purpose.
+
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'highlight-bigo-eleniP',
+    docKey: 'week1',
+    page: 4,
+    quote: 'ασυμπτωτικό άνω φράγμα',
+    type: 'highlight',
+    visibility: 'private',
+    authorKey: 'eleniP',
+    body: null,
+    createdAt: daysAgo(30),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'note-loop-invariant-sofiaK',
+    docKey: 'week1',
+    page: 9,
+    quote: 'αναλλοίωτη βρόχου',
+    type: 'note',
+    visibility: 'private',
+    authorKey: 'sofiaK',
+    body: 'Η αναλλοίωτη βρόχου είναι ο συνδετικός κρίκος με την επαγωγή.',
+    createdAt: daysAgo(28),
+  });
   await upsertAnnotationWithTarget({
     courseKey: c,
     key: 'confusing-induction-nikos',
@@ -2327,7 +1834,7 @@ async function seedAlg201(): Promise<void> {
     conceptKey: 'induction',
     nodeKey: 'induction',
     body: 'Δεν είναι σαφές γιατί η υπόθεση αναδρομής ισχύει αυτόματα για n-1.',
-    createdAt: daysAgo(7),
+    createdAt: daysAgo(21),
   });
   await upsertAnnotationWithTarget({
     courseKey: c,
@@ -2343,19 +1850,232 @@ async function seedAlg201(): Promise<void> {
     conceptKey: 'induction',
     nodeKey: 'induction',
     body: 'Πρέπει να αποδείξουμε και τη βασική περίπτωση n=0 ξεχωριστά σε κάθε άσκηση;',
-    createdAt: daysAgo(5),
+    createdAt: daysAgo(19),
   });
   await upsertAnnotationWithTarget({
     courseKey: c,
-    key: 'question-induction-christina',
+    key: 'question-strong-induction-christina',
     docKey: 'proof-worksheet',
     page: 7,
     quote: 'ισχυρή επαγωγή',
     type: 'question',
     visibility: 'public',
     authorKey: 'christina',
+    conceptKey: 'induction',
+    nodeKey: 'induction',
     body: 'Πότε προτιμάμε ισχυρή επαγωγή αντί για απλή;',
+    createdAt: daysAgo(18),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'note-greedy-giorgos',
+    docKey: 'week3',
+    page: 6,
+    quote: 'επιχείρημα ανταλλαγής',
+    type: 'note',
+    visibility: 'private',
+    authorKey: 'giorgos',
+    body: 'Το επιχείρημα ανταλλαγής μετατρέπει μια βέλτιστη λύση στην άπληστη χωρίς να τη χειροτερεύει.',
+    createdAt: daysAgo(16),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'highlight-greedy-anna',
+    docKey: 'week3',
+    page: 11,
+    quote: 'τοπικά βέλτιστη επιλογή',
+    type: 'highlight',
+    visibility: 'private',
+    authorKey: 'anna',
+    body: null,
+    createdAt: daysAgo(15),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'question-greedy-fails-petros',
+    docKey: 'week3',
+    page: 11,
+    quote: 'τοπικά βέλτιστη επιλογή',
+    prefix: 'Ο άπληστος αλγόριθμος κρατά σε κάθε βήμα την ',
+    suffix: ' και δεν την αναθεωρεί ποτέ.',
+    type: 'question',
+    visibility: 'public',
+    authorKey: 'petros',
+    conceptKey: 'greedy',
+    nodeKey: 'greedy',
+    body: 'Στο πρόβλημα του σακιδίου η άπληστη επιλογή δεν δίνει πάντα τη βέλτιστη λύση. Πώς το αποδεικνύουμε;',
+    createdAt: daysAgo(13),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'note-merge-sort-maria',
+    docKey: 'week5',
+    page: 4,
+    quote: 'συγχώνευση ταξινομημένων υποπινάκων',
+    type: 'note',
+    visibility: 'private',
+    authorKey: 'maria',
+    body: 'Το merge sort είναι σταθερή ταξινόμηση. Χρήσιμο για τη σύγκριση με το quick sort.',
+    createdAt: daysAgo(11),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'question-master-theorem-maria',
+    docKey: 'week5',
+    page: 7,
+    quote: 'κύριο θεώρημα',
+    prefix: 'Η πολυπλοκότητα προκύπτει άμεσα από το ',
+    suffix: ' όταν τα υποπροβλήματα έχουν ίδιο μέγεθος.',
+    type: 'question',
+    visibility: 'public',
+    authorKey: 'maria',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    body: 'Πώς καταλαβαίνουμε ότι μια αναδρομική σχέση δεν εμπίπτει σε καμία από τις τρεις περιπτώσεις του κύριου θεωρήματος;',
+    createdAt: daysAgo(9),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'confusing-recursion-tree-marina',
+    docKey: 'week5',
+    page: 12,
+    quote: 'δέντρο αναδρομής',
+    prefix: 'Το ',
+    suffix: ' δείχνει το κόστος κάθε επιπέδου της αναδρομής.',
+    type: 'confusing',
+    visibility: 'instructor_only',
+    authorKey: 'marina',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    body: 'Δεν μου είναι σαφές πώς μετράμε το κόστος ανά επίπεδο όταν τα υποπροβλήματα δεν είναι ίσου μεγέθους.',
+    createdAt: daysAgo(7),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'question-overlapping-eleniP',
+    docKey: 'week8',
+    page: 6,
+    quote: 'επικαλυπτόμενα υποπροβλήματα',
+    prefix: 'Ο δυναμικός προγραμματισμός αποδίδει όταν υπάρχουν ',
+    suffix: ' που λύνονται ξανά και ξανά.',
+    type: 'question',
+    visibility: 'public',
+    authorKey: 'eleniP',
+    conceptKey: 'dynamic-programming',
+    nodeKey: 'dynamic-programming',
+    body: 'Πώς ξεχωρίζουμε τα επικαλυπτόμενα υποπροβλήματα από μια απλή αναδρομή χωρίς επαναλήψεις;',
+    createdAt: daysAgo(6),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'confusing-substructure-kostas',
+    docKey: 'week8',
+    page: 14,
+    quote: 'βέλτιστη υποδομή',
+    prefix: 'Η ',
+    suffix: ' επιτρέπει να συνθέσουμε τη λύση από λύσεις υποπροβλημάτων.',
+    type: 'confusing',
+    visibility: 'instructor_only',
+    authorKey: 'kostas',
+    conceptKey: 'dynamic-programming',
+    nodeKey: 'dynamic-programming',
+    body: 'Δεν καταλαβαίνω πώς ελέγχουμε στην πράξη αν ένα πρόβλημα έχει βέλτιστη υποδομή.',
+    createdAt: daysAgo(5),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'confusing-relaxation-nikos',
+    docKey: 'week10',
+    page: 7,
+    quote: 'χαλάρωση ακμής',
+    prefix: 'Κάθε βήμα του Dijkstra εκτελεί μία ',
+    suffix: ' και ενημερώνει την εκτίμηση απόστασης.',
+    type: 'confusing',
+    visibility: 'instructor_only',
+    authorKey: 'nikos',
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    body: 'Η διαφορά ανάμεσα στη χαλάρωση ακμής και στην οριστικοποίηση μιας κορυφής δεν είναι ακόμη σαφής.',
+    createdAt: daysAgo(5),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'question-priority-queue-christina',
+    docKey: 'week10',
+    page: 13,
+    quote: 'ουρά προτεραιότητας',
+    prefix: 'Η υλοποίηση της ',
+    suffix: ' καθορίζει τη συνολική πολυπλοκότητα του αλγορίθμου.',
+    type: 'question',
+    visibility: 'public',
+    authorKey: 'christina',
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    body: 'Πόσο αλλάζει η πολυπλοκότητα αν χρησιμοποιήσουμε δυαδικό σωρό αντί για απλό πίνακα;',
     createdAt: daysAgo(4),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'question-negative-weights-petros',
+    docKey: 'week10',
+    page: 7,
+    quote: 'χαλάρωση ακμής',
+    prefix: 'Κάθε βήμα του Dijkstra εκτελεί μία ',
+    suffix: ' και ενημερώνει την εκτίμηση απόστασης.',
+    type: 'question',
+    visibility: 'public',
+    authorKey: 'petros',
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    body: 'Ο Bellman-Ford χαλαρώνει τις ίδιες ακμές πολλές φορές. Γιατί αυτό λύνει το πρόβλημα των αρνητικών βαρών;',
+    createdAt: daysAgo(1),
+  });
+  await upsertAnnotationWithTarget({
+    courseKey: c,
+    key: 'question-reduction-kostas',
+    docKey: 'week12',
+    page: 4,
+    quote: 'πολυωνυμική αναγωγή',
+    prefix: 'Μια ',
+    suffix: ' μεταφέρει τη δυσκολία από το ένα πρόβλημα στο άλλο.',
+    type: 'question',
+    visibility: 'public',
+    authorKey: 'kostas',
+    conceptKey: 'asymptotic',
+    body: 'Αν ανάγουμε το A στο B, ποιο από τα δύο αποδεικνύεται δύσκολο;',
+    createdAt: daysAgo(2),
+  });
+
+  // ---- Threads and posts -------------------------------------------------
+
+  await upsertThread({
+    courseKey: c,
+    key: 'old-exercises-archive',
+    categoryKind: 'archived_document_discussion',
+    title: 'Σχόλια στις παλιές ασκήσεις εξαμήνου (αρχειοθετημένο)',
+    authorKey: 'sofiaK',
+    status: 'archived',
+    visibility: 'public',
+    docKey: 'old-exercise-export',
+    archivedAt: daysAgo(37),
+    createdAt: daysAgo(44),
+    lastActivityAt: daysAgo(43),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'old-exercises-archive',
+    key: 'p1',
+    authorKey: 'sofiaK',
+    body: 'Οι παλιές ασκήσεις δεν αναφέρονται πουθενά στο νέο φύλλο εργασίας.',
+    createdAt: daysAgo(44),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'old-exercises-archive',
+    key: 'p2',
+    authorKey: 'markos',
+    body: 'Σωστά, αντικαταστάθηκαν πλήρως από το νέο φύλλο εργασίας τεχνικών απόδειξης.',
+    createdAt: daysAgo(43),
   });
 
   await upsertThread({
@@ -2364,7 +2084,7 @@ async function seedAlg201(): Promise<void> {
     categoryKind: 'document_discussion',
     title: 'Ασάφεια στο επαγωγικό βήμα της απόδειξης',
     authorKey: 'nikos',
-    status: 'open',
+    status: 'instructor_answered',
     visibility: 'instructor_only',
     annotationKey: 'confusing-induction-nikos',
     docKey: 'proof-worksheet',
@@ -2372,7 +2092,8 @@ async function seedAlg201(): Promise<void> {
     nodeKey: 'induction',
     pageNumberSnapshot: 5,
     selectedTextSnapshot: 'επαγωγικό βήμα',
-    createdAt: daysAgo(7),
+    createdAt: daysAgo(21),
+    lastActivityAt: daysAgo(20),
   });
   await upsertPost({
     courseKey: c,
@@ -2380,7 +2101,51 @@ async function seedAlg201(): Promise<void> {
     key: 'p1',
     authorKey: 'nikos',
     body: 'Το βήμα n→n+1 προϋποθέτει κάτι που δεν έχουμε αποδείξει ακόμα;',
-    createdAt: daysAgo(7),
+    createdAt: daysAgo(21),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'induction-confusion',
+    key: 'p2',
+    authorKey: 'eleni',
+    body: 'Όχι. Η επαγωγική υπόθεση είναι δεδομένο του βήματος, όχι ζητούμενο. Θα προσθέσω λυμένα παραδείγματα στο φύλλο εργασίας.',
+    createdAt: daysAgo(20),
+  });
+
+  await upsertThread({
+    courseKey: c,
+    key: 'lab-groups',
+    categoryKind: 'general',
+    title: 'Πώς οργανώνουμε ομαδική μελέτη για το ενδιάμεσο διαγώνισμα;',
+    authorKey: 'giorgos',
+    status: 'instructor_answered',
+    visibility: 'public',
+    createdAt: daysAgo(20),
+    lastActivityAt: daysAgo(19),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'lab-groups',
+    key: 'p1',
+    authorKey: 'giorgos',
+    body: 'Θέλει κανείς άλλος να συναντηθούμε online για επανάληψη στις αναδρομικές σχέσεις;',
+    createdAt: daysAgo(20),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'lab-groups',
+    key: 'p2',
+    authorKey: 'christina',
+    body: 'Ναι, μέσα είμαι. Προτείνω Τετάρτη απόγευμα.',
+    createdAt: daysAgo(19),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'lab-groups',
+    key: 'p3',
+    authorKey: 'markos',
+    body: 'Καλή ιδέα. Θα ανεβάσω επιπλέον ασκήσεις επανάληψης μέχρι Τρίτη.',
+    createdAt: daysAgo(19),
   });
 
   await upsertThread({
@@ -2397,8 +2162,9 @@ async function seedAlg201(): Promise<void> {
     nodeKey: 'induction',
     pageNumberSnapshot: 5,
     selectedTextSnapshot: 'επαγωγικό βήμα',
-    resolvedAt: daysAgo(4),
-    createdAt: daysAgo(5),
+    resolvedAt: daysAgo(18),
+    createdAt: daysAgo(19),
+    lastActivityAt: daysAgo(18),
   });
   await upsertPost({
     courseKey: c,
@@ -2406,7 +2172,7 @@ async function seedAlg201(): Promise<void> {
     key: 'p1',
     authorKey: 'eleniP',
     body: 'Πρέπει να αποδείξουμε και τη βασική περίπτωση n=0 ξεχωριστά σε κάθε άσκηση;',
-    createdAt: daysAgo(5),
+    createdAt: daysAgo(19),
   });
   await upsertPost({
     courseKey: c,
@@ -2415,7 +2181,7 @@ async function seedAlg201(): Promise<void> {
     authorKey: 'markos',
     body: 'Ναι, πάντα ξεχωριστά. Χωρίς τη βασική περίπτωση η επαγωγή δεν είναι έγκυρη.',
     isVerified: true,
-    createdAt: daysAgo(4),
+    createdAt: daysAgo(18),
   });
   await setVerifiedPost(c, 'induction-question', 'p2');
 
@@ -2428,6 +2194,7 @@ async function seedAlg201(): Promise<void> {
     status: 'instructor_answered',
     visibility: 'public',
     createdAt: daysAgo(18),
+    lastActivityAt: daysAgo(17),
   });
   await upsertPost({
     courseKey: c,
@@ -2448,6 +2215,77 @@ async function seedAlg201(): Promise<void> {
 
   await upsertThread({
     courseKey: c,
+    key: 'strong-induction',
+    categoryKind: 'document_discussion',
+    title: 'Πότε προτιμάμε ισχυρή επαγωγή αντί για απλή;',
+    authorKey: 'christina',
+    status: 'instructor_answered',
+    visibility: 'public',
+    annotationKey: 'question-strong-induction-christina',
+    docKey: 'proof-worksheet',
+    conceptKey: 'induction',
+    nodeKey: 'induction',
+    pageNumberSnapshot: 7,
+    selectedTextSnapshot: 'ισχυρή επαγωγή',
+    createdAt: daysAgo(18),
+    lastActivityAt: daysAgo(17),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'strong-induction',
+    key: 'p1',
+    authorKey: 'christina',
+    body: 'Πότε δεν αρκεί η απλή επαγωγή και χρειαζόμαστε την ισχυρή;',
+    createdAt: daysAgo(18),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'strong-induction',
+    key: 'p2',
+    authorKey: 'eleni',
+    body: 'Όταν το επαγωγικό βήμα χρειάζεται όλες τις προηγούμενες περιπτώσεις και όχι μόνο την αμέσως προηγούμενη, όπως στην αναδρομή του merge sort.',
+    createdAt: daysAgo(17),
+  });
+
+  await upsertThread({
+    courseKey: c,
+    key: 'greedy-counterexample',
+    categoryKind: 'document_discussion',
+    title: 'Πότε αποτυγχάνει η άπληστη στρατηγική στο πρόβλημα του σακιδίου;',
+    authorKey: 'petros',
+    status: 'verified',
+    visibility: 'public',
+    annotationKey: 'question-greedy-fails-petros',
+    docKey: 'week3',
+    conceptKey: 'greedy',
+    nodeKey: 'greedy',
+    pageNumberSnapshot: 11,
+    selectedTextSnapshot: 'τοπικά βέλτιστη επιλογή',
+    resolvedAt: daysAgo(12),
+    createdAt: daysAgo(13),
+    lastActivityAt: daysAgo(12),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'greedy-counterexample',
+    key: 'p1',
+    authorKey: 'petros',
+    body: 'Στο 0/1 σακίδιο η άπληστη επιλογή κατά λόγο αξίας/βάρους δεν δίνει πάντα τη βέλτιστη λύση. Πώς το τεκμηριώνουμε;',
+    createdAt: daysAgo(13),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'greedy-counterexample',
+    key: 'p2',
+    authorKey: 'markos',
+    body: 'Με ένα αντιπαράδειγμα τριών αντικειμένων. Στο κλασματικό σακίδιο το επιχείρημα ανταλλαγής ισχύει, στο 0/1 σπάει επειδή δεν μπορούμε να κόψουμε αντικείμενο.',
+    isVerified: true,
+    createdAt: daysAgo(12),
+  });
+  await setVerifiedPost(c, 'greedy-counterexample', 'p2');
+
+  await upsertThread({
+    courseKey: c,
     key: 'midterm-scope',
     categoryKind: 'general',
     title: 'Διευκρίνιση ύλης για το ενδιάμεσο διαγώνισμα',
@@ -2456,6 +2294,7 @@ async function seedAlg201(): Promise<void> {
     visibility: 'public',
     resolvedAt: daysAgo(9),
     createdAt: daysAgo(10),
+    lastActivityAt: daysAgo(9),
   });
   await upsertPost({
     courseKey: c,
@@ -2473,6 +2312,279 @@ async function seedAlg201(): Promise<void> {
     body: 'Καλύπτει και τα δύο. Θα δοθεί φύλλο επανάληψης την επόμενη εβδομάδα.',
     createdAt: daysAgo(9),
   });
+
+  // DEMO-01 anchor: the verified, document-linked thread the student reaches
+  // from her dashboard and follows back into the PDF.
+  await upsertThread({
+    courseKey: c,
+    key: 'master-theorem',
+    categoryKind: 'document_discussion',
+    title:
+      'Πότε δεν μπορεί να εφαρμοστεί το κύριο θεώρημα σε μια αναδρομική σχέση;',
+    authorKey: 'maria',
+    status: 'verified',
+    visibility: 'public',
+    annotationKey: 'question-master-theorem-maria',
+    docKey: 'week5',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    pageNumberSnapshot: 7,
+    selectedTextSnapshot: 'κύριο θεώρημα',
+    resolvedAt: daysAgo(8),
+    createdAt: daysAgo(9),
+    lastActivityAt: daysAgo(7),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'master-theorem',
+    key: 'p1',
+    authorKey: 'maria',
+    body: 'Στο παράδειγμα της σελίδας 7 τα υποπροβλήματα δεν έχουν ίδιο μέγεθος. Μπορούμε ακόμη να χρησιμοποιήσουμε το κύριο θεώρημα;',
+    createdAt: daysAgo(9),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'master-theorem',
+    key: 'p2',
+    authorKey: 'markos',
+    body: 'Όχι. Το κύριο θεώρημα προϋποθέτει a ισομεγέθη υποπροβλήματα μεγέθους n/b. Όταν τα μεγέθη διαφέρουν, δουλεύουμε με δέντρο αναδρομής ή με τη μέθοδο αντικατάστασης.',
+    isVerified: true,
+    createdAt: daysAgo(8),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'master-theorem',
+    key: 'p3',
+    authorKey: 'maria',
+    body: 'Ευχαριστώ. Το δέντρο αναδρομής της σελίδας 12 δίνει τελικά το ίδιο αποτέλεσμα.',
+    createdAt: daysAgo(7),
+  });
+  await setVerifiedPost(c, 'master-theorem', 'p2');
+
+  await upsertThread({
+    courseKey: c,
+    key: 'recursion-tree-cost',
+    categoryKind: 'document_discussion',
+    title: 'Κόστος ανά επίπεδο σε άνισα υποπροβλήματα',
+    authorKey: 'marina',
+    status: 'instructor_answered',
+    visibility: 'instructor_only',
+    annotationKey: 'confusing-recursion-tree-marina',
+    docKey: 'week5',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    pageNumberSnapshot: 12,
+    selectedTextSnapshot: 'δέντρο αναδρομής',
+    createdAt: daysAgo(7),
+    lastActivityAt: daysAgo(6),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'recursion-tree-cost',
+    key: 'p1',
+    authorKey: 'marina',
+    body: 'Όταν τα υποπροβλήματα δεν είναι ίσου μεγέθους, πώς υπολογίζουμε το κόστος κάθε επιπέδου;',
+    createdAt: daysAgo(7),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'recursion-tree-cost',
+    key: 'p2',
+    authorKey: 'markos',
+    body: 'Αθροίζουμε το κόστος των κόμβων κάθε επιπέδου και φράσσουμε το άθροισμα από πάνω. Το δέντρο γίνεται ασύμμετρο, αλλά το ύψος παραμένει λογαριθμικό στο μεγαλύτερο κλάσμα.',
+    createdAt: daysAgo(6),
+  });
+
+  await upsertThread({
+    courseKey: c,
+    key: 'dp-overlapping',
+    categoryKind: 'document_discussion',
+    title: 'Πώς ξεχωρίζουμε τα επικαλυπτόμενα υποπροβλήματα;',
+    authorKey: 'eleniP',
+    status: 'verified',
+    visibility: 'public',
+    annotationKey: 'question-overlapping-eleniP',
+    docKey: 'week8',
+    conceptKey: 'dynamic-programming',
+    nodeKey: 'dynamic-programming',
+    pageNumberSnapshot: 6,
+    selectedTextSnapshot: 'επικαλυπτόμενα υποπροβλήματα',
+    resolvedAt: daysAgo(5),
+    createdAt: daysAgo(6),
+    lastActivityAt: daysAgo(5),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'dp-overlapping',
+    key: 'p1',
+    authorKey: 'eleniP',
+    body: 'Πώς ξεχωρίζουμε τα επικαλυπτόμενα υποπροβλήματα από μια απλή αναδρομή χωρίς επαναλήψεις;',
+    createdAt: daysAgo(6),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'dp-overlapping',
+    key: 'p2',
+    authorKey: 'eleni',
+    body: 'Σχεδιάζουμε το δέντρο κλήσεων. Αν η ίδια παράμετρος εμφανίζεται σε περισσότερους από έναν κόμβους, τα υποπροβλήματα επικαλύπτονται και η απομνημόνευση αποδίδει.',
+    isVerified: true,
+    createdAt: daysAgo(5),
+  });
+  await setVerifiedPost(c, 'dp-overlapping', 'p2');
+
+  await upsertThread({
+    courseKey: c,
+    key: 'dp-substructure',
+    categoryKind: 'document_discussion',
+    title: 'Πώς ελέγχουμε στην πράξη τη βέλτιστη υποδομή;',
+    authorKey: 'kostas',
+    status: 'open',
+    visibility: 'instructor_only',
+    annotationKey: 'confusing-substructure-kostas',
+    docKey: 'week8',
+    conceptKey: 'dynamic-programming',
+    nodeKey: 'dynamic-programming',
+    pageNumberSnapshot: 14,
+    selectedTextSnapshot: 'βέλτιστη υποδομή',
+    createdAt: daysAgo(5),
+    lastActivityAt: daysAgo(5),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'dp-substructure',
+    key: 'p1',
+    authorKey: 'kostas',
+    body: 'Υπάρχει συγκεκριμένος έλεγχος για τη βέλτιστη υποδομή ή το διαπιστώνουμε μόνο εκ των υστέρων;',
+    createdAt: daysAgo(5),
+  });
+
+  await upsertThread({
+    courseKey: c,
+    key: 'priority-queue-complexity',
+    categoryKind: 'document_discussion',
+    title:
+      'Πώς επηρεάζει η ουρά προτεραιότητας την πολυπλοκότητα του Dijkstra;',
+    authorKey: 'christina',
+    status: 'instructor_answered',
+    visibility: 'public',
+    annotationKey: 'question-priority-queue-christina',
+    docKey: 'week10',
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    pageNumberSnapshot: 13,
+    selectedTextSnapshot: 'ουρά προτεραιότητας',
+    createdAt: daysAgo(4),
+    lastActivityAt: daysAgo(3),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'priority-queue-complexity',
+    key: 'p1',
+    authorKey: 'christina',
+    body: 'Πόσο αλλάζει η πολυπλοκότητα αν χρησιμοποιήσουμε δυαδικό σωρό αντί για απλό πίνακα;',
+    createdAt: daysAgo(4),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'priority-queue-complexity',
+    key: 'p2',
+    authorKey: 'eleni',
+    body: 'Από O(V²) με πίνακα πάμε σε O((V+E) log V) με δυαδικό σωρό. Σε πυκνούς γράφους η διαφορά σχεδόν εξαφανίζεται.',
+    createdAt: daysAgo(3),
+  });
+
+  await upsertThread({
+    courseKey: c,
+    key: 'study-plan',
+    categoryKind: 'general',
+    title:
+      'Με ποια σειρά να μελετήσω διαίρει-και-βασίλευε και δυναμικό προγραμματισμό;',
+    authorKey: 'maria',
+    status: 'open',
+    visibility: 'public',
+    createdAt: daysAgo(4),
+    lastActivityAt: daysAgo(4),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'study-plan',
+    key: 'p1',
+    authorKey: 'maria',
+    body: 'Ο χάρτης ύλης βάζει πρώτα το διαίρει-και-βασίλευε. Βοηθάει να δω παράλληλα και τον δυναμικό προγραμματισμό ή μπερδεύει;',
+    createdAt: daysAgo(4),
+  });
+
+  await upsertThread({
+    courseKey: c,
+    key: 'np-reduction',
+    categoryKind: 'document_discussion',
+    title: 'Τι ακριβώς αποδεικνύει μια πολυωνυμική αναγωγή;',
+    authorKey: 'kostas',
+    status: 'open',
+    visibility: 'public',
+    annotationKey: 'question-reduction-kostas',
+    docKey: 'week12',
+    conceptKey: 'asymptotic',
+    pageNumberSnapshot: 4,
+    selectedTextSnapshot: 'πολυωνυμική αναγωγή',
+    createdAt: daysAgo(2),
+    lastActivityAt: daysAgo(2),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'np-reduction',
+    key: 'p1',
+    authorKey: 'kostas',
+    body: 'Αν ανάγουμε το A στο B, ποιο από τα δύο αποδεικνύεται δύσκολο;',
+    createdAt: daysAgo(2),
+  });
+
+  // DEMO-02 anchor: the unanswered, instructor-only confusion thread the
+  // professor reaches from the "needs an answer" queue.
+  await upsertThread({
+    courseKey: c,
+    key: 'graph-relaxation',
+    categoryKind: 'document_discussion',
+    title: 'Ασάφεια στη χαλάρωση ακμών και στα αρνητικά βάρη',
+    authorKey: 'nikos',
+    status: 'open',
+    visibility: 'instructor_only',
+    annotationKey: 'confusing-relaxation-nikos',
+    docKey: 'week10',
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    pageNumberSnapshot: 7,
+    selectedTextSnapshot: 'χαλάρωση ακμής',
+    createdAt: daysAgo(5),
+    lastActivityAt: daysAgo(1),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'graph-relaxation',
+    key: 'p1',
+    authorKey: 'nikos',
+    body: 'Γιατί η χαλάρωση ακμής παύει να είναι ασφαλής όταν ο γράφος έχει ακμές με αρνητικό βάρος;',
+    createdAt: daysAgo(5),
+  });
+  await upsertPost({
+    courseKey: c,
+    threadKey: 'graph-relaxation',
+    key: 'p2',
+    authorKey: 'petros',
+    body: 'Και στον Bellman-Ford η χαλάρωση γίνεται με τον ίδιο κανόνα ή αλλάζει η σειρά με την οποία εξετάζουμε τις ακμές;',
+    createdAt: daysAgo(1),
+  });
+
+  await upsertThreadLink(
+    'alg201-graph-related',
+    c,
+    'graph-relaxation',
+    'priority-queue-complexity',
+    'related',
+    'markos',
+  );
+
+  // ---- Self-checks -------------------------------------------------------
 
   await upsertSelfCheck({
     courseKey: c,
@@ -2499,7 +2611,7 @@ async function seedAlg201(): Promise<void> {
     answer: { optionId: 'c' },
     score: 0,
     status: 'failed',
-    submittedAt: daysAgo(4),
+    submittedAt: daysAgo(20),
   });
   await upsertSelfCheckAttempt({
     courseKey: c,
@@ -2509,20 +2621,256 @@ async function seedAlg201(): Promise<void> {
     answer: { optionId: 'b' },
     score: 100,
     status: 'passed',
-    submittedAt: daysAgo(3),
+    submittedAt: daysAgo(18),
+  });
+  await upsertSelfCheckAttempt({
+    courseKey: c,
+    selfCheckKey: 'induction-check',
+    key: 'maria',
+    studentKey: 'maria',
+    answer: { optionId: 'b' },
+    score: 100,
+    status: 'passed',
+    submittedAt: daysAgo(16),
+  });
+
+  await upsertSelfCheck({
+    courseKey: c,
+    key: 'master-theorem-check',
+    nodeKey: 'divide-conquer',
+    conceptKey: 'divide-conquer',
+    type: 'single_choice',
+    prompt: 'Ποια προϋπόθεση απαιτεί το κύριο θεώρημα;',
+    options: [
+      { id: 'a', label: 'Τα a υποπροβλήματα να έχουν ίδιο μέγεθος n/b' },
+      { id: 'b', label: 'Ο αλγόριθμος να κάνει άπληστη επιλογή σε κάθε βήμα' },
+      { id: 'c', label: 'Η είσοδος να είναι ήδη ταξινομημένη' },
+    ],
+    correctAnswer: { optionId: 'a' },
+    passingScore: 100,
+    createdByKey: 'markos',
+  });
+  await upsertSelfCheckAttempt({
+    courseKey: c,
+    selfCheckKey: 'master-theorem-check',
+    key: 'maria',
+    studentKey: 'maria',
+    answer: { optionId: 'a' },
+    score: 100,
+    status: 'passed',
+    submittedAt: daysAgo(7),
+  });
+  await upsertSelfCheckAttempt({
+    courseKey: c,
+    selfCheckKey: 'master-theorem-check',
+    key: 'marina',
+    studentKey: 'marina',
+    answer: { optionId: 'c' },
+    score: 0,
+    status: 'failed',
+    submittedAt: daysAgo(6),
+  });
+
+  await upsertSelfCheck({
+    courseKey: c,
+    key: 'dp-check',
+    nodeKey: 'dynamic-programming',
+    conceptKey: 'dynamic-programming',
+    type: 'single_choice',
+    prompt:
+      'Ποιο ζεύγος ιδιοτήτων κάνει ένα πρόβλημα κατάλληλο για δυναμικό προγραμματισμό;',
+    options: [
+      {
+        id: 'a',
+        label: 'Βέλτιστη υποδομή και επικαλυπτόμενα υποπροβλήματα',
+      },
+      { id: 'b', label: 'Ταξινομημένη είσοδος και σταθερό μέγεθος εξόδου' },
+      { id: 'c', label: 'Άπληστη επιλογή και τοπική βελτιστότητα' },
+    ],
+    correctAnswer: { optionId: 'a' },
+    passingScore: 100,
+    createdByKey: 'eleni',
+  });
+  await upsertSelfCheckAttempt({
+    courseKey: c,
+    selfCheckKey: 'dp-check',
+    key: 'eleniP',
+    studentKey: 'eleniP',
+    answer: { optionId: 'a' },
+    score: 100,
+    status: 'passed',
+    submittedAt: daysAgo(5),
+  });
+  await upsertSelfCheckAttempt({
+    courseKey: c,
+    selfCheckKey: 'dp-check',
+    key: 'kostas',
+    studentKey: 'kostas',
+    answer: { optionId: 'c' },
+    score: 0,
+    status: 'failed',
+    submittedAt: daysAgo(4),
+  });
+
+  // ---- Roadmap progress --------------------------------------------------
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'maria',
+    status: 'completed',
+    startedAt: daysAgo(22),
+    completedAt: daysAgo(20),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'maria',
+    status: 'completed',
+    startedAt: daysAgo(19),
+    completedAt: daysAgo(16),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'divide-conquer',
+    studentKey: 'maria',
+    status: 'in_progress',
+    startedAt: daysAgo(9),
   });
 
   await upsertRoadmapProgress({
     courseKey: c,
     nodeKey: 'asymptotic',
     studentKey: 'nikos',
-    status: 'in_progress',
-    startedAt: daysAgo(20),
+    status: 'completed',
+    startedAt: daysAgo(24),
+    completedAt: daysAgo(22),
   });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'nikos',
+    status: 'needs_review',
+    startedAt: daysAgo(21),
+    needsReviewReason: 'Σύγχυση στο επαγωγικό βήμα της απόδειξης.',
+  });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'eleniP',
+    status: 'completed',
+    startedAt: daysAgo(26),
+    completedAt: daysAgo(25),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'eleniP',
+    status: 'completed',
+    startedAt: daysAgo(22),
+    completedAt: daysAgo(20),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'divide-conquer',
+    studentKey: 'eleniP',
+    status: 'completed',
+    startedAt: daysAgo(15),
+    completedAt: daysAgo(12),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'greedy',
+    studentKey: 'eleniP',
+    status: 'completed',
+    startedAt: daysAgo(12),
+    completedAt: daysAgo(10),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'dynamic-programming',
+    studentKey: 'eleniP',
+    status: 'in_progress',
+    startedAt: daysAgo(6),
+  });
+
   await upsertRoadmapProgress({
     courseKey: c,
     nodeKey: 'asymptotic',
     studentKey: 'petros',
+    status: 'completed',
+    startedAt: daysAgo(25),
+    completedAt: daysAgo(23),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'petros',
+    status: 'completed',
+    startedAt: daysAgo(20),
+    completedAt: daysAgo(18),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'divide-conquer',
+    studentKey: 'petros',
+    status: 'in_progress',
+    startedAt: daysAgo(12),
+  });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'christina',
+    status: 'completed',
+    startedAt: daysAgo(23),
+    completedAt: daysAgo(21),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'christina',
+    status: 'in_progress',
+    startedAt: daysAgo(18),
+  });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'kostas',
+    status: 'completed',
+    startedAt: daysAgo(20),
+    completedAt: daysAgo(19),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'kostas',
+    status: 'completed',
+    startedAt: daysAgo(17),
+    completedAt: daysAgo(15),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'divide-conquer',
+    studentKey: 'kostas',
+    status: 'completed',
+    startedAt: daysAgo(13),
+    completedAt: daysAgo(11),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'greedy',
+    studentKey: 'kostas',
+    status: 'in_progress',
+    startedAt: daysAgo(9),
+  });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'marina',
     status: 'completed',
     startedAt: daysAgo(19),
     completedAt: daysAgo(18),
@@ -2530,20 +2878,110 @@ async function seedAlg201(): Promise<void> {
   await upsertRoadmapProgress({
     courseKey: c,
     nodeKey: 'induction',
-    studentKey: 'eleniP',
-    status: 'needs_review',
-    startedAt: daysAgo(5),
-    needsReviewReason: 'Σύγχυση στο επαγωγικό βήμα.',
+    studentKey: 'marina',
+    status: 'in_progress',
+    startedAt: daysAgo(10),
   });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'giorgos',
+    status: 'in_progress',
+    startedAt: daysAgo(14),
+  });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'anna',
+    status: 'completed',
+    startedAt: daysAgo(17),
+    completedAt: daysAgo(16),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'anna',
+    status: 'in_progress',
+    startedAt: daysAgo(12),
+  });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'sofiaK',
+    status: 'in_progress',
+    startedAt: daysAgo(8),
+  });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'dimitraA',
+    status: 'completed',
+    startedAt: daysAgo(16),
+    completedAt: daysAgo(14),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'dimitraA',
+    status: 'needs_review',
+    startedAt: daysAgo(11),
+    needsReviewReason: 'Δυσκολία στη διατύπωση της επαγωγικής υπόθεσης.',
+  });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'katerina',
+    status: 'completed',
+    startedAt: daysAgo(21),
+    completedAt: daysAgo(20),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'katerina',
+    status: 'completed',
+    startedAt: daysAgo(16),
+    completedAt: daysAgo(14),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'divide-conquer',
+    studentKey: 'katerina',
+    status: 'in_progress',
+    startedAt: daysAgo(8),
+  });
+
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'asymptotic',
+    studentKey: 'evangelia',
+    status: 'completed',
+    startedAt: daysAgo(18),
+    completedAt: daysAgo(17),
+  });
+  await upsertRoadmapProgress({
+    courseKey: c,
+    nodeKey: 'induction',
+    studentKey: 'evangelia',
+    status: 'in_progress',
+    startedAt: daysAgo(9),
+  });
+
+  // ---- Teaching interventions --------------------------------------------
 
   await upsertIntervention({
     courseKey: c,
     key: 'proof-examples',
-    createdByKey: 'markos',
+    createdByKey: 'eleni',
     type: 'additional_resource',
     title: 'Προσθήκη νέων παραδειγμάτων επαγωγικών αποδείξεων',
     description:
-      'Νέα λυμένα παραδείγματα στο φύλλο εργασίας, ως απάντηση στα σήματα σύγχυσης.',
+      'Νέα λυμένα παραδείγματα στο φύλλο εργασίας, ως απάντηση στα σήματα σύγχυσης για το επαγωγικό βήμα.',
     sourceAction: 'confusion_signal',
     sourceEntityType: 'document',
     sourceEntityId: documentId(c, 'proof-worksheet'),
@@ -2551,9 +2989,65 @@ async function seedAlg201(): Promise<void> {
     nodeKey: 'induction',
     threadKey: 'induction-confusion',
     targetKey: 'confusing-induction-nikos',
-    createdAt: daysAgo(6),
-    followUpAt: daysFromNow(3),
+    createdAt: daysAgo(20),
+    followUpAt: daysFromNow(2),
   });
+  await upsertIntervention({
+    courseKey: c,
+    key: 'master-theorem-clarification',
+    createdByKey: 'markos',
+    type: 'answer_thread',
+    title: 'Αποσαφήνιση των προϋποθέσεων του κύριου θεωρήματος',
+    description:
+      'Προστέθηκε επαληθευμένη απάντηση για τις περιπτώσεις στις οποίες το κύριο θεώρημα δεν εφαρμόζεται.',
+    sourceAction: 'verified_answer',
+    sourceEntityType: 'forum_post',
+    sourceEntityId: postId(c, 'master-theorem', 'p2'),
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    threadKey: 'master-theorem',
+    targetKey: 'question-master-theorem-maria',
+    createdAt: daysAgo(8),
+    followUpAt: daysFromNow(5),
+  });
+  await upsertIntervention({
+    courseKey: c,
+    key: 'dp-worked-examples',
+    createdByKey: 'eleni',
+    type: 'revise_material',
+    title: 'Αναθεώρηση της ενότητας για τη βέλτιστη υποδομή',
+    description:
+      'Αναδιατύπωση των σελίδων 13-15 της Εβδομάδας 8 μετά από επαναλαμβανόμενα σήματα σύγχυσης.',
+    sourceAction: 'confusion_signal',
+    sourceEntityType: 'document',
+    sourceEntityId: documentId(c, 'week8'),
+    conceptKey: 'dynamic-programming',
+    nodeKey: 'dynamic-programming',
+    threadKey: 'dp-substructure',
+    targetKey: 'confusing-substructure-kostas',
+    createdAt: daysAgo(4),
+    followUpAt: daysFromNow(6),
+  });
+  await upsertIntervention({
+    courseKey: c,
+    key: 'negative-weight-example',
+    createdByKey: 'markos',
+    type: 'lecture_adjustment',
+    title: 'Αντιπαράδειγμα με αρνητικά βάρη στην επόμενη διάλεξη',
+    description:
+      'Προστίθεται αναλυτικό αντιπαράδειγμα Dijkstra/Bellman-Ford, ως απάντηση στα σήματα σύγχυσης της Εβδομάδας 10.',
+    sourceAction: 'confusion_signal',
+    sourceEntityType: 'document',
+    sourceEntityId: documentId(c, 'week10'),
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    threadKey: 'graph-relaxation',
+    targetKey: 'confusing-relaxation-nikos',
+    createdAt: daysAgo(2),
+    followUpAt: daysFromNow(4),
+  });
+
+  // ---- Analytics events --------------------------------------------------
 
   await upsertAnalyticsEvent({
     key: 'alg201-doc-opened-nikos',
@@ -2564,10 +3058,10 @@ async function seedAlg201(): Promise<void> {
     conceptKey: 'induction',
     nodeKey: 'induction',
     metadata: { source: 'viewer' },
-    createdAt: daysAgo(7),
+    createdAt: daysAgo(21),
   });
   await upsertAnalyticsEvent({
-    key: 'alg201-annotation-nikos',
+    key: 'alg201-annotation-nikos-induction',
     eventType: 'annotation_created',
     courseKey: c,
     userKey: 'nikos',
@@ -2578,54 +3072,232 @@ async function seedAlg201(): Promise<void> {
     annotationKey: 'confusing-induction-nikos',
     threadKey: 'induction-confusion',
     metadata: { annotationType: 'confusing', visibility: 'instructor_only' },
-    createdAt: daysAgo(7),
+    createdAt: daysAgo(21),
   });
   await upsertAnalyticsEvent({
-    key: 'alg201-thread-created-nikos',
+    key: 'alg201-thread-created-nikos-induction',
     eventType: 'forum_thread_created',
     courseKey: c,
     userKey: 'nikos',
     docKey: 'proof-worksheet',
     threadKey: 'induction-confusion',
     metadata: { status: 'open' },
-    createdAt: daysAgo(7),
+    createdAt: daysAgo(21),
   });
   await upsertAnalyticsEvent({
-    key: 'alg201-annotation-eleniP',
-    eventType: 'annotation_created',
-    courseKey: c,
-    userKey: 'eleniP',
-    docKey: 'proof-worksheet',
-    conceptKey: 'induction',
-    nodeKey: 'induction',
-    targetKey: 'question-induction-eleniP',
-    annotationKey: 'question-induction-eleniP',
-    threadKey: 'induction-question',
-    metadata: { annotationType: 'question', visibility: 'public' },
-    createdAt: daysAgo(5),
-  });
-  await upsertAnalyticsEvent({
-    key: 'alg201-thread-resolved-markos',
+    key: 'alg201-thread-resolved-markos-induction',
     eventType: 'forum_thread_resolved',
     courseKey: c,
     userKey: 'markos',
     docKey: 'proof-worksheet',
     threadKey: 'induction-question',
     metadata: { status: 'verified' },
-    createdAt: daysAgo(4),
+    createdAt: daysAgo(18),
   });
   await upsertAnalyticsEvent({
-    key: 'alg201-intervention-examples',
+    key: 'alg201-intervention-proof-examples',
     eventType: 'intervention_created',
     courseKey: c,
-    userKey: 'markos',
+    userKey: 'eleni',
     docKey: 'proof-worksheet',
     conceptKey: 'induction',
     nodeKey: 'induction',
     threadKey: 'induction-confusion',
     interventionKey: 'proof-examples',
     metadata: { sourceAction: 'confusion_signal' },
+    createdAt: daysAgo(20),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-node-completed-maria-induction',
+    eventType: 'roadmap_node_completed',
+    courseKey: c,
+    userKey: 'maria',
+    conceptKey: 'induction',
+    nodeKey: 'induction',
+    metadata: { completionRule: 'manual' },
+    createdAt: daysAgo(16),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-node-started-maria-dc',
+    eventType: 'roadmap_node_started',
+    courseKey: c,
+    userKey: 'maria',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    metadata: { source: 'roadmap' },
+    createdAt: daysAgo(9),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-doc-opened-maria-week5',
+    eventType: 'document_opened',
+    courseKey: c,
+    userKey: 'maria',
+    docKey: 'week5',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    metadata: { source: 'roadmap_resource' },
+    createdAt: daysAgo(9),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-page-viewed-maria-week5',
+    eventType: 'document_page_viewed',
+    courseKey: c,
+    userKey: 'maria',
+    docKey: 'week5',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    targetKey: 'question-master-theorem-maria',
+    metadata: { pageNumber: 7 },
+    createdAt: daysAgo(9),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-annotation-maria-master-theorem',
+    eventType: 'annotation_created',
+    courseKey: c,
+    userKey: 'maria',
+    docKey: 'week5',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    targetKey: 'question-master-theorem-maria',
+    annotationKey: 'question-master-theorem-maria',
+    threadKey: 'master-theorem',
+    metadata: { annotationType: 'question', visibility: 'public' },
+    createdAt: daysAgo(9),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-thread-created-maria-master-theorem',
+    eventType: 'forum_thread_created',
+    courseKey: c,
+    userKey: 'maria',
+    docKey: 'week5',
+    threadKey: 'master-theorem',
+    metadata: { status: 'open' },
+    createdAt: daysAgo(9),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-thread-resolved-markos-master-theorem',
+    eventType: 'forum_thread_resolved',
+    courseKey: c,
+    userKey: 'markos',
+    docKey: 'week5',
+    threadKey: 'master-theorem',
+    metadata: { status: 'verified' },
+    createdAt: daysAgo(8),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-intervention-master-theorem',
+    eventType: 'intervention_created',
+    courseKey: c,
+    userKey: 'markos',
+    docKey: 'week5',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    targetKey: 'question-master-theorem-maria',
+    annotationKey: 'question-master-theorem-maria',
+    threadKey: 'master-theorem',
+    interventionKey: 'master-theorem-clarification',
+    metadata: { sourceAction: 'verified_answer' },
+    createdAt: daysAgo(8),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-self-check-maria-master-theorem',
+    eventType: 'self_check_completed',
+    courseKey: c,
+    userKey: 'maria',
+    conceptKey: 'divide-conquer',
+    nodeKey: 'divide-conquer',
+    selfCheckKey: 'master-theorem-check',
+    metadata: { score: 100, status: 'passed' },
+    createdAt: daysAgo(7),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-annotation-eleniP-dp',
+    eventType: 'annotation_created',
+    courseKey: c,
+    userKey: 'eleniP',
+    docKey: 'week8',
+    conceptKey: 'dynamic-programming',
+    nodeKey: 'dynamic-programming',
+    targetKey: 'question-overlapping-eleniP',
+    annotationKey: 'question-overlapping-eleniP',
+    threadKey: 'dp-overlapping',
+    metadata: { annotationType: 'question', visibility: 'public' },
     createdAt: daysAgo(6),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-annotation-kostas-substructure',
+    eventType: 'annotation_created',
+    courseKey: c,
+    userKey: 'kostas',
+    docKey: 'week8',
+    conceptKey: 'dynamic-programming',
+    nodeKey: 'dynamic-programming',
+    targetKey: 'confusing-substructure-kostas',
+    annotationKey: 'confusing-substructure-kostas',
+    threadKey: 'dp-substructure',
+    metadata: { annotationType: 'confusing', visibility: 'instructor_only' },
+    createdAt: daysAgo(5),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-doc-opened-nikos-week10',
+    eventType: 'document_opened',
+    courseKey: c,
+    userKey: 'nikos',
+    docKey: 'week10',
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    metadata: { source: 'viewer' },
+    createdAt: daysAgo(5),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-annotation-nikos-relaxation',
+    eventType: 'annotation_created',
+    courseKey: c,
+    userKey: 'nikos',
+    docKey: 'week10',
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    targetKey: 'confusing-relaxation-nikos',
+    annotationKey: 'confusing-relaxation-nikos',
+    threadKey: 'graph-relaxation',
+    metadata: { annotationType: 'confusing', visibility: 'instructor_only' },
+    createdAt: daysAgo(5),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-thread-created-nikos-relaxation',
+    eventType: 'forum_thread_created',
+    courseKey: c,
+    userKey: 'nikos',
+    docKey: 'week10',
+    threadKey: 'graph-relaxation',
+    metadata: { status: 'open' },
+    createdAt: daysAgo(5),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-annotation-petros-negative-weights',
+    eventType: 'annotation_created',
+    courseKey: c,
+    userKey: 'petros',
+    docKey: 'week10',
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    targetKey: 'question-negative-weights-petros',
+    annotationKey: 'question-negative-weights-petros',
+    metadata: { annotationType: 'question', visibility: 'public' },
+    createdAt: daysAgo(1),
+  });
+  await upsertAnalyticsEvent({
+    key: 'alg201-intervention-negative-weights',
+    eventType: 'intervention_created',
+    courseKey: c,
+    userKey: 'markos',
+    docKey: 'week10',
+    conceptKey: 'graphs',
+    nodeKey: 'graphs',
+    threadKey: 'graph-relaxation',
+    interventionKey: 'negative-weight-example',
+    metadata: { sourceAction: 'confusion_signal' },
+    createdAt: daysAgo(2),
   });
 }
 
@@ -3364,42 +4036,52 @@ async function seedMl440(): Promise<void> {
 
 async function seedAuditLogs(): Promise<void> {
   await upsertAuditLog({
-    key: 'course-created-lms101',
+    key: 'course-created-alg201',
     actorKey: 'admin-main',
-    courseKey: 'lms101',
+    courseKey: 'alg201',
     action: 'course_created',
     entityType: 'course',
-    entityId: courseId('lms101'),
-    metadata: { code: 'CS-LMS-101', source: 'demo_seed' },
+    entityId: courseId('alg201'),
+    metadata: { code: 'CS-ALG-201', source: 'demo_seed' },
     createdAt: daysAgo(55),
   });
   await upsertAuditLog({
-    key: 'enrollment-changed-maria-lms101',
+    key: 'enrollment-changed-maria-alg201',
     actorKey: 'admin-registrar',
-    courseKey: 'lms101',
+    courseKey: 'alg201',
     action: 'enrollment_changed',
     entityType: 'enrollment',
-    entityId: enrollmentId('maria', 'lms101'),
+    entityId: enrollmentId('maria', 'alg201'),
     metadata: { student: 'maria', status: 'active' },
     createdAt: daysAgo(50),
   });
   await upsertAuditLog({
-    key: 'document-uploaded-lms101-week3',
+    key: 'document-replaced-alg201-syllabus',
     actorKey: 'eleni',
-    courseKey: 'lms101',
-    action: 'document_uploaded',
+    courseKey: 'alg201',
+    action: 'document_replaced',
     entityType: 'document',
-    entityId: documentId('lms101', 'week3'),
-    metadata: { visibility: 'visible_to_students' },
-    createdAt: daysAgo(1),
+    entityId: documentId('alg201', 'syllabus-v1'),
+    metadata: { reason: 'new_syllabus_version' },
+    createdAt: daysAgo(35),
   });
   await upsertAuditLog({
-    key: 'thread-archived-lms101-old-forum',
-    actorKey: 'eleni',
-    courseKey: 'lms101',
+    key: 'document-uploaded-alg201-week12',
+    actorKey: 'markos',
+    courseKey: 'alg201',
+    action: 'document_uploaded',
+    entityType: 'document',
+    entityId: documentId('alg201', 'week12'),
+    metadata: { visibility: 'visible_to_students' },
+    createdAt: daysAgo(2),
+  });
+  await upsertAuditLog({
+    key: 'thread-archived-alg201-old-exercises',
+    actorKey: 'markos',
+    courseKey: 'alg201',
     action: 'thread_category_changed',
     entityType: 'forum_thread',
-    entityId: threadId('lms101', 'old-forum-archive'),
+    entityId: threadId('alg201', 'old-exercises-archive'),
     metadata: { category: 'archived_document_discussion' },
     createdAt: daysAgo(37),
   });
@@ -3418,7 +4100,6 @@ async function main(): Promise<void> {
   await seedUsers();
   await seedCoursesInstructorsEnrollments();
 
-  await seedLms101();
   await seedAlg201();
   await seedWeb305();
   await seedDb301();
