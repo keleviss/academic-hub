@@ -1,8 +1,9 @@
 import { useState } from 'react';
 
-const coursesPerPage = 2;
-
-export function useDashboardCoursePagination<T>(items: readonly T[]): {
+export function useDashboardCoursePagination<T>(
+  items: readonly T[],
+  itemsPerPage = 2,
+): {
   currentPage: number;
   totalPages: number;
   visibleItems: readonly T[];
@@ -10,14 +11,15 @@ export function useDashboardCoursePagination<T>(items: readonly T[]): {
   goToNextPage: () => void;
 } {
   const [requestedPage, setRequestedPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(items.length / coursesPerPage));
+  const pageSize = Math.max(1, itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const currentPage = Math.min(requestedPage, totalPages);
-  const pageStart = (currentPage - 1) * coursesPerPage;
+  const pageStart = (currentPage - 1) * pageSize;
 
   return {
     currentPage,
     totalPages,
-    visibleItems: items.slice(pageStart, pageStart + coursesPerPage),
+    visibleItems: items.slice(pageStart, pageStart + pageSize),
     goToPreviousPage: () => setRequestedPage((page) => Math.max(1, page - 1)),
     goToNextPage: () =>
       setRequestedPage((page) => Math.min(totalPages, page + 1)),

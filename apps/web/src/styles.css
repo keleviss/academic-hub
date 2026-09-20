@@ -4119,6 +4119,20 @@ select {
   gap: 1.5rem;
 }
 
+.dashboard-student-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(20rem, 2fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.dashboard-student-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
 .dashboard-courses-anchor {
   min-width: 0;
   overflow: hidden;
@@ -4417,10 +4431,9 @@ select {
 }
 
 .dashboard-roadmap-continue {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
   border: 1px solid var(--color-hub-border);
   border-radius: var(--radius-hub-card);
   background: white;
@@ -4471,8 +4484,8 @@ select {
 
 .dashboard-roadmap-continue-meta {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 4px;
   color: var(--color-hub-muted);
   font-size: 0.75rem;
 }
@@ -4498,6 +4511,21 @@ select {
   justify-content: center;
   gap: 0.4rem;
   white-space: nowrap;
+}
+
+.dashboard-student-column--secondary .dashboard-roadmap-continue {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.dashboard-student-column--secondary .dashboard-roadmap-continue-meta {
+  grid-column: 2;
+  flex-wrap: wrap;
+}
+
+.dashboard-student-column--secondary .dashboard-roadmap-continue-action {
+  grid-column: 2;
+  justify-self: start;
 }
 
 .dashboard-professor-primary-grid {
@@ -4678,13 +4706,6 @@ select {
   padding: 1.5rem 1.125rem;
   color: var(--color-hub-muted);
   font-size: 0.8125rem;
-}
-
-.dashboard-student-priority-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  gap: 1.25rem;
-  align-items: start;
 }
 
 .dashboard-support-grid {
@@ -4905,6 +4926,10 @@ select {
 }
 
 @media (max-width: 1199px) {
+  .dashboard-student-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .dashboard-professor-primary-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -4919,7 +4944,6 @@ select {
 }
 
 @media (max-width: 899px) {
-  .dashboard-student-priority-grid,
   .dashboard-support-grid {
     grid-template-columns: minmax(0, 1fr);
   }
