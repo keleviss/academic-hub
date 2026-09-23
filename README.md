@@ -264,6 +264,20 @@ npx playwright test --config apps/web-e2e/playwright.config.ts --list
 npx playwright test --config apps/web-e2e/playwright.config.ts
 ```
 
+The `thesis-use-cases` spec overwrites the eight thesis screenshots in
+`thesis/figures/screenshots/` on every run. Those images are committed evidence for
+Chapter 6, so check `git status` afterwards. Two things change them silently:
+
+- Running against a database that was seeded earlier makes documents older than the
+  three-day `RECENT_MATERIAL_WINDOW_DAYS` window, so the "ΝΕΟ ΥΛΙΚΟ" badge disappears
+  from the student dashboard card. Reset and reseed (`npm run db:setup`) before a
+  capture run that is meant to replace the committed images.
+- Any UI copy or layout change shows up in the new captures while the thesis text
+  still describes the old ones.
+
+If a run was only meant to verify that the tests pass, restore the images with
+`git checkout -- thesis/figures/screenshots/`.
+
 The Playwright config starts the Vite web app on `http://127.0.0.1:4200`. Override the browser test base URL when needed:
 
 ```bash
