@@ -38,6 +38,7 @@ const emptyStudentDashboard = {
     openQuestions: [],
     verifiedAnswers: [],
     activeDiscussions: [],
+    continueLearning: null,
   },
 };
 
@@ -209,7 +210,7 @@ describe('public login route', () => {
 
     expect(
       await screen.findByText(
-        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+        'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app');
@@ -248,7 +249,7 @@ describe('public login route', () => {
 
     expect(
       await screen.findByText(
-        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+        'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
       ),
     ).toBeInTheDocument();
   });
@@ -295,11 +296,8 @@ describe('session, routing and role workspaces', () => {
 
   it.each([
     ['admin', 'Διαχειριστικό workspace'],
-    ['professor', 'Τα μαθήματά σου και η κατάσταση των συζητήσεών τους.'],
-    [
-      'student',
-      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
-    ],
+    ['professor', 'Η εικόνα των μαθημάτων σου και ό,τι χρειάζεται παρέμβαση.'],
+    ['student', 'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.'],
   ] as const)('renders %s content at /app', async (role, heading) => {
     vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn(role));
 
@@ -316,7 +314,7 @@ describe('session, routing and role workspaces', () => {
 
     expect(
       await screen.findByText(
-        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+        'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
       ),
     ).toBeInTheDocument();
     expect(
@@ -326,9 +324,6 @@ describe('session, routing and role workspaces', () => {
       'href',
       '/app/courses',
     );
-    expect(
-      screen.getByRole('link', { name: /Αλγόριθμοι και Πολυπλοκότητα/ }),
-    ).toHaveAttribute('href', '/app/courses?course=algorithms');
     expect(
       screen.queryByRole('link', { name: /Χρήστες/ }),
     ).not.toBeInTheDocument();
@@ -347,7 +342,7 @@ describe('session, routing and role workspaces', () => {
     renderApp('/app');
 
     await screen.findByText(
-      'Τα μαθήματά σου και η κατάσταση των συζητήσεών τους.',
+      'Η εικόνα των μαθημάτων σου και ό,τι χρειάζεται παρέμβαση.',
     );
     await userEvent.type(
       screen.getByLabelText('Αναζήτηση διαθέσιμων σελίδων'),
@@ -364,13 +359,18 @@ describe('session, routing and role workspaces', () => {
   });
 
   it('preserves active state for sidebar subitems', async () => {
-    vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('student'));
+    vi.mocked(fetchCurrentSession).mockResolvedValue(signedIn('admin'));
 
-    renderApp('/app/courses?course=algorithms');
+    renderApp('/app/courses?status=active');
 
-    expect(await screen.findByText('Τα μαθήματά μου')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /Αλγόριθμοι και Πολυπλοκότητα/ }),
+      await screen.findByRole('heading', { name: 'Μαθήματα' }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Εμφάνιση υποστοιχείων Μαθήματα' }),
+    );
+    expect(
+      screen.getByRole('link', { name: 'Ενεργά μαθήματα' }),
     ).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: /Μαθήματα/ })).toHaveAttribute(
       'aria-current',
@@ -387,15 +387,8 @@ describe('session, routing and role workspaces', () => {
       await screen.findByRole('heading', { name: 'Μαθήματα' }),
     ).toBeInTheDocument();
     const toggle = screen.getByRole('button', {
-      name: 'Απόκρυψη υποστοιχείων Μαθήματα',
+      name: 'Εμφάνιση υποστοιχείων Μαθήματα',
     });
-
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(
-      screen.getByRole('link', { name: 'Ενεργά μαθήματα' }),
-    ).toBeInTheDocument();
-
-    await userEvent.click(toggle);
 
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(
@@ -408,6 +401,13 @@ describe('session, routing and role workspaces', () => {
     expect(
       screen.getByRole('link', { name: 'Ενεργά μαθήματα' }),
     ).toBeInTheDocument();
+
+    await userEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('link', { name: 'Ενεργά μαθήματα' }),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps the sidebar parent active when a feature route has search params', async () => {
@@ -445,7 +445,7 @@ describe('session, routing and role workspaces', () => {
 
       expect(
         await screen.findByText(
-          'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+          'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
         ),
       ).toBeInTheDocument();
       expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app');
@@ -459,7 +459,7 @@ describe('session, routing and role workspaces', () => {
 
     expect(
       await screen.findByText(
-        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+        'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Διαδρομή')).toHaveTextContent('/app');
@@ -484,7 +484,7 @@ describe('session, routing and role workspaces', () => {
 
     expect(
       await screen.findByText(
-        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+        'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
       ),
     ).toBeInTheDocument();
     const workspaceContent = document.getElementById('main-content');
@@ -504,14 +504,14 @@ describe('session, routing and role workspaces', () => {
     const first = renderApp('/app');
 
     await screen.findByText(
-      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
     );
     first.unmount();
     renderApp('/app');
 
     expect(
       await screen.findByText(
-        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+        'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
       ),
     ).toBeInTheDocument();
     expect(fetchCurrentSession).toHaveBeenCalledTimes(2);
@@ -535,7 +535,7 @@ describe('session, routing and role workspaces', () => {
 
     expect(
       await screen.findByText(
-        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+        'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
       ),
     ).toBeInTheDocument();
   });
@@ -545,7 +545,7 @@ describe('session, routing and role workspaces', () => {
     const { client } = renderApp('/app');
 
     await screen.findByText(
-      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
     );
     client.setQueryData(['private-notes'], ['private data']);
     await client
@@ -579,9 +579,7 @@ describe('session, routing and role workspaces', () => {
       'Η αποσύνδεση δεν ολοκληρώθηκε.',
     );
     expect(
-      screen.getByText(
-        'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
-      ),
+      screen.getByText('Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.'),
     ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('menuitem', { name: 'Αποσύνδεση' }));
@@ -597,7 +595,7 @@ describe('session, routing and role workspaces', () => {
     const { client } = renderApp('/app');
 
     await screen.findByText(
-      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
     );
     let oldRequest!: Promise<void>;
     act(() => {
@@ -635,7 +633,7 @@ describe('session, routing and role workspaces', () => {
       screen.getByRole('button', { name: 'Σύνδεση στο Academic Hub' }),
     );
     await screen.findByText(
-      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
     );
 
     await act(async () => stale.resolve(guest));
@@ -650,7 +648,7 @@ describe('session, routing and role workspaces', () => {
     const { client } = renderApp('/app');
 
     await screen.findByText(
-      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
     );
     client.setQueryData(['private-notes'], ['private']);
     act(() => {
@@ -671,7 +669,7 @@ describe('session, routing and role workspaces', () => {
     const { client } = renderApp('/app');
 
     await screen.findByText(
-      'Τα μαθήματά σου και η πρόσφατη δραστηριότητά σου με μια ματιά.',
+      'Τα μαθήματά σου και ό,τι χρειάζεται την προσοχή σου.',
     );
     act(() => {
       onlineManager.setOnline(false);
