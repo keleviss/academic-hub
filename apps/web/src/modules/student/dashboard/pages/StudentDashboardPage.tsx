@@ -2,7 +2,6 @@ import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRight,
-  BookOpen,
   ChevronRight,
   CircleHelp,
   Sparkles,
@@ -72,7 +71,6 @@ export function StudentDashboardPage(): React.JSX.Element {
                     <div className="dashboard-section-heading">
                       <div>
                         <div className="dashboard-section-header">
-                          <BookOpen aria-hidden="true" size={16} />
                           <h2>Τα μαθήματά μου</h2>
                         </div>
                         <p>Διάλεξε μάθημα και συνέχισε από το υλικό του.</p>

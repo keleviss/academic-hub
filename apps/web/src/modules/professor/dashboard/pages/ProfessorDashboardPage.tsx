@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowRight,
-  BookOpen,
   ChevronRight,
   CircleHelp,
   MessageCircleWarning,
@@ -81,7 +80,6 @@ export function ProfessorDashboardPage(): React.JSX.Element {
                   <div className="dashboard-section-heading">
                     <div>
                       <div className="dashboard-section-header">
-                        <BookOpen aria-hidden="true" size={16} />
                         <h2>Τα μαθήματά μου</h2>
                       </div>
                       <p>Η κατάσταση κάθε μαθήματος με μια ματιά.</p>
